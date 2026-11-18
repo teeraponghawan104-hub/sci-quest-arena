@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sci-Quest! — Kahoot-Style Science Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700;800&family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-arena min-h-screen flex flex-col justify-between">
+  <!-- TOP BAR -->
+  <header class="relative z-10 w-full max-w-6xl mx-auto px-4 pt-4 flex items-center justify-between gap-2">
+    <span id="modeBadge" class="bg-[#25076b] px-3 py-1.5 rounded-[4px] text-xs font-extrabold tracking-wider uppercase"></span>
+    <div class="flex items-center gap-2">
+      <a href="cards.html" onclick="SFX.click()" class="btn-3d k-btn-white px-3.5 py-2 text-xs sm:text-sm flex items-center gap-1.5">
+        <span>🃏</span>
+        <span>พิมพ์การ์ด QR (36 ใบ)</span>
+      </a>
+      <button id="muteBtn" class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1" title="เปิด/ปิดเสียง">
+        <span id="muteIcon">🔊</span>
+        <span id="muteText" class="hidden sm:inline">เสียง</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CENTER STAGE (สไตล์ kahoot.it แท้) -->
+  <main class="relative z-10 w-full max-w-4xl mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
+    <!-- โลโก้ Kahoot! style -->
+    <div class="text-center mb-6 pop-in">
+      <h1 class="k-logo text-6xl sm:text-8xl leading-none mb-2">Sci-Quest!</h1>
+      <div class="inline-block bg-[#25076b] px-4 py-1 rounded-[4px] text-xs sm:text-sm font-bold tracking-wide">
+        เทศกาลภาพยนตร์วิทยาศาสตร์ 4 เรื่อง • บอร์ดเกมการ์ด QR 3 สี
+      </div>
+    </div>
+
+    <!-- กล่องเข้าเกม แยกฝั่งผู้เรียน (Player) และ ครู (Host) ชัดเจน -->
+    <section class="grid md:grid-cols-2 gap-5 mb-8">
+      <!-- 1. ผู้เรียน (PLAYER) — ถอดแบบกล่อง PIN ของ kahoot.it -->
+      <div class="k-box p-4 sm:p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-[4px] bg-[#e21b3c] text-white font-black grid place-items-center text-lg">▲</span>
+              <div>
+                <h2 class="font-display text-lg font-extrabold text-[#333] leading-none">ผู้เรียน (PLAYER)</h2>
+                <span class="text-xs font-semibold text-neutral-500">สำหรับเปิดบนมือถือแนวตั้ง</span>
+              </div>
+            </div>
+            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[3px]">MOBILE</span>
+          </div>
+        </div>
+
+        <form id="playerForm" class="space-y-2.5">
+          <input id="playerRoomInput" type="text" maxlength="6" placeholder="Game PIN (รหัสห้อง)"
+            class="input-big text-center font-display text-xl tracking-widest uppercase" />
+          <button type="submit" class="btn-3d k-btn-dark w-full py-3.5 text-lg tracking-wide">
+            Enter / เข้าเล่นเกม
+          </button>
+        </form>
+      </div>
+
+      <!-- 2. ครูผู้ควบคุมเกม (HOST) -->
+      <div class="k-box p-4 sm:p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-[4px] bg-[#1368ce] text-white font-black grid place-items-center text-lg">◆</span>
+              <div>
+                <h2 class="font-display text-lg font-extrabold text-[#333] leading-none">ครูผู้ควบคุมเกม (HOST)</h2>
+                <span class="text-xs font-semibold text-neutral-500">สำหรับฉายขึ้นโปรเจกเตอร์หน้าห้อง</span>
+              </div>
+            </div>
+            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[3px]">BIG SCREEN</span>
+          </div>
+        </div>
+
+        <form id="hostForm" class="space-y-2.5">
+          <input id="hostRoomInput" type="text" maxlength="6" placeholder="ตั้ง PIN เอง (เว้นว่าง=สุ่ม)"
+            class="input-big text-center font-display text-xl tracking-widest uppercase" />
+          <button type="submit" class="btn-3d k-btn-green w-full py-3.5 text-lg tracking-wide">
+            Create / เปิดหน้าจอครู
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 4 บล็อกคำตอบสไตล์ Kahoot! แสดงเนื้อหาภาพยนตร์วิทยาศาสตร์ 4 เรื่อง -->
+    <section class="mb-6">
+      <div class="text-xs font-extrabold uppercase tracking-wider text-white/80 mb-2 text-center">
+        4 หัวข้อจากเทศกาลภาพยนตร์วิทยาศาสตร์
+      </div>
+      <div id="filmList" class="grid sm:grid-cols-2 gap-2.5"></div>
+    </section>
+
+    <!-- แถบการ์ด 3 สี & ไอเทม 4 บล็อก -->
+    <section class="grid md:grid-cols-2 gap-3">
+      <div class="bg-[#25076b] p-3.5 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
+        <div class="text-xs font-extrabold uppercase tracking-wider mb-2 text-white/90">
+          ระบบการ์ดคำถาม 3 สี (ไม่จับเวลา • ตรวจภาษาไทยอัตโนมัติ)
+        </div>
+        <div id="colorGrid" class="grid grid-cols-3 gap-2"></div>
+      </div>
+
+      <div class="bg-[#25076b] p-3.5 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
+        <div class="text-xs font-extrabold uppercase tracking-wider mb-2 text-white/90">
+          ไอเทมป่วนเพื่อน 4 ชนิด (จากโบนัส & การ์ดแดง)
+        </div>
+        <div id="itemGrid" class="grid grid-cols-2 gap-2"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="relative z-10 text-center py-3 text-xs font-bold text-white/70">
+    Sci-Quest! Classroom Arena • แม่นยำ 80%+=100% | 50–79%=70% | 25–49%=40% | &lt;25%=ตอบใหม่ได้
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/questions.js"></script>
+  <script>
+    document.getElementById('modeBadge').textContent = modeLabel();
+
+    const muteBtn = document.getElementById('muteBtn');
+    function syncMuteUI() {
+      document.getElementById('muteIcon').textContent = SFX.muted ? '🔇' : '🔊';
+      document.getElementById('muteText').textContent = SFX.muted ? 'ปิดเสียง' : 'เสียง';
+    }
+    syncMuteUI();
+    muteBtn.addEventListener('click', () => { SFX.toggleMute(); syncMuteUI(); });
+
+    document.getElementById('hostForm').addEventListener('submit', e => {
+      e.preventDefault();
+      SFX.pop();
+      const raw = document.getElementById('hostRoomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const url = raw ? `host.html?room=${encodeURIComponent(raw)}` : 'host.html';
+      setTimeout(() => location.href = url, 100);
+    });
+
+    document.getElementById('playerForm').addEventListener('submit', e => {
+      e.preventDefault();
+      SFX.pop();
+      const raw = document.getElementById('playerRoomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const url = raw ? `player.html?room=${encodeURIComponent(raw)}` : 'player.html';
+      setTimeout(() => location.href = url, 100);
+    });
+
+    const FILM_SHADOWS = { f1: '#9c1128', f2: '#0c478f', f3: '#9c7200', f4: '#195c07' };
+    document.getElementById('filmList').innerHTML = Object.entries(FILMS).map(([k, f]) => `
+      <div class="rounded-[4px] p-3 flex items-center gap-3 text-white"
+           style="background:${f.color};box-shadow:0 4px 0 ${FILM_SHADOWS[k]}">
+        <div class="w-10 h-10 rounded-[4px] bg-black/15 grid place-items-center text-2xl font-black shrink-0">${f.emoji}</div>
+        <div class="min-w-0">
+          <div class="font-display font-extrabold text-sm leading-snug truncate">${esc(f.title)}</div>
+          <div class="text-xs text-white/90 truncate">${esc(f.topic)}</div>
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('colorGrid').innerHTML = Object.values(COLORS).map(c => `
+      <div class="rounded-[4px] p-2.5 text-center text-white" style="background:${c.bg};box-shadow:0 4px 0 ${c.dark}">
+        <div class="font-black text-xl leading-none mb-1">${c.shape}</div>
+        <div class="font-display font-extrabold text-xs">${c.name} (${c.level})</div>
+        <div class="text-xs font-black">${c.points} แต้ม${c.key === 'red' ? '+🎁' : ''}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('itemGrid').innerHTML = Object.values(ITEMS).map(it => `
+      <div class="rounded-[4px] p-2 flex items-center gap-2 text-white" style="background:${it.color};box-shadow:0 4px 0 ${it.dark}">
+        <span class="w-8 h-8 rounded-[3px] bg-black/15 grid place-items-center text-lg shrink-0">${it.emoji}</span>
+        <div class="min-w-0">
+          <div class="font-display font-extrabold text-xs leading-tight">${it.name}</div>
+          <div class="text-[11px] text-white/90 truncate">${it.desc}</div>
+        </div>
+      </div>
+    `).join('');
+
+    refreshIcons();
+  </script>
+</body>
+</html>

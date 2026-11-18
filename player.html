@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Play — Sci-Quest! (Kahoot Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700;800&family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-arena min-h-screen relative overflow-x-hidden">
+  <!-- ===================== VIEW 1: LOGIN (สไตล์ kahoot.it แท้) ===================== -->
+  <main id="loginView" class="relative z-10 max-w-md mx-auto min-h-screen px-4 py-4 flex flex-col justify-between">
+    <div class="flex items-center justify-between">
+      <a href="index.html" class="btn-3d k-btn-dark px-3 py-1.5 text-xs flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>หน้าแรก</span>
+      </a>
+      <span id="loginModeBadge" class="bg-[#25076b] px-2.5 py-1 rounded-[4px] text-[11px] font-extrabold uppercase"></span>
+      <button id="loginMuteBtn" class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm">🔊</button>
+    </div>
+
+    <div class="my-auto py-4">
+      <div class="text-center mb-5 pop-in">
+        <h1 class="k-logo text-5xl sm:text-6xl leading-none">Sci-Quest!</h1>
+      </div>
+
+      <!-- กล่องขาวกรอก PIN + ชื่อ + อวตาร สไตล์ kahoot.it -->
+      <form id="joinForm" class="k-box p-4 space-y-3">
+        <div class="grid grid-cols-5 gap-2">
+          <div class="col-span-2">
+            <label class="block text-[11px] font-extrabold uppercase text-neutral-500 mb-1">Game PIN</label>
+            <input id="joinRoomInput" type="text" maxlength="6" required placeholder="PIN"
+              class="input-big text-center font-display text-xl tracking-widest uppercase !py-2" />
+          </div>
+          <div class="col-span-3">
+            <label class="block text-[11px] font-extrabold uppercase text-neutral-500 mb-1">Nickname (ชื่อเล่น)</label>
+            <input id="joinNameInput" type="text" maxlength="16" required placeholder="ชื่อของคุณ"
+              class="input-big text-center font-display text-lg !py-2" />
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-[11px] font-extrabold uppercase text-neutral-500">เลือกตัวละคร</label>
+            <span id="pickedAvPreview" class="text-xs font-extrabold text-[#333]"></span>
+          </div>
+          <div id="avatarGrid" class="grid grid-cols-4 gap-2"></div>
+        </div>
+
+        <button id="joinSubmitBtn" type="submit" class="btn-3d k-btn-dark w-full py-3.5 text-lg tracking-wide">
+          OK, go! / เข้าร่วมเกม
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-xs font-bold text-white/75">สแกนการ์ด QR 3 สีบนโต๊ะ • ตอบคำถาม • ใช้ไอเทมป่วนเพื่อน</p>
+  </main>
+
+  <!-- ===================== VIEW 2: KAHOOT! MOBILE CONTROLLER ===================== -->
+  <div id="gameView" class="relative z-10 max-w-md mx-auto min-h-screen flex flex-col hidden pb-28">
+    <!-- แถบบนสีขาวสไตล์ kahoot.it -->
+    <header class="sticky top-0 z-30">
+      <div class="bg-white text-[#333333] px-3 py-2 border-b-4 border-black/20 flex items-center justify-between gap-2 shadow-md">
+        <div class="flex items-center gap-2 min-w-0">
+          <div id="hdrAvatar"></div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span id="hdrName" class="font-display font-black text-base truncate text-[#333]"></span>
+              <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[3px] bg-neutral-200 hover:bg-neutral-300 text-[#333]">ออก</button>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs font-extrabold text-neutral-500">
+              <span>PIN: <b id="hdrRoom" class="text-[#333]"></b></span>
+              <span>•</span>
+              <span id="hdrRank" class="text-[#1368ce]">อันดับ #1</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <div class="bg-[#333333] text-white rounded-[4px] px-3 py-1 text-right">
+            <div id="hdrScore" class="font-display font-black text-lg leading-tight tabular">0</div>
+          </div>
+          <button id="gameMuteBtn" class="w-9 h-9 rounded-[4px] bg-neutral-200 grid place-items-center text-sm">🔊</button>
+        </div>
+      </div>
+
+      <!-- สถานะบัฟ (x2 / โล่) -->
+      <div id="buffPills" class="flex items-center gap-1.5 mt-2 px-3 flex-wrap hidden"></div>
+    </header>
+
+    <!-- CONTENT AREA -->
+    <main class="flex-1 px-3 pt-3 space-y-3">
+      <!-- โหมด 1: สแกน QR หรือเลือกบล็อกการ์ด 3 สี -->
+      <section id="scanPanel" class="space-y-3">
+        <!-- กล่องขาวกรอกรหัสการ์ด / สแกน QR -->
+        <div class="k-box p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-display font-black text-sm text-[#333] uppercase">เลือกหรือสแกนการ์ดคำถาม</span>
+            <span id="progressText" class="px-2.5 py-0.5 rounded-[3px] bg-[#333] text-white text-xs font-extrabold">0 / 36</span>
+          </div>
+
+          <button id="openScannerBtn" class="btn-3d k-btn-blue w-full py-3.5 px-4 text-base flex items-center justify-center gap-2">
+            <span class="font-black text-lg">◆</span>
+            <span>สแกน QR Code การ์ดคำถาม</span>
+          </button>
+
+          <!-- กล้องสแกน QR -->
+          <div id="scannerBox" class="hidden space-y-2 bg-[#333] rounded-[4px] p-2.5 text-white">
+            <div id="reader" class="w-full rounded-[4px] overflow-hidden"></div>
+            <button id="closeScannerBtn" class="btn-3d k-btn-red w-full py-2 text-sm">ปิดกล้องสแกน</button>
+          </div>
+
+          <!-- กรอกรหัสการ์ด -->
+          <form id="cardCodeForm" class="flex gap-2">
+            <input id="cardCodeInput" type="text" maxlength="6" placeholder="รหัสการ์ด เช่น G-01, Y-05, R-12"
+              class="input-big text-center font-display text-base uppercase !py-2.5" />
+            <button type="submit" class="btn-3d k-btn-dark px-5 shrink-0 text-sm">Enter</button>
+          </form>
+        </div>
+
+        <!-- บล็อกการ์ด 3 สี สไตล์ปุ่มรูปทรง Kahoot! -->
+        <div class="bg-[#25076b] p-3.5 rounded-[6px] space-y-2.5 shadow-[0_4px_0_rgba(0,0,0,0.28)]">
+          <div class="text-xs font-extrabold uppercase tracking-wider text-white/90">
+            สุ่มหยิบการ์ดตามสี (■ เขียว • ● เหลือง • ▲ แดง)
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-pick-color="green" class="btn-3d k-btn-green py-3.5 px-2 text-center">
+              <div class="text-2xl font-black leading-none mb-1">■</div>
+              <div class="text-xs font-extrabold">สีเขียว (ง่าย)</div>
+              <div class="text-[11px] font-black opacity-90">100 แต้ม</div>
+            </button>
+            <button data-pick-color="yellow" class="btn-3d k-btn-yellow py-3.5 px-2 text-center">
+              <div class="text-2xl font-black leading-none mb-1">●</div>
+              <div class="text-xs font-extrabold">สีเหลือง (กลาง)</div>
+              <div class="text-[11px] font-black opacity-90">200 แต้ม</div>
+            </button>
+            <button data-pick-color="red" class="btn-3d k-btn-red py-3.5 px-2 text-center">
+              <div class="text-2xl font-black leading-none mb-1">▲</div>
+              <div class="text-xs font-extrabold">สีแดง (ยาก)</div>
+              <div class="text-[11px] font-black opacity-90">350 + 🎁</div>
+            </button>
+          </div>
+
+          <details class="bg-[#46178f] rounded-[4px] p-2.5">
+            <summary class="text-xs font-extrabold text-white cursor-pointer select-none">ดูรหัสการ์ดทั้งหมด 36 ใบ (คลิกเลือก)</summary>
+            <div id="allCardsGrid" class="grid grid-cols-6 gap-1.5 mt-2.5"></div>
+          </details>
+        </div>
+      </section>
+
+      <!-- โหมด 2: กำลังตอบคำถามในการ์ด -->
+      <section id="questionPanel" class="hidden space-y-3">
+        <div class="k-box overflow-hidden pop-in">
+          <!-- หัวการ์ดสีเขียว/เหลือง/แดง -->
+          <div id="qHeader" class="p-3.5 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span id="qCodeBadge" class="px-2.5 py-1 rounded-[4px] bg-black/25 font-display font-black text-sm"></span>
+              <span id="qLevelBadge" class="text-xs font-extrabold"></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="qPointsBadge" class="px-2.5 py-1 rounded-[4px] bg-white text-[#333] font-display font-black text-xs"></span>
+              <button id="backToScanBtn" class="w-8 h-8 rounded-[4px] bg-black/25 hover:bg-black/40 grid place-items-center text-sm font-black" title="เปลี่ยนการ์ด">✕</button>
+            </div>
+          </div>
+
+          <div class="p-4 space-y-3.5">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <span id="qFilmBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] text-xs font-extrabold text-white"></span>
+              <span class="text-[11px] font-extrabold text-neutral-500">ไม่จับเวลา • พิมพ์อธิบายได้เต็มที่</span>
+            </div>
+
+            <!-- กล่องคำถามเด่นชัดสไตล์ Kahoot -->
+            <div class="bg-neutral-100 border-2 border-neutral-200 rounded-[4px] p-3.5">
+              <h3 id="qText" class="font-display text-lg sm:text-xl font-extrabold text-[#333] leading-snug"></h3>
+            </div>
+
+            <!-- ปุ่มคำใบ้แนวคิด -->
+            <div>
+              <button id="hintToggleBtn" type="button" class="text-xs font-extrabold text-[#1368ce] hover:underline flex items-center gap-1">
+                <span>💡 ดูคำใบ้จำนวนแนวคิดสำคัญ</span>
+              </button>
+              <div id="hintBox" class="hidden mt-1.5 p-2.5 rounded-[4px] bg-neutral-100 text-[#333] text-xs font-semibold leading-relaxed"></div>
+            </div>
+
+            <!-- ช่องพิมพ์คำตอบ -->
+            <form id="answerForm" class="space-y-2.5">
+              <textarea id="answerInput" rows="4" placeholder="พิมพ์คำตอบด้วยภาษาของตัวเองที่นี่..."
+                class="input-big text-base resize-none leading-relaxed"></textarea>
+              <button id="submitAnswerBtn" type="submit" class="btn-3d k-btn-green w-full py-3.5 text-lg">
+                ส่งคำตอบ (Submit)
+              </button>
+            </form>
+
+            <!-- ผลการตรวจ Smart Thai Grading -->
+            <div id="gradeResult" class="hidden pt-3 border-t-2 border-neutral-200 space-y-3 pop-in">
+              <div class="flex items-center justify-between">
+                <span id="gradeTierLabel" class="font-display font-black text-lg"></span>
+                <span id="gradePctText" class="font-display font-black text-2xl tabular"></span>
+              </div>
+
+              <div class="w-full h-4 bg-neutral-200 rounded-[4px] overflow-hidden">
+                <div id="gradeBar" class="bar-fill h-full" style="width:0%"></div>
+              </div>
+
+              <div>
+                <div class="text-xs font-extrabold text-neutral-500 mb-1.5">คำสำคัญ / แนวคิดที่ตรวจพบ:</div>
+                <div id="gradeKeywords" class="flex flex-wrap gap-1.5"></div>
+              </div>
+
+              <div id="gradeOutcomeBox" class="rounded-[4px] p-3 text-sm"></div>
+
+              <div id="modelAnswerBox" class="hidden rounded-[4px] p-3 bg-neutral-100 border-l-4 border-[#1368ce] text-xs sm:text-sm text-[#333]">
+                <div class="font-extrabold text-[#1368ce] mb-0.5">เฉลยต้นแบบ:</div>
+                <div id="modelAnswerText" class="font-medium"></div>
+              </div>
+
+              <button id="nextCardBtn" class="hidden btn-3d k-btn-dark w-full py-3.5 text-base">
+                ไปต่อ (Next Card) →
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- BOTTOM 4-COLOR KAHOOT BLOCK DOCK (แถบไอเทม 4 สี) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 px-2 pb-2 pt-1 pointer-events-none">
+      <div class="max-w-md mx-auto bg-[#25076b] rounded-[6px] p-2 shadow-[0_-4px_0_rgba(0,0,0,0.28)] pointer-events-auto">
+        <div id="itemDock" class="grid grid-cols-4 gap-1.5"></div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ===================== MODAL: เลือกเพื่อนที่จะใช้ไอเทม ===================== -->
+  <div id="targetModal" class="overlay dim z-[140] hidden">
+    <div class="k-box max-w-sm w-full p-4 pop-in max-h-[82vh] flex flex-col">
+      <div class="flex items-center justify-between mb-2 pb-2 border-b-2 border-neutral-200">
+        <h3 id="targetModalTitle" class="font-display text-lg font-black text-[#333]"></h3>
+        <button id="closeTargetModal" class="btn-3d k-btn-dark w-8 h-8 grid place-items-center text-xs">✕</button>
+      </div>
+      <p id="targetModalDesc" class="text-xs font-semibold text-neutral-500 mb-3"></p>
+      <div id="targetList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
+    </div>
+  </div>
+
+  <!-- ===================== OVERLAY: คำถามโบนัสพิเศษ + กล่องสุ่ม ===================== -->
+  <div id="bonusOverlay" class="overlay dim z-[160] hidden overflow-y-auto">
+    <div class="k-box max-w-md w-full p-5 pop-in border-t-8 border-[#ffa602] my-auto">
+      <!-- ขั้นที่ 1: ตอบคำถามโบนัส -->
+      <div id="bonusStepQ" class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-xs uppercase">🎁 BONUS QUESTION!</span>
+          <span id="bonusOverlayFilm" class="text-xs font-extrabold text-[#333]"></span>
+        </div>
+        <h3 id="bonusOverlayQ" class="font-display text-xl font-black text-[#333] leading-snug"></h3>
+        <p class="text-xs font-semibold text-neutral-500">ตอบให้แม่นยำอย่างน้อย <b id="bonusNeedPct">50</b>% เพื่อเปิดกล่องสุ่มไอเทม!</p>
+        <form id="bonusForm" class="space-y-2.5">
+          <textarea id="bonusInput" rows="3" placeholder="พิมพ์คำตอบโบนัสที่นี่..." class="input-big text-base resize-none"></textarea>
+          <button type="submit" class="btn-3d k-btn-yellow w-full py-3.5 text-lg">
+            ส่งคำตอบโบนัส! 🎁
+          </button>
+        </form>
+        <div id="bonusGradeBox" class="hidden space-y-2 pt-2 border-t border-neutral-200">
+          <div class="flex justify-between text-sm font-black">
+            <span id="bonusGradeLabel"></span>
+            <span id="bonusGradePct"></span>
+          </div>
+          <div class="w-full h-3 bg-neutral-200 rounded-[3px] overflow-hidden">
+            <div id="bonusGradeBar" class="bar-fill h-full" style="width:0%"></div>
+          </div>
+          <div id="bonusGradeKw" class="flex flex-wrap gap-1"></div>
+        </div>
+      </div>
+
+      <!-- ขั้นที่ 2: เปิดกล่องสุ่มไอเทม -->
+      <div id="bonusStepBox" class="hidden text-center py-4 space-y-4 relative overflow-hidden">
+        <div class="relative z-10 space-y-4">
+          <div id="mysteryTitle" class="font-display text-2xl font-black text-[#333]">🎉 ยินดีด้วย! กดเปิดกล่องสุ่ม!</div>
+          <div id="mysteryBoxVisual" class="text-8xl select-none cursor-pointer box-shake inline-block my-2">🎁</div>
+          <div id="mysteryReward" class="hidden space-y-2 pop-in">
+            <div id="rewardEmoji" class="text-6xl"></div>
+            <div id="rewardName" class="font-display text-2xl font-black text-[#333]"></div>
+            <div id="rewardDesc" class="text-sm font-semibold text-neutral-600"></div>
+          </div>
+          <button id="openMysteryBtn" class="btn-3d k-btn-green w-full py-4 text-xl">
+            แตะเพื่อเปิดกล่อง! ✨
+          </button>
+          <button id="closeMysteryBtn" class="hidden btn-3d k-btn-dark w-full py-3.5 text-base">
+            เก็บไอเทมใส่กระเป๋า!
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== OVERLAY: โดนพายุน้ำแข็งแช่แข็ง! ===================== -->
+  <div id="iceOverlay" class="overlay ice-overlay z-[190] hidden freeze-in flex-col text-center px-6">
+    <svg viewBox="0 0 400 700" preserveAspectRatio="none" class="crack" id="crack1">
+      <path d="M200 350 L150 260 L90 220 M200 350 L240 280" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <svg viewBox="0 0 400 700" preserveAspectRatio="none" class="crack" id="crack2">
+      <path d="M200 350 L290 420 L350 470 M200 350 L120 430" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </svg>
+    <svg viewBox="0 0 400 700" preserveAspectRatio="none" class="crack" id="crack3">
+      <path d="M150 260 L190 120 L160 30 M290 420 L310 590" stroke="#e0f2fe" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <svg viewBox="0 0 400 700" preserveAspectRatio="none" class="crack" id="crack4">
+      <path d="M90 220 L20 180 M240 280 L380 210 M120 430 L30 520" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </svg>
+    <svg viewBox="0 0 400 700" preserveAspectRatio="none" class="crack" id="crack5">
+      <path d="M200 350 L210 660 M200 350 L40 340 M200 350 L370 360" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+
+    <div class="relative z-10 max-w-sm space-y-5">
+      <div class="inline-block px-4 py-1.5 rounded-[4px] bg-white text-[#333] font-display font-black text-sm shadow">
+        ❄️ โดน <span id="frozenByText">เพื่อน</span> แช่แข็ง!
+      </div>
+      <h2 class="font-display text-3xl sm:text-4xl font-black text-white">หน้าจอถูกแช่แข็ง!</h2>
+      <p class="text-white font-bold">กดทุบปุ่มด้านล่างรัว ๆ 5 ครั้งเพื่อละลายน้ำแข็ง!</p>
+
+      <button id="smashIceBtn" class="smash-btn mx-auto grid place-items-center font-display font-black select-none">
+        🔨
+      </button>
+
+      <div class="bg-[#333333] rounded-[4px] px-5 py-2 inline-block font-display text-xl font-black text-white">
+        ทุบอีก <span id="iceLeftText" class="text-[#ffa602]">5</span> ครั้ง!
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== OVERLAY: สถานะห้อง (สไตล์ You're in! ของ kahoot.it) ===================== -->
+  <div id="stateOverlay" class="overlay dim z-[150] hidden">
+    <div class="k-box max-w-sm w-full p-6 text-center space-y-3 pop-in">
+      <div id="stateIcon" class="text-6xl floaty"></div>
+      <h3 id="stateTitle" class="font-display text-2xl font-black text-[#333]"></h3>
+      <p id="stateDesc" class="text-sm font-semibold text-neutral-600"></p>
+      <div id="stateExtra" class="space-y-2 pt-1"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/grader.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>

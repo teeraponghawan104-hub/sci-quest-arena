@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>พิมพ์การ์ด QR 3 สี — Sci-Quest! (Kahoot Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700;800&family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { background: #46178f; color: #333333; }
+    .cut-card {
+      background: #ffffff;
+      border: 2px dashed #666666;
+      border-radius: 6px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+    }
+    .qr-box svg { width: 100%; height: 100%; display: block; }
+    @media print {
+      @page { size: A4 portrait; margin: 8mm; }
+      body { background: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .print-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6mm !important;
+        padding: 0 !important;
+        max-width: none !important;
+      }
+      .cut-card { min-height: 82mm; box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- แถบควบคุมสไตล์ Kahoot! (ซ่อนตอนสั่งพิมพ์) -->
+  <header class="no-print sticky top-0 z-40 bg-[#25076b] text-white shadow-[0_4px_0_rgba(0,0,0,0.3)]">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <a href="index.html" class="btn-3d k-btn-dark px-3 py-2 flex items-center justify-center" title="กลับหน้าแรก">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          </a>
+          <div class="k-logo text-2xl sm:text-3xl">Sci-Quest!</div>
+          <div class="hidden sm:block border-l-2 border-white/20 pl-3">
+            <h1 class="font-display text-base font-extrabold leading-tight">ชุดการ์ดคำถาม QR Code 3 สี (36 ใบ พร้อมพิมพ์ A4)</h1>
+            <p class="text-xs text-white/75">■ เขียว 12 • ● เหลือง 12 • ▲ แดง 12 • ตัดตามเส้นประวางบนบอร์ดเกม</p>
+          </div>
+        </div>
+
+        <button onclick="window.print()" class="btn-3d k-btn-green px-6 py-2.5 text-base flex items-center gap-2">
+          <i data-lucide="printer" class="w-5 h-5"></i>
+          <span>พิมพ์แผ่นการ์ด (Print A4)</span>
+        </button>
+      </div>
+
+      <!-- ตัวกรองและตั้งค่า QR -->
+      <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+        <div class="flex items-center gap-1 bg-[#46178f] rounded-[4px] p-1">
+          <button data-col="all" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold bg-white text-[#333]">ทั้งหมด (36)</button>
+          <button data-col="green" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">■ เขียว (12)</button>
+          <button data-col="yellow" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">● เหลือง (12)</button>
+          <button data-col="red" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">▲ แดง (12)</button>
+        </div>
+
+        <select id="filmFilter" class="bg-white text-[#333] font-extrabold rounded-[4px] px-3 py-2 text-xs">
+          <option value="all">ภาพยนตร์ทั้ง 4 เรื่อง</option>
+        </select>
+
+        <div class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-1.5">
+          <label for="qrRoomInput" class="text-xs font-bold text-white whitespace-nowrap">PIN ห้อง:</label>
+          <input id="qrRoomInput" type="text" maxlength="6" placeholder="เว้นได้"
+            class="w-20 bg-white text-[#333] font-display font-black text-center rounded-[3px] px-2 py-1 text-xs uppercase" />
+        </div>
+
+        <select id="qrFormat" class="bg-white text-[#333] font-extrabold rounded-[4px] px-3 py-2 text-xs">
+          <option value="code">QR รหัสการ์ด (สแกนในแอป — ใช้ได้ทุกห้อง)</option>
+          <option value="url">QR ลิงก์เต็ม (เปิดเว็บตรง)</option>
+        </select>
+
+        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
+          <input id="showAnswerToggle" type="checkbox" class="accent-[#ffa602]" />
+          <span>แสดงเฉลยบนการ์ด</span>
+        </label>
+
+        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
+          <input id="showRulesToggle" type="checkbox" checked class="accent-[#ffa602]" />
+          <span>พิมพ์ใบกติกาประจำโต๊ะ</span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-4 sm:p-6 space-y-5">
+    <!-- ใบกติกาบนโต๊ะ -->
+    <section id="rulesSheet" class="cut-card p-5 !border-[#333] bg-white">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-neutral-200 pb-3 mb-3">
+        <div>
+          <h2 class="font-display text-xl font-black text-[#333]">Sci-Quest! — กติกาการเล่นประจำโต๊ะ</h2>
+          <p class="text-xs font-semibold text-neutral-500">หยิบการ์ดคำถาม 3 สี แล้วใช้มือถือสแกน QR Code (หรือพิมพ์รหัสการ์ด) เพื่อพิมพ์อธิบายคำตอบ</p>
+        </div>
+        <span class="px-3 py-1 rounded-[4px] bg-[#333] text-white font-display font-black text-xs">ไม่จับเวลา! อธิบายด้วยภาษาของตัวเอง</span>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-2.5 text-xs text-white">
+        <div class="rounded-[4px] p-3 bg-[#26890c]">
+          <div class="font-display font-black text-sm mb-0.5">■ การ์ดสีเขียว (ง่าย) • 100 แต้ม</div>
+          <p class="opacity-95">คำถามพื้นฐานความเข้าใจ เก็บแต้มชัวร์</p>
+        </div>
+        <div class="rounded-[4px] p-3 bg-[#d89e00]">
+          <div class="font-display font-black text-sm mb-0.5">● การ์ดสีเหลือง (กลาง) • 200 แต้ม</div>
+          <p class="opacity-95">คำถามวิเคราะห์เหตุผล เชื่อมโยงสถานการณ์จริง</p>
+        </div>
+        <div class="rounded-[4px] p-3 bg-[#e21b3c]">
+          <div class="font-display font-black text-sm mb-0.5">▲ การ์ดสีแดง (ยาก) • 350 แต้ม + 🎁</div>
+          <p class="opacity-95">คำถามท้าทายระดับลึก + ลุ้นรับไอเทมพิเศษ!</p>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-2.5 mt-2.5 text-xs text-[#333]">
+        <div class="rounded-[4px] p-2.5 bg-neutral-100 border border-neutral-300">
+          <b>เกณฑ์ตรวจคำตอบภาษาไทย:</b> แม่นยำ <b>80%+</b> ได้เต็ม 100% • <b>50–79%</b> ได้ 70% • <b>25–49%</b> ได้ 40% • <b>&lt;25%</b> ตอบใหม่ได้
+        </div>
+        <div class="rounded-[4px] p-2.5 bg-neutral-100 border border-neutral-300">
+          <b>ไอเทมป่วนเพื่อน 4 ชนิด:</b> ● ⚡ คูณสอง (x2) • ◆ 🛡️ โล่กันโจมตี • ■ 💰 ขโมย 100 แต้ม • ▲ ❄️ แช่แข็ง (ทุบ 5 ครั้ง!)
+        </div>
+      </div>
+    </section>
+
+    <!-- ตารางการ์ด QR Code 36 ใบ -->
+    <section id="cardsGrid" class="print-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/questions.js"></script>
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const roomFromUrl = (qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+
+    const qrRoomInput = document.getElementById('qrRoomInput');
+    const qrFormat = document.getElementById('qrFormat');
+    const filmFilter = document.getElementById('filmFilter');
+    const showAnswerToggle = document.getElementById('showAnswerToggle');
+    const showRulesToggle = document.getElementById('showRulesToggle');
+    const rulesSheet = document.getElementById('rulesSheet');
+    const cardsGrid = document.getElementById('cardsGrid');
+
+    if (roomFromUrl) {
+      qrRoomInput.value = roomFromUrl;
+      qrFormat.value = 'url';
+    }
+
+    Object.entries(FILMS).forEach(([k, f]) => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = `${f.emoji} ${f.title}`;
+      filmFilter.appendChild(opt);
+    });
+
+    let activeColor = 'all';
+
+    function makeQrSvg(payload) {
+      if (window.qrcode) {
+        const qr = qrcode(0, 'M');
+        qr.addData(payload);
+        qr.make();
+        return qr.createSvgTag({ scalable: true, margin: 1 });
+      }
+      const src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`;
+      return `<img src="${src}" alt="${esc(payload)}" class="w-full h-full object-contain" />`;
+    }
+
+    function qrPayloadFor(cardId) {
+      if (qrFormat.value === 'url') {
+        const r = qrRoomInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const p = new URLSearchParams();
+        if (r) p.set('room', r);
+        p.set('card', cardId);
+        return `${baseUrl()}player.html?${p.toString()}`;
+      }
+      return cardId;
+    }
+
+    function renderCards() {
+      const fVal = filmFilter.value;
+      const showAns = showAnswerToggle.checked;
+      const list = QUESTIONS.filter(q =>
+        (activeColor === 'all' || q.color === activeColor) &&
+        (fVal === 'all' || q.film === fVal)
+      );
+
+      cardsGrid.innerHTML = list.map(q => {
+        const c = COLORS[q.color];
+        const f = FILMS[q.film];
+        const payload = qrPayloadFor(q.id);
+        return `
+          <article class="cut-card">
+            <div class="px-3.5 py-2.5 flex items-center justify-between gap-2" style="background:${c.bg};color:${c.text}">
+              <div class="flex items-center gap-2 font-display font-black text-sm">
+                <span class="w-6 h-6 rounded-[3px] bg-black/20 grid place-items-center text-base">${c.shape}</span>
+                <span>การ์ด${c.name} (${c.level})</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-[3px] bg-black/25 font-display font-black text-xs">
+                ${c.points} แต้ม${q.color === 'red' ? '+🎁' : ''}
+              </span>
+            </div>
+
+            <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-extrabold text-white truncate" style="background:${f.color}">
+                    ${f.emoji} ${esc(f.short)}
+                  </span>
+                  <span class="font-display font-black text-xs text-neutral-400 shrink-0">✂ ${prettyCode(q.id)}</span>
+                </div>
+                <p class="font-display font-extrabold text-sm text-[#333] leading-snug">${esc(q.q)}</p>
+              </div>
+
+              ${showAns ? `<div class="p-2 rounded-[4px] bg-neutral-100 border-l-4 border-[#333] text-[11px] text-[#333] leading-snug"><b>เฉลย:</b> ${esc(q.model)}</div>` : ''}
+
+              <div class="flex items-end justify-between gap-3 pt-2 border-t-2 border-neutral-200">
+                <div class="text-[11px] text-neutral-500 leading-tight">
+                  <div class="font-black text-[#333] text-lg font-display">${prettyCode(q.id)}</div>
+                  <div class="font-bold">สแกน QR หรือพิมพ์รหัส</div>
+                  <div class="text-[10px] font-black text-[#46178f] italic">Sci-Quest!</div>
+                </div>
+                <div class="qr-box w-20 h-20 p-1 rounded-[4px] border-2 border-[#333] bg-white shrink-0">
+                  ${makeQrSvg(payload)}
+                </div>
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+    }
+
+    document.querySelectorAll('.col-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeColor = btn.dataset.col;
+        document.querySelectorAll('.col-btn').forEach(b => {
+          b.className = b === btn
+            ? 'col-btn px-3 py-1.5 rounded-[3px] font-extrabold bg-white text-[#333]'
+            : 'col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15';
+        });
+        renderCards();
+      });
+    });
+
+    [filmFilter, qrRoomInput, qrFormat, showAnswerToggle].forEach(el => {
+      el.addEventListener('input', renderCards);
+      el.addEventListener('change', renderCards);
+    });
+
+    showRulesToggle.addEventListener('change', () => {
+      rulesSheet.classList.toggle('hidden', !showRulesToggle.checked);
+    });
+
+    renderCards();
+    refreshIcons();
+  </script>
+</body>
+</html>

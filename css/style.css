@@ -1,0 +1,405 @@
+/* =========================================================
+ * Sci-Quest! — Authentic Kahoot! Design System
+ * Solid #46178f purple, giant geometric background shapes,
+ * chunky flat blocks with hard bottom shadows, zero blur/glass!
+ * ========================================================= */
+:root {
+  --k-purple: #46178f;
+  --k-purple-dark: #25076b;
+  --k-purple-mid: #33106d;
+  --k-red: #e21b3c;
+  --k-red-dark: #9c1128;
+  --k-blue: #1368ce;
+  --k-blue-dark: #0c478f;
+  --k-yellow: #d89e00;
+  --k-yellow-dark: #9c7200;
+  --k-green: #26890c;
+  --k-green-dark: #195c07;
+  --k-dark: #333333;
+  --k-dark-shadow: #1a1a1a;
+  --ink: #333333;
+}
+
+html, body {
+  font-family: 'Montserrat', 'Kanit', 'IBM Plex Sans Thai', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  color: #ffffff;
+}
+.font-display {
+  font-family: 'Montserrat', 'Kanit', 'Mitr', sans-serif;
+  letter-spacing: -0.01em;
+}
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- พื้นหลัง Kahoot! (#46178f + รูปทรงเรขาคณิตยักษ์) ---------- */
+.bg-arena {
+  background-color: var(--k-purple);
+  color: #ffffff;
+  position: relative;
+  overflow-x: hidden;
+}
+/* สี่เหลี่ยมข้าวหลามตัดมุมซ้ายบน */
+.bg-arena::before {
+  content: '';
+  position: fixed;
+  top: -18vmin;
+  left: -18vmin;
+  width: 62vmin;
+  height: 62vmin;
+  background: rgba(0, 0, 0, 0.14);
+  transform: rotate(45deg);
+  pointer-events: none;
+  z-index: 0;
+}
+/* วงกลมยักษ์มุมขวาล่าง */
+.bg-arena::after {
+  content: '';
+  position: fixed;
+  bottom: -22vmin;
+  right: -18vmin;
+  width: 68vmin;
+  height: 68vmin;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---------- โลโก้สไตล์ Kahoot! ---------- */
+.k-logo {
+  font-family: 'Montserrat', 'Kanit', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
+  user-select: none;
+}
+
+/* ---------- กล่องสีขาวและกล่องสีทึบสไตล์ Kahoot! ---------- */
+.card-3d, .k-box {
+  background: #ffffff;
+  color: #333333;
+  border-radius: 6px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.25);
+}
+.glass, .k-panel {
+  background: var(--k-purple-dark);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.28);
+}
+.glass-strong, .k-panel-strong {
+  background: #25076b;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.32);
+}
+
+/* ---------- ปุ่มบล็อก Kahoot! (ขอบล่างทึบ กดยุบจริง) ---------- */
+.btn-3d {
+  position: relative;
+  border-radius: 4px;
+  font-family: 'Montserrat', 'Kanit', sans-serif;
+  font-weight: 800;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.32);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.1s;
+  user-select: none;
+  cursor: pointer;
+}
+.btn-3d:hover { filter: brightness(1.06); }
+.btn-3d:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+}
+.btn-3d:disabled { opacity: 0.45; pointer-events: none; }
+
+/* สีบล็อกมาตรฐาน 4 สีของ Kahoot + ปุ่มดำ */
+.k-btn-dark   { background: #333333; color: #ffffff; box-shadow: 0 5px 0 #141414; }
+.k-btn-red    { background: var(--k-red); color: #ffffff; box-shadow: 0 5px 0 var(--k-red-dark); }
+.k-btn-blue   { background: var(--k-blue); color: #ffffff; box-shadow: 0 5px 0 var(--k-blue-dark); }
+.k-btn-yellow { background: var(--k-yellow); color: #ffffff; box-shadow: 0 5px 0 var(--k-yellow-dark); }
+.k-btn-green  { background: var(--k-green); color: #ffffff; box-shadow: 0 5px 0 var(--k-green-dark); }
+.k-btn-white  { background: #ffffff; color: #333333; box-shadow: 0 5px 0 #b5b5b5; }
+
+/* ---------- ช่องกรอกข้อมูลสไตล์ kahoot.it ---------- */
+.input-big {
+  width: 100%;
+  border-radius: 4px;
+  border: 2px solid #cccccc;
+  background: #ffffff;
+  color: #333333;
+  font-weight: 700;
+  padding: 0.75rem 0.9rem;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.input-big:focus {
+  border-color: #333333;
+}
+.input-big::placeholder {
+  color: #999999;
+  font-weight: 600;
+}
+
+/* ---------- สัญลักษณ์เรขาคณิต ▲ ◆ ● ■ ---------- */
+.k-shape {
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.15em;
+  line-height: 1;
+  font-weight: 900;
+}
+
+/* ---------- อวตาร ---------- */
+.avatar {
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  line-height: 1;
+}
+.av-btn {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  font-size: 2rem;
+  display: grid;
+  place-items: center;
+  border: 3px solid transparent;
+  transition: transform 0.1s;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+}
+.av-btn:active { transform: translateY(3px); }
+.av-btn.selected {
+  border-color: #333333;
+  outline: 3px solid #ffa602;
+  transform: scale(1.06);
+}
+
+/* ---------- แอนิเมชันกระชับสไตล์เกมโชว์ ---------- */
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  75% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pop-in { animation: popIn 0.28s ease-out both; }
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.floaty { animation: floaty 2.4s ease-in-out infinite; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+.shake { animation: shake 0.35s; }
+
+@keyframes bumpK {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.bump { animation: bumpK 0.35s ease-out; display: inline-block; }
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+.wiggle { animation: wiggle 0.5s ease-in-out infinite; }
+
+@keyframes slideInRight {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.feed-in { animation: slideInRight 0.28s ease-out both; }
+
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(0.9); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-4px) scale(1.1); }
+  100% { transform: translateY(-40px) scale(1); opacity: 0; }
+}
+.plus-bubble {
+  position: absolute;
+  right: 110px;
+  top: 12px;
+  font-weight: 900;
+  font-size: 1.4rem;
+  pointer-events: none;
+  animation: floatUp 1.3s ease-out forwards;
+  z-index: 5;
+}
+
+@keyframes liveDot { 50% { opacity: 0.25; } }
+.live-dot { width: 10px; height: 10px; border-radius: 99px; background: #e21b3c; animation: liveDot 1s infinite; }
+
+/* ---------- Toast ---------- */
+#toasts {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: min(92vw, 440px);
+  pointer-events: none;
+}
+.toast {
+  color: #fff;
+  padding: 0.7rem 1.2rem;
+  border-radius: 4px;
+  font-weight: 800;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+.toast-out { opacity: 0; transform: translateY(-8px); transition: all 0.25s; }
+.confetti-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 300; }
+.x2tag { background: #d89e00; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 900; }
+
+/* ---------- Kahoot! Scoreboard Bars ---------- */
+.lb-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+@keyframes flashUp {
+  0% { outline: 4px solid #26890c; }
+  100% { outline: 0px solid transparent; }
+}
+@keyframes flashDown {
+  0% { outline: 4px solid #e21b3c; }
+  100% { outline: 0px solid transparent; }
+}
+.flash-up { animation: flashUp 0.8s ease-out; }
+.flash-down { animation: flashDown 0.8s ease-out; }
+
+.medal-1 { background: #ffffff !important; border-left: 10px solid #ffa602 !important; }
+.medal-2 { background: #ffffff !important; border-left: 10px solid #94a3b8 !important; }
+.medal-3 { background: #ffffff !important; border-left: 10px solid #d97706 !important; }
+
+/* ---------- ผลการตรวจคำตอบ ---------- */
+.bar-fill { transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+.kw-chip { padding: 0.25rem 0.65rem; border-radius: 4px; font-weight: 700; font-size: 0.82rem; }
+
+/* ---------- แถบไอเทม 4 สีสไตล์ปุ่มกด Kahoot ---------- */
+.item-btn {
+  border-radius: 4px;
+  transition: transform 0.08s;
+}
+.item-btn:active { transform: translateY(3px); }
+.item-btn.empty { opacity: 0.42; filter: saturate(0.35); }
+.item-badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: #333333;
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.8rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  padding: 0 5px;
+}
+
+/* ---------- Overlay ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.overlay.hidden { display: none; }
+.dim { background: rgba(37, 7, 107, 0.92); }
+
+/* ---------- น้ำแข็ง ---------- */
+.ice-overlay {
+  background: #006b8f;
+}
+.ice-overlay::before {
+  content: '❄ ❅ ❆ ❄ ❅ ❆ ❄ ❅';
+  position: absolute;
+  inset: 0;
+  font-size: 3rem;
+  color: rgba(255, 255, 255, 0.18);
+  word-spacing: 2rem;
+  line-height: 5rem;
+  padding: 1rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+.crack { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.12s; }
+.crack.on { opacity: 1; }
+@keyframes freezeIn { 0% { transform: scale(1.1); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.freeze-in { animation: freezeIn 0.25s ease-out both; }
+@keyframes shatterOut { to { transform: scale(1.2); opacity: 0; } }
+.shatter-out { animation: shatterOut 0.3s ease-in forwards; }
+.smash-btn {
+  width: 180px;
+  height: 180px;
+  border-radius: 12px;
+  font-size: 4.5rem;
+  background: #ffffff;
+  color: #006b8f;
+  box-shadow: 0 10px 0 #003f54;
+  transition: transform 0.05s;
+}
+.smash-btn:active { transform: translateY(7px); box-shadow: 0 3px 0 #003f54; }
+
+/* ---------- กล่องสุ่ม ---------- */
+@keyframes boxShake {
+  0%, 100% { transform: rotate(0) scale(1); }
+  25% { transform: rotate(-7deg) scale(1.05); }
+  75% { transform: rotate(7deg) scale(1.05); }
+}
+.box-shake { animation: boxShake 0.6s ease-in-out infinite; }
+@keyframes boxOpen {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.25); }
+  100% { transform: scale(0); opacity: 0; }
+}
+.box-open { animation: boxOpen 0.4s ease-in forwards; }
+
+/* ---------- โพเดียมสไตล์ Kahoot! ---------- */
+@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.podium-col {
+  transform-origin: bottom;
+  animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 -4px 0 rgba(255, 255, 255, 0.2), inset 0 8px 0 rgba(255, 255, 255, 0.18);
+}
+@keyframes dropIn {
+  0% { transform: translateY(-50px) scale(0.7); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.drop-in { animation: dropIn 0.55s ease-out both; }
+
+/* ---------- แถบโบนัส ---------- */
+.bonus-glow {
+  background: #ffa602 !important;
+  color: #333333 !important;
+  box-shadow: 0 6px 0 #b57400 !important;
+}
+
+/* ---------- Scanner ---------- */
+#reader video { border-radius: 6px; }
+#reader { border: none !important; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }

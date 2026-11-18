@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Host — Sci-Quest! (Kahoot Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700;800&family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-arena min-h-screen relative overflow-x-hidden">
+  <!-- แถบแจ้งเตือนการโจมตีกลางจอ -->
+  <div id="battleBanner" class="fixed top-24 left-1/2 -translate-x-1/2 z-[150] pointer-events-none hidden"></div>
+
+  <div class="relative z-10 max-w-[1440px] mx-auto px-3 sm:px-6 py-4 flex flex-col min-h-screen gap-4">
+    <!-- ===================== KAHOOT! TOP PIN BANNER ===================== -->
+    <header class="flex flex-col lg:flex-row items-stretch justify-between gap-3">
+      <!-- แผงขาวคู่สไตล์ Kahoot Lobby (Join at + Game PIN + QR) -->
+      <div class="flex flex-wrap sm:flex-nowrap items-stretch gap-2 flex-1">
+        <!-- ปุ่มกลับหน้าแรก -->
+        <a href="index.html" class="btn-3d k-btn-dark px-3.5 flex items-center justify-center" title="กลับหน้าแรก">
+          <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </a>
+
+        <!-- กล่องซ้าย: Join at -->
+        <div class="k-box px-4 py-2.5 flex flex-col justify-center flex-1 min-w-[200px]">
+          <div class="text-xs font-bold text-neutral-500">เข้าร่วมผ่านมือถือได้ที่:</div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-lg sm:text-xl text-[#1368ce] hover:underline">
+              เปิดหน้าผู้เล่น (คลิก) ↗
+            </a>
+            <button id="copyLinkBtn" class="btn-3d k-btn-dark px-2.5 py-1 text-xs" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
+          </div>
+          <div class="flex items-center gap-2 mt-1 text-[11px] font-bold text-neutral-500">
+            <span id="modeBadge"></span>
+            <span>•</span>
+            <a id="openCardsLink" href="cards.html" target="_blank" class="text-[#333] underline hover:text-[#e21b3c]">พิมพ์การ์ด QR 36 ใบ</a>
+          </div>
+        </div>
+
+        <!-- กล่องกลาง: Game PIN ยักษ์ -->
+        <div class="k-box px-5 py-2 flex flex-col justify-center">
+          <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN:</div>
+          <div id="roomPinText" class="font-display text-4xl sm:text-6xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
+        </div>
+
+        <!-- กล่องขวา: QR Code -->
+        <button id="openQrBtn" class="k-box p-2 flex items-center gap-2 hover:brightness-95 transition shrink-0" title="คลิกเพื่อขยาย QR Code เต็มจอ">
+          <div id="qrPreview" class="w-16 h-16 sm:w-20 sm:h-20 bg-white grid place-items-center"></div>
+        </button>
+      </div>
+
+      <!-- โลโก้ Sci-Quest! + ปุ่มเสียง/รีเซ็ต -->
+      <div class="flex items-center justify-between lg:justify-end gap-2">
+        <div class="k-logo text-3xl sm:text-4xl px-2">Sci-Quest!</div>
+        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1" title="รีเซ็ตคะแนนเริ่มรอบใหม่">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>รีเซ็ต</span>
+        </button>
+        <button id="muteBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-base" title="เปิด/ปิดเสียง">🔊</button>
+      </div>
+    </header>
+
+    <!-- ===================== KAHOOT! CONTROL BAR ===================== -->
+    <section class="flex flex-wrap items-center justify-between gap-2.5 bg-[#25076b] p-3 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
+      <!-- จำนวนผู้เล่น + สถานะ -->
+      <div class="flex items-center gap-2">
+        <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[4px] font-display font-extrabold text-sm sm:text-base">
+          👤 0 คน
+        </div>
+        <span id="statusBadge" class="px-3 py-2 rounded-[4px] text-xs sm:text-sm font-extrabold uppercase">รอเริ่มเกม</span>
+      </div>
+
+      <!-- ปุ่มควบคุมหลักของครู (4 สี Kahoot!) -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="playPauseBtn" class="btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5">
+          <i data-lucide="play" class="w-5 h-5"></i>
+          <span>เริ่มเกม!</span>
+        </button>
+
+        <button id="bonusBtn" class="btn-3d k-btn-yellow px-4 py-2.5 text-sm sm:text-base flex items-center gap-1.5">
+          <span>●</span>
+          <span>ปล่อยคำถามโบนัส</span>
+        </button>
+
+        <button id="podiumBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm sm:text-base flex items-center gap-1.5">
+          <span>▲</span>
+          <span>โพเดียม 1-2-3</span>
+        </button>
+
+        <button id="addBotsBtn" class="btn-3d k-btn-blue px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1">
+          <span>◆</span>
+          <span>+ บอท 4 คน</span>
+        </button>
+
+        <button id="simToggleBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1">
+          <span>▶</span>
+          <span>จำลองเล่นอัตโนมัติ</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- แถบคำถามโบนัสที่กำลังปล่อยอยู่ -->
+    <section id="activeBonusBar" class="hidden bonus-glow rounded-[6px] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-[4px] bg-[#333333] text-white grid place-items-center text-2xl shrink-0 wiggle">🎁</div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded-[3px] text-xs font-extrabold bg-[#333333] text-white uppercase">BONUS QUESTION LIVE!</span>
+            <span id="bonusFilmTag" class="text-xs font-extrabold text-[#333333]"></span>
+          </div>
+          <div id="bonusQuestionText" class="font-display text-lg sm:text-xl font-extrabold text-[#333333] mt-0.5"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="text-center bg-[#333333] text-white rounded-[4px] px-4 py-1.5">
+          <div id="bonusWinCount" class="font-display text-2xl font-black text-[#ffa602] tabular">0</div>
+          <div class="text-[11px] font-bold">คนตอบผ่านแล้ว</div>
+        </div>
+        <button id="closeBonusBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm">ปิดโบนัส</button>
+      </div>
+    </section>
+
+    <!-- ===================== MAIN STAGE: SCOREBOARD + LIVE FEED ===================== -->
+    <main class="grid lg:grid-cols-12 gap-4 flex-1">
+      <!-- Kahoot! Scoreboard (8 cols) -->
+      <section class="lg:col-span-8 bg-[#25076b] rounded-[6px] p-4 sm:p-5 flex flex-col shadow-[0_5px_0_rgba(0,0,0,0.3)]">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b-2 border-white/15">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-[4px] bg-[#ffa602] text-[#333] font-black grid place-items-center">★</span>
+            <h2 class="font-display text-xl sm:text-2xl font-black tracking-wide">Scoreboard (กระดานคะแนนสด)</h2>
+          </div>
+          <span class="text-xs font-bold text-white/75 hidden sm:inline">สลับอันดับอัตโนมัติแบบ Real-time</span>
+        </div>
+
+        <!-- Waiting for players... สไตล์ Kahoot Lobby -->
+        <div id="lbEmpty" class="flex-1 flex flex-col items-center justify-center text-center py-12 px-4">
+          <div class="bg-[#46178f] px-8 py-4 rounded-[6px] shadow-[0_5px_0_rgba(0,0,0,0.3)] font-display text-2xl sm:text-3xl font-black mb-4 floaty">
+            กำลังรอผู้เล่นเข้าร่วม...
+          </div>
+          <p class="text-white/85 text-sm font-semibold max-w-md mb-5">
+            ให้นักเรียนเข้าหน้าผู้เล่นแล้วกรอก Game PIN <span id="emptyPin" class="font-display font-black text-[#ffa602] text-lg"></span> หรือสแกน QR Code ด้านบน
+          </p>
+          <div class="flex flex-wrap gap-2.5 justify-center">
+            <button onclick="document.getElementById('openQrBtn').click()" class="btn-3d k-btn-white px-5 py-2.5 text-sm">🔍 ขยาย QR Code</button>
+            <button onclick="document.getElementById('addBotsBtn').click()" class="btn-3d k-btn-blue px-5 py-2.5 text-sm">◆ เพิ่มบอททดสอบ 4 คน</button>
+          </div>
+        </div>
+
+        <div id="lbWrap" class="relative w-full hidden" style="min-height: 200px;"></div>
+      </section>
+
+      <!-- Live Feed (4 cols) -->
+      <aside class="lg:col-span-4 bg-[#25076b] rounded-[6px] p-4 sm:p-5 flex flex-col max-h-[680px] shadow-[0_5px_0_rgba(0,0,0,0.3)]">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b-2 border-white/15">
+          <div class="flex items-center gap-2">
+            <span class="live-dot"></span>
+            <h2 class="font-display text-lg sm:text-xl font-black">Live Feed</h2>
+          </div>
+          <span class="text-xs font-bold text-white/70 uppercase">Real-time</span>
+        </div>
+
+        <div id="feedList" class="flex-1 overflow-y-auto space-y-2 pr-1">
+          <div class="text-center text-white/60 text-sm font-bold py-10">ยังไม่มีความเคลื่อนไหว...</div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- MODAL: ขยาย QR Code เต็มจอ -->
+  <div id="qrModal" class="overlay dim z-[180] hidden">
+    <div class="k-box max-w-md w-full p-6 text-center pop-in relative">
+      <button id="closeQrModal" class="btn-3d k-btn-dark absolute top-4 right-4 w-9 h-9 grid place-items-center">✕</button>
+      <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN</div>
+      <div id="qrModalPin" class="font-display text-6xl font-black text-[#333] tracking-widest mb-3 tabular">----</div>
+      <div id="qrModalBox" class="w-64 h-64 mx-auto bg-white p-2 rounded-[4px] border-4 border-[#333] grid place-items-center mb-3"></div>
+      <div id="qrModalUrl" class="text-xs font-bold text-neutral-600 break-all bg-neutral-100 rounded-[4px] p-2 mb-3"></div>
+      <button id="qrModalCopy" class="btn-3d k-btn-blue w-full py-3 text-base">คัดลอกลิงก์เข้าเล่น</button>
+    </div>
+  </div>
+
+  <!-- MODAL: เลือกคำถามโบนัสพิเศษ -->
+  <div id="bonusModal" class="overlay dim z-[180] hidden">
+    <div class="k-box max-w-2xl w-full p-5 sm:p-6 pop-in max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
+        <div>
+          <h3 class="font-display text-2xl font-black text-[#333]">🎁 ปล่อยคำถามโบนัสพิเศษ</h3>
+          <p class="text-xs sm:text-sm font-semibold text-neutral-500">เด้งแทรกบนจอนักเรียนทุกคนทันที ผู้ตอบผ่านจะได้เปิดกล่องสุ่มไอเทม!</p>
+        </div>
+        <button id="closeBonusModal" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
+      </div>
+
+      <button id="randomBonusBtn" class="btn-3d k-btn-yellow w-full py-3.5 mb-3 text-base flex items-center justify-center gap-2">
+        <span>🎲</span>
+        <span>สุ่มคำถามโบนัสอัตโนมัติ</span>
+      </button>
+
+      <div id="bonusChoices" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
+    </div>
+  </div>
+
+  <!-- OVERLAY: โพเดียมประกาศผู้ชนะ 1-2-3 สไตล์ Kahoot! -->
+  <div id="podiumOverlay" class="overlay dim z-[200] hidden overflow-y-auto">
+    <div class="max-w-4xl w-full text-center py-6 px-4">
+      <div class="k-logo text-4xl sm:text-6xl mb-2 pop-in">Sci-Quest! Podium</div>
+      <div class="inline-block px-4 py-1 rounded-[4px] bg-[#25076b] text-[#ffa602] font-display font-extrabold text-sm mb-8">
+        🏆 ผลการแข่งขันอย่างเป็นทางการ
+      </div>
+
+      <!-- แท่นโพเดียม 2 - 1 - 3 -->
+      <div id="podiumStage" class="grid grid-cols-3 items-end gap-3 sm:gap-5 max-w-2xl mx-auto mb-6 pt-6"></div>
+
+      <!-- อันดับอื่นๆ -->
+      <div id="podiumRest" class="bg-[#25076b] rounded-[6px] max-w-xl mx-auto p-4 mb-6 hidden text-left"></div>
+
+      <div class="flex flex-wrap justify-center gap-3">
+        <button id="resumeFromPodiumBtn" class="btn-3d k-btn-white px-6 py-3">กลับไปหน้าเกม</button>
+        <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3">เริ่มรอบใหม่ (รีเซ็ตคะแนน)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/grader.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/host.js"></script>
+</body>
+</html>
