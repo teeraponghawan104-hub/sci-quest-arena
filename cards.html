@@ -174,9 +174,9 @@
         const qr = qrcode(0, 'M');
         qr.addData(payload);
         qr.make();
-        return qr.createSvgTag({ scalable: true, margin: 1 });
+        return qr.createSvgTag({ scalable: true, margin: 4 });
       }
-      const src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`;
+      const src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=12&data=${encodeURIComponent(payload)}`;
       return `<img src="${src}" alt="${esc(payload)}" class="w-full h-full object-contain" />`;
     }
 
@@ -234,7 +234,7 @@
                   <div class="font-bold">สแกน QR หรือพิมพ์รหัส</div>
                   <div class="text-[10px] font-black text-[#46178f] italic">Sci-Quest!</div>
                 </div>
-                <div class="qr-box w-20 h-20 p-1 rounded-[4px] border-2 border-[#333] bg-white shrink-0">
+                <div class="qr-box w-20 h-20 p-1 rounded-[4px] border border-neutral-200 bg-white shrink-0">
                   ${makeQrSvg(payload)}
                 </div>
               </div>

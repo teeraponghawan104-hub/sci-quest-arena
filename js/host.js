@@ -60,12 +60,12 @@
       const qr = qrcode(0, 'M');
       qr.addData(text);
       qr.make();
-      container.innerHTML = qr.createSvgTag({ scalable: true, margin: 1 });
+      container.innerHTML = qr.createSvgTag({ scalable: true, margin: 4 });
       const svg = container.querySelector('svg');
       if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; svg.style.display = 'block'; }
       return;
     }
-    const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+    const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=16&data=${encodeURIComponent(text)}`;
     container.innerHTML = `<img src="${src}" alt="QR ${esc(roomCode)}" class="w-full h-full object-contain"
       onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'text-xs font-extrabold text-[#333] text-center p-2',textContent:'PIN: ${esc(roomCode)}'}))">`;
   }
@@ -385,6 +385,7 @@
     await Sync.transact(room => {
       if (!room) return;
       room.status = room.status === 'playing' ? 'paused' : 'playing';
+      room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'info', text: room.status === 'playing' ? 'เริ่มการแข่งขันแล้ว! ลุยเลย!' : 'ครูหยุดเกมชั่วคราว' });
       return room;
     });
@@ -422,6 +423,7 @@
       if (room.status === 'lobby' || room.status === 'paused') room.status = 'playing';
       room.usedBonus[qid] = true;
       room.bonus = { id: uid(), qid, startedAt: Date.now(), answered: {} };
+      room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'bonus', qid });
       return room;
     });
@@ -443,6 +445,7 @@
     await Sync.transact(room => {
       if (!room) return;
       room.bonus = null;
+      room.hostUpdatedAt = Date.now();
       return room;
     });
   });
@@ -454,6 +457,7 @@
       room.status = 'ended';
       room.endedAt = Date.now();
       room.bonus = null;
+      room.hostUpdatedAt = Date.now();
       return room;
     });
   });
@@ -463,6 +467,7 @@
     await Sync.transact(room => {
       if (!room) return;
       room.status = 'playing';
+      room.hostUpdatedAt = Date.now();
       return room;
     });
   });
@@ -472,10 +477,13 @@
     stopSim();
     await Sync.transact(room => {
       if (!room) return;
+      const now = Date.now();
       room.status = 'lobby';
       room.bonus = null;
       room.usedBonus = {};
       room.feed = {};
+      room.hostUpdatedAt = now;
+      room.resetAt = now;
       for (const p of Object.values(room.players || {})) {
         p.score = 0;
         p.items = { x2: 0, shield: 0, steal: 0, freeze: 0 };
@@ -483,6 +491,7 @@
         p.frozen = false;
         p.frozenBy = '';
         p.answered = {};
+        p.updatedAt = now;
       }
       Sync.pushFeed(room, { type: 'info', text: 'รีเซ็ตคะแนนและเริ่มรอบใหม่แล้ว!' });
       return room;
@@ -518,7 +527,10 @@
         Sync.pushFeed(room, { type: 'join', a: name, ai: id, av });
         added++;
       }
-      if (room.status === 'lobby') room.status = 'playing';
+      if (room.status === 'lobby') {
+        room.status = 'playing';
+        room.hostUpdatedAt = Date.now();
+      }
       return room;
     });
     toast('เพิ่มนักเรียนบอทจำลอง 4 คนแล้ว', 'success');
@@ -582,7 +594,10 @@
     if (!r || !Object.values(r.players).some(p => p.isBot)) {
       el.addBotsBtn.click();
     } else if (r.status !== 'playing') {
-      await Sync.transact(room => { if (room) room.status = 'playing'; return room; });
+      await Sync.transact(room => {
+        if (room) { room.status = 'playing'; room.hostUpdatedAt = Date.now(); }
+        return room;
+      });
     }
     el.simToggleBtn.className = 'btn-3d k-btn-red px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1';
     el.simToggleBtn.innerHTML = '<span>⏹</span><span>หยุดจำลองอัตโนมัติ</span>';

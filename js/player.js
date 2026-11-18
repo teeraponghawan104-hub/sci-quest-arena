@@ -184,6 +184,7 @@
         } else {
           room.players[myId].name = name;
           room.players[myId].avatar = selectedAv;
+          room.players[myId].updatedAt = Date.now();
         }
         return room;
       });

@@ -114,6 +114,6 @@ function confetti(ms = 3000, count = 160) {
 }
 
 function modeLabel() {
-  const m = (window.SQA_CONFIG || {}).backend || 'local';
-  return { local: 'LOCAL MODE', firebase: 'FIREBASE LIVE', supabase: 'SUPABASE LIVE' }[m] || m;
+  const m = (window.SQA_CONFIG || {}).backend || 'cloud';
+  return { cloud: '🌐 CLOUD LIVE', local: 'LOCAL MODE', firebase: 'FIREBASE LIVE', supabase: 'SUPABASE LIVE' }[m] || m;
 }

@@ -1,30 +1,38 @@
 /* =========================================================
- * Sci-Quest Arena — การตั้งค่า (แก้ไขไฟล์นี้ไฟล์เดียว)
+ * Sci-Quest! — การตั้งค่า (แก้ไขไฟล์นี้ไฟล์เดียว)
  * ---------------------------------------------------------
  * backend:
- *   'local'    = โหมดจำลองในเครื่อง (ทดสอบได้ทันที เปิดหลายแท็บในเบราว์เซอร์เดียวกัน)
- *   'firebase' = Firebase Realtime Database (เล่นจริงข้ามอุปกรณ์)
- *   'supabase' = Supabase (ตาราง sqa_rooms + Realtime) ดู README.md
+ *   'cloud'    = ซิงก์ออนไลน์ข้ามอุปกรณ์อัตโนมัติ (ค่าเริ่มต้น — ใช้งานบน Vercel / มือถือสแกน QR เล่นได้ทันที ไม่ต้องตั้งค่า DB)
+ *   'local'    = โหมดจำลองในเครื่องเดียว (localStorage + BroadcastChannel)
+ *   'firebase' = Firebase Realtime Database (กรณีต้องการใช้ DB ส่วนตัว)
+ *   'supabase' = Supabase Realtime (กรณีต้องการใช้ DB ส่วนตัว)
  * ========================================================= */
 window.SQA_CONFIG = {
-  backend: 'local',
+  backend: 'cloud',
+
+  cloud: {
+    brokers: [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ],
+    topicPrefix: 'sciquest_arena_v2'
+  },
 
   firebase: {
     apiKey: '',
     authDomain: '',
-    databaseURL: '',      // เช่น https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app
+    databaseURL: '',
     projectId: '',
     appId: ''
   },
 
   supabase: {
-    url: '',              // เช่น https://xxxx.supabase.co
+    url: '',
     anonKey: '',
     table: 'sqa_rooms'
   },
 
-  // URL สาธารณะของเว็บ (ใช้สร้าง QR Code) เว้นว่าง = ใช้ URL ปัจจุบันอัตโนมัติ
-  // เช่น 'https://sci-quest.web.app/'
+  // URL สาธารณะของเว็บ (เว้นว่าง = ใช้ URL ปัจจุบันอัตโนมัติ เช่น https://sci-quest-arena.vercel.app/)
   publicBaseUrl: '',
 
   game: {
