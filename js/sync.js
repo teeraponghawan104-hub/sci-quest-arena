@@ -41,24 +41,29 @@ const Sync = (() => {
 
   const clean = o => JSON.parse(JSON.stringify(o));
 
-  /* ผสานสถานะห้องจากหลายอุปกรณ์โดยไม่ให้ข้อมูลผู้เล่นหรือคะแนนทับกันหาย */
+  /* ผสานสถานะห้องจากหลายอุปกรณ์โดยไม่ให้ข้อมูลผู้เล่นหรือคะแนนทับกันหาย และเคารพการล้างห้อง (resetAt) */
   function mergeRooms(a, b) {
     a = normalize(a); b = normalize(b);
     if (!a) return b;
     if (!b) return a;
 
-    // หากฝั่งใดฝั่งหนึ่งเพิ่งกดรีเซ็ตห้องใหม่ ให้ยึดฝั่งที่ resetAt ล่าสุดเป็นหลัก
-    if ((a.resetAt || 0) !== (b.resetAt || 0)) {
-      const newer = (b.resetAt || 0) > (a.resetAt || 0) ? clean(b) : clean(a);
-      const older = (b.resetAt || 0) > (a.resetAt || 0) ? a : b;
-      for (const [pid, op] of Object.entries(older.players || {})) {
-        const np = newer.players[pid];
-        if (!np || (op.updatedAt || 0) > Math.max(newer.resetAt || 0, np.updatedAt || 0)) {
-          if ((op.updatedAt || 0) > (newer.resetAt || 0)) newer.players[pid] = clean(op);
-        }
+    const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
+    // หากฝั่งใดมี resetAt เก่ากว่า ให้ล้างข้อมูลที่เกิดก่อน resetAt ออกก่อนนำมาผสาน
+    const stripOld = r => {
+      if (!resetAt || (r.resetAt || 0) >= resetAt) return r;
+      const copy = clean(r);
+      copy.usedBonus = {};
+      for (const [pid, p] of Object.entries(copy.players || {})) {
+        if ((p.updatedAt || p.joinedAt || 0) < resetAt) delete copy.players[pid];
       }
-      return normalize(newer);
-    }
+      for (const [fid, f] of Object.entries(copy.feed || {})) {
+        if ((f.t || 0) < resetAt) delete copy.feed[fid];
+      }
+      if (copy.bonus && (copy.bonus.startedAt || 0) < resetAt) copy.bonus = null;
+      return copy;
+    };
+    a = stripOld(a);
+    b = stripOld(b);
 
     const hostNewerB = (b.hostUpdatedAt || 0) >= (a.hostUpdatedAt || 0);
     const primary = hostNewerB ? b : a;
@@ -67,8 +72,8 @@ const Sync = (() => {
       status: primary.status || 'lobby',
       createdAt: Math.min(a.createdAt || Date.now(), b.createdAt || Date.now()),
       hostUpdatedAt: Math.max(a.hostUpdatedAt || 0, b.hostUpdatedAt || 0),
-      resetAt: Math.max(a.resetAt || 0, b.resetAt || 0),
-      endedAt: primary.endedAt || a.endedAt || b.endedAt || null,
+      resetAt,
+      endedAt: primary.status === 'ended' ? (primary.endedAt || a.endedAt || b.endedAt || null) : null,
       usedBonus: Object.assign({}, a.usedBonus || {}, b.usedBonus || {}),
       bonus: primary.bonus ? clean(primary.bonus) : null,
       players: {},
@@ -80,19 +85,23 @@ const Sync = (() => {
       out.bonus.answered = Object.assign({}, a.bonus.answered || {}, b.bonus.answered || {});
     }
 
-    // รวมผู้เล่นทุกคน โดยเลือกสถานะที่มี updatedAt ล่าสุดของผู้เล่นคนนั้น
+    // รวมผู้เล่นทุกคนที่อัปเดตหลัง resetAt โดยเลือกสถานะที่มี updatedAt ล่าสุดของผู้เล่นคนนั้น
     const allPids = new Set([...Object.keys(a.players || {}), ...Object.keys(b.players || {})]);
     for (const pid of allPids) {
       const pa = a.players[pid], pb = b.players[pid];
-      if (pa && pb) {
-        out.players[pid] = clean((pb.updatedAt || 0) >= (pa.updatedAt || 0) ? pb : pa);
-      } else {
-        out.players[pid] = clean(pa || pb);
+      const chosen = (pa && pb)
+        ? ((pb.updatedAt || 0) >= (pa.updatedAt || 0) ? pb : pa)
+        : (pa || pb);
+      if (chosen && (chosen.updatedAt || chosen.joinedAt || 0) >= resetAt) {
+        out.players[pid] = clean(chosen);
       }
     }
 
-    // รวม Live Feed ล่าสุด 40 รายการ
+    // รวม Live Feed ล่าสุด 40 รายการที่เกิดหลัง resetAt
     const allFeed = Object.assign({}, a.feed || {}, b.feed || {});
+    for (const [fid, f] of Object.entries(allFeed)) {
+      if ((f.t || 0) < resetAt) delete allFeed[fid];
+    }
     const fKeys = Object.keys(allFeed).sort((x, y) => (allFeed[x].t || 0) - (allFeed[y].t || 0));
     while (fKeys.length > 40) delete allFeed[fKeys.shift()];
     out.feed = allFeed;
@@ -234,7 +243,7 @@ const Sync = (() => {
       const base = this.cur ? clean(this.cur) : null;
       const next = fn(base);
       if (next === undefined) return this.cur;
-      this.cur = mergeRooms(this.cur, next);
+      this.cur = normalize(clean(next));
       this.writeLocal(this.cur);
       this.publishState(this.cur);
       emit(this.cur);

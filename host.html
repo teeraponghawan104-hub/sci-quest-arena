@@ -55,12 +55,20 @@
         </button>
       </div>
 
-      <!-- โลโก้ Sci-Quest! + ปุ่มเสียง/รีเซ็ต -->
-      <div class="flex items-center justify-between lg:justify-end gap-2">
+      <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง -->
+      <div class="flex items-center justify-between lg:justify-end gap-2 flex-wrap">
         <div class="k-logo text-3xl sm:text-4xl px-2">Sci-Quest!</div>
-        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1" title="รีเซ็ตคะแนนเริ่มรอบใหม่">
+        <button id="fsBtn" type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5" title="เปิดโหมดเต็มจอ (กดปุ่ม F)">
+          <span data-fs-icon class="text-base leading-none">⛶</span>
+          <span data-fs-text>เต็มจอ</span>
+        </button>
+        <button id="newPinBtn" class="btn-3d k-btn-blue px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1" title="สุ่มรหัสห้อง PIN ใหม่">
+          <span>🎲</span>
+          <span>ห้องใหม่</span>
+        </button>
+        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1" title="ล้างข้อมูลผู้เล่นและคะแนนในห้องนี้">
           <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          <span>รีเซ็ต</span>
+          <span>ล้างห้อง</span>
         </button>
         <button id="muteBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-base" title="เปิด/ปิดเสียง">🔊</button>
       </div>
@@ -219,8 +227,9 @@
       <div id="podiumRest" class="bg-[#25076b] rounded-[6px] max-w-xl mx-auto p-4 mb-6 hidden text-left"></div>
 
       <div class="flex flex-wrap justify-center gap-3">
-        <button id="resumeFromPodiumBtn" class="btn-3d k-btn-white px-6 py-3">กลับไปหน้าเกม</button>
-        <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3">เริ่มรอบใหม่ (รีเซ็ตคะแนน)</button>
+        <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3 text-base">🔄 เริ่มเกมใหม่ (ล้างข้อมูลเดิม)</button>
+        <button id="podiumNewPinBtn" class="btn-3d k-btn-blue px-6 py-3 text-base">🎲 สร้างรหัสห้อง PIN ใหม่</button>
+        <button id="resumeFromPodiumBtn" class="btn-3d k-btn-white px-5 py-3 text-sm">ดูตารางคะแนน</button>
       </div>
     </div>
   </div>

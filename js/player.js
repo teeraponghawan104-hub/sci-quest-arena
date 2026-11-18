@@ -132,6 +132,25 @@
     el.gameView.classList.toggle('hidden', view !== 'game');
   }
 
+  function leaveRoomToLogin(notice = '') {
+    stopScanner();
+    if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
+    Sync.disconnect();
+    myId = null;
+    prevScore = null;
+    prevShields = null;
+    wasFrozen = false;
+    currentQ = null;
+    activeBonusId = null;
+    el.iceOverlay.classList.add('hidden');
+    el.bonusOverlay.classList.add('hidden');
+    el.stateOverlay.classList.add('hidden');
+    el.questionPanel.classList.add('hidden');
+    el.scanPanel.classList.remove('hidden');
+    showView('login');
+    if (notice) toast(notice, 'info', 3200);
+  }
+
   async function tryRestoreSession() {
     if (!initRoom) return;
     const savedId = sessionStorage.getItem('sqa_pid_' + initRoom);
@@ -142,13 +161,15 @@
       myId = savedId;
       roomCode = initRoom;
       await Sync.connect(roomCode, onRoomUpdate);
-      if (Sync.room && Sync.room.players[myId]) {
+      // หากเกมในห้องเดิมจบไปแล้ว หรือผู้เล่นถูกล้างออกแล้ว ให้กลับไปหน้าล็อกอินใหม่ทันที ไม่ค้างหน้าเดิม
+      if (Sync.room && Sync.room.status !== 'ended' && Sync.room.players[myId]) {
         showView('game');
       } else {
-        Sync.disconnect();
-        myId = null;
+        leaveRoomToLogin();
       }
-    } catch (e) {}
+    } catch (e) {
+      leaveRoomToLogin();
+    }
   }
 
   el.joinForm.addEventListener('submit', async e => {
@@ -174,18 +195,23 @@
       }
 
       roomCode = code;
-      myId = sessionStorage.getItem('sqa_pid_' + code) || ('p_' + uid());
+      myId = 'p_' + uid();
       await Sync.connect(code, onRoomUpdate);
       await Sync.transact(room => {
         if (!room) return;
-        if (!room.players[myId]) {
-          room.players[myId] = Game.newPlayer(myId, name, selectedAv, false);
-          Sync.pushFeed(room, { type: 'join', a: name, ai: myId, av: selectedAv });
-        } else {
-          room.players[myId].name = name;
-          room.players[myId].avatar = selectedAv;
-          room.players[myId].updatedAt = Date.now();
+        // หากห้องเดิมค้างสถานะ ended อยู่ ให้ล้างห้องเป็น lobby อัตโนมัติเมื่อมีผู้เล่นใหม่เข้า
+        if (room.status === 'ended') {
+          const now = Date.now();
+          room.status = 'lobby';
+          room.bonus = null;
+          room.endedAt = null;
+          room.usedBonus = {};
+          room.players = {};
+          room.feed = {};
+          room.resetAt = now;
         }
+        room.players[myId] = Game.newPlayer(myId, name, selectedAv, false);
+        Sync.pushFeed(room, { type: 'join', a: name, ai: myId, av: selectedAv });
         return room;
       });
       sessionStorage.setItem('sqa_pid_' + code, myId);
@@ -201,17 +227,7 @@
 
   $('leaveBtn').addEventListener('click', () => {
     SFX.click();
-    stopScanner();
-    if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
-    Sync.disconnect();
-    myId = null;
-    prevScore = null;
-    prevShields = null;
-    wasFrozen = false;
-    el.iceOverlay.classList.add('hidden');
-    el.bonusOverlay.classList.add('hidden');
-    el.stateOverlay.classList.add('hidden');
-    showView('login');
+    leaveRoomToLogin();
   });
 
   function openQuestion(rawCode) {
@@ -611,7 +627,11 @@
   function onRoomUpdate(room) {
     if (!room || !myId) return;
     const me = room.players[myId];
-    if (!me) return;
+    if (!me) {
+      // ครูได้กดเริ่มเกมใหม่ / ล้างห้องแล้ว -> พากลับหน้าล็อกอินอัตโนมัติ
+      leaveRoomToLogin('🔄 เริ่มเกมรอบใหม่แล้ว! กรุณาใส่ชื่อเข้าร่วมอีกครั้ง');
+      return;
+    }
 
     const ranked = Game.ranking(room);
     const rankIdx = ranked.findIndex(p => p.id === myId);
@@ -684,18 +704,24 @@
       el.stateExtra.innerHTML = '';
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'ended') {
+      if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
       el.stateIcon.textContent = rankIdx === 0 ? '🥇' : (rankIdx === 1 ? '🥈' : (rankIdx === 2 ? '🥉' : '🏁'));
       el.stateTitle.textContent = `ได้อันดับ #${rankIdx + 1}`;
       el.stateDesc.textContent = `คะแนนรวมของคุณคือ ${me.score.toLocaleString()} แต้ม`;
       el.stateExtra.innerHTML = `
-        <div class="bg-neutral-100 rounded-[4px] p-3 text-left space-y-1.5">
+        <div class="bg-neutral-100 rounded-[4px] p-3 text-left space-y-1.5 mb-3">
           <div class="text-xs font-extrabold uppercase text-neutral-500">Podium Top 3</div>
           ${ranked.slice(0, 3).map((p, i) => `
             <div class="flex items-center justify-between text-sm font-extrabold text-[#333]">
               <span>${['🥇 #1', '🥈 #2', '🥉 #3'][i]} ${esc(p.name)}</span>
               <span class="tabular">${p.score.toLocaleString()}</span>
             </div>`).join('')}
-        </div>`;
+        </div>
+        <button id="endLeaveBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base">
+          🔄 ออกจากห้อง / เล่นรอบใหม่
+        </button>`;
+      const endBtn = $('endLeaveBtn');
+      if (endBtn) endBtn.addEventListener('click', () => { SFX.click(); leaveRoomToLogin(); });
       el.stateOverlay.classList.remove('hidden');
     } else {
       el.stateOverlay.classList.add('hidden');

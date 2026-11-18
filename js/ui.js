@@ -117,3 +117,50 @@ function modeLabel() {
   const m = (window.SQA_CONFIG || {}).backend || 'cloud';
   return { cloud: '🌐 CLOUD LIVE', local: 'LOCAL MODE', firebase: 'FIREBASE LIVE', supabase: 'SUPABASE LIVE' }[m] || m;
 }
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function syncFullscreenButtons() {
+  const on = isFullscreen();
+  document.querySelectorAll('[data-fullscreen-btn]').forEach(btn => {
+    const label = btn.querySelector('[data-fs-text]');
+    const icon = btn.querySelector('[data-fs-icon]');
+    if (icon) icon.textContent = on ? '🗗' : '⛶';
+    if (label) label.textContent = on ? 'ออกเต็มจอ' : 'เต็มจอ';
+    else if (!icon) btn.textContent = on ? '🗗 ออกเต็มจอ' : '⛶ เต็มจอ';
+    btn.title = on ? 'ออกจากโหมดเต็มจอ (Esc)' : 'เปิดโหมดเต็มจอ';
+  });
+}
+
+async function toggleFullscreen() {
+  try {
+    if (!isFullscreen()) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  } catch (e) {
+    toast('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มจออัตโนมัติ (กด F11 แทนได้)', 'warn');
+  }
+  syncFullscreenButtons();
+}
+
+function initFullscreenButtons() {
+  document.querySelectorAll('[data-fullscreen-btn]').forEach(btn => {
+    if (btn.dataset.fsBound) return;
+    btn.dataset.fsBound = '1';
+    btn.addEventListener('click', () => {
+      if (window.SFX) SFX.click();
+      toggleFullscreen();
+    });
+  });
+  document.addEventListener('fullscreenchange', syncFullscreenButtons);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
+  syncFullscreenButtons();
+}
+document.addEventListener('DOMContentLoaded', initFullscreenButtons);

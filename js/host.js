@@ -1,11 +1,12 @@
 /* Sci-Quest! — Host Big Screen Controller (Kahoot! Edition) */
 (() => {
   const qs = new URLSearchParams(location.search);
+  const forceNew = qs.get('new') === '1';
   let roomCode = (qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) {
     roomCode = String(1000 + rand(9000));
-    history.replaceState(null, '', `?room=${roomCode}`);
   }
+  history.replaceState(null, '', `?room=${roomCode}`);
 
   const joinUrl = `${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}`;
   const cardsUrl = `${baseUrl()}cards.html?room=${encodeURIComponent(roomCode)}`;
@@ -472,37 +473,49 @@
     });
   });
 
-  async function resetScoresAndRound() {
-    SFX.pop();
+  async function clearRoomForNewGame(silent = false) {
+    if (!silent) SFX.pop();
     stopSim();
     await Sync.transact(room => {
-      if (!room) return;
       const now = Date.now();
-      room.status = 'lobby';
-      room.bonus = null;
-      room.usedBonus = {};
-      room.feed = {};
-      room.hostUpdatedAt = now;
-      room.resetAt = now;
-      for (const p of Object.values(room.players || {})) {
-        p.score = 0;
-        p.items = { x2: 0, shield: 0, steal: 0, freeze: 0 };
-        p.x2Active = false;
-        p.frozen = false;
-        p.frozenBy = '';
-        p.answered = {};
-        p.updatedAt = now;
-      }
-      Sync.pushFeed(room, { type: 'info', text: 'รีเซ็ตคะแนนและเริ่มรอบใหม่แล้ว!' });
-      return room;
+      const base = room || Sync.defaultRoom(roomCode);
+      base.status = 'lobby';
+      base.bonus = null;
+      base.endedAt = null;
+      base.usedBonus = {};
+      base.players = {};
+      base.feed = {};
+      base.hostUpdatedAt = now;
+      base.resetAt = now;
+      return base;
     });
     seenFeedIds.clear();
-    toast('รีเซ็ตคะแนนเริ่มรอบใหม่แล้ว', 'info');
+    lastPodiumShown = false;
+    el.podiumOverlay.classList.add('hidden');
+    if (!silent) toast('เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว 🔄', 'success');
   }
 
-  $('newMatchBtn').addEventListener('click', resetScoresAndRound);
-  el.resetBtn.addEventListener('click', () => {
-    if (confirm('ต้องการรีเซ็ตคะแนนและเริ่มรอบใหม่ในห้องนี้ใช่ไหม?')) resetScoresAndRound();
+  function createNewPinRoom() {
+    SFX.pop();
+    stopSim();
+    let nextPin = String(1000 + rand(9000));
+    while (nextPin === roomCode) nextPin = String(1000 + rand(9000));
+    location.href = `host.html?room=${nextPin}&new=1`;
+  }
+
+  $('newMatchBtn').addEventListener('click', () => clearRoomForNewGame(false));
+  $('newPinBtn').addEventListener('click', createNewPinRoom);
+  $('podiumNewPinBtn').addEventListener('click', createNewPinRoom);
+  el.resetBtn.addEventListener('click', () => clearRoomForNewGame(false));
+
+  // กดปุ่มลัด F เพื่อเข้า/ออกโหมดเต็มจอ
+  document.addEventListener('keydown', e => {
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      toggleFullscreen();
+    }
   });
 
   const BOT_NAMES = ['มินนี่', 'บีมสายฟ้า', 'ข้าวปั้น', 'ต้นกล้า', 'พลอยใส', 'กายซ่า', 'โฟกัส', 'น้ำขิง', 'ปันปัน', 'เจได'];
@@ -607,7 +620,12 @@
 
   (async () => {
     await Sync.connect(roomCode, onRoomUpdate);
-    if (!Sync.room) await Sync.create(roomCode);
+    if (!Sync.room) {
+      await Sync.create(roomCode);
+    } else if (forceNew || Sync.room.status === 'ended') {
+      // หากกดเข้าห้องใหม่จากหน้าแรก หรือห้องเดิมเล่นจบไปแล้ว ให้ล้างห้องเริ่มใหม่ทันที
+      await clearRoomForNewGame(true);
+    }
     refreshIcons();
   })();
 })();

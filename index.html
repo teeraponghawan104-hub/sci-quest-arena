@@ -20,6 +20,10 @@
         <span>🃏</span>
         <span>พิมพ์การ์ด QR (36 ใบ)</span>
       </a>
+      <button type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1" title="เปิดโหมดเต็มจอ">
+        <span data-fs-icon>⛶</span>
+        <span data-fs-text class="hidden sm:inline">เต็มจอ</span>
+      </button>
       <button id="muteBtn" class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1" title="เปิด/ปิดเสียง">
         <span id="muteIcon">🔊</span>
         <span id="muteText" class="hidden sm:inline">เสียง</span>
@@ -137,7 +141,7 @@
       e.preventDefault();
       SFX.pop();
       const raw = document.getElementById('hostRoomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const url = raw ? `host.html?room=${encodeURIComponent(raw)}` : 'host.html';
+      const url = raw ? `host.html?room=${encodeURIComponent(raw)}&new=1` : 'host.html?new=1';
       setTimeout(() => location.href = url, 100);
     });
 

@@ -22,7 +22,12 @@
         <span>หน้าแรก</span>
       </a>
       <span id="loginModeBadge" class="bg-[#25076b] px-2.5 py-1 rounded-[4px] text-[11px] font-extrabold uppercase"></span>
-      <button id="loginMuteBtn" class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm">🔊</button>
+      <div class="flex items-center gap-1.5">
+        <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm" title="เปิดโหมดเต็มจอ">
+          <span data-fs-icon>⛶</span>
+        </button>
+        <button id="loginMuteBtn" class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm">🔊</button>
+      </div>
     </div>
 
     <div class="my-auto py-4">
@@ -86,6 +91,9 @@
           <div class="bg-[#333333] text-white rounded-[4px] px-3 py-1 text-right">
             <div id="hdrScore" class="font-display font-black text-lg leading-tight tabular">0</div>
           </div>
+          <button type="button" data-fullscreen-btn class="w-9 h-9 rounded-[4px] bg-neutral-200 grid place-items-center text-sm font-black" title="เปิดโหมดเต็มจอ">
+            <span data-fs-icon>⛶</span>
+          </button>
           <button id="gameMuteBtn" class="w-9 h-9 rounded-[4px] bg-neutral-200 grid place-items-center text-sm">🔊</button>
         </div>
       </div>
