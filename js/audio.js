@@ -1,27 +1,22 @@
 /* =========================================================
- * Sci-Quest! — ระบบเสียงเกมโชว์ (Kahoot! & TV Variety Style)
- * ---------------------------------------------------------
- * 1) Game Show SFX กวนๆ แบบรายการเกมโชว์ (ไม่ต้องพึ่งเสียงหุ่นยนต์ TTS!):
- *    - Sad Trombone (แต่ว-แต๊ว-แต๋ว-แต๊ววว~) ตอนตอบผิด/โดนขโมยแต้ม
- *    - DJ Airhorn & Brass Hit ตอนได้คะแนนเต็ม/ชนะโบนัส
- *    - Boxing Bell (ระฆังมวย เป๊ง-เป๊ง!) ตอนเริ่มเกม
- *    - Red Alert Siren + Drumroll ตอนครูปล่อยโจทย์โบนัสพิเศษ
- *    - Cartoon Boing & Slide Whistle ตอนโดนไอเทมแกล้ง
- * 2) เพลงประกอบ (BGM) โทน Marimba & Sub-Bass นุ่มๆ สไตล์ Kahoot!
+ * Sci-Quest! — ระบบเสียงเกมโชว์ครบเครื่อง:
+ * 1) เสียงพากย์ธรรมชาติ (Real Neural Thai Voice MP3s ในโฟลเดอร์ audio/vo/*.mp3)
+ *    ใช้เสียงพากย์คู่ ชาย-หญิง (NiwatNeural & PremwadeeNeural) ฟังเป็นธรรมชาติเหมือนคนพากย์จริง 100% ทุกอุปกรณ์!
+ * 2) ซาวด์บอร์ดรายการเกมโชว์ (Sad Trombone, DJ Airhorn, Boxing Bell, Siren, Boing)
+ * 3) เพลงประกอบ (BGM) โทน Marimba & Sub-Bass นุ่มๆ สไตล์ Kahoot!
  *    + เพลงจังหวะเร้าใจตอนปล่อยโจทย์โบนัสพิเศษ
- * 3) แถบข้อความพากย์สนามบนหน้าจอ (ส่วนเสียงพูด TTS ปิดไว้เป็นค่าเริ่มต้น
- *    หากเปิดจะใช้โทนเสียงธรรมชาติ pitch 1.0 พูดเฉพาะคำประกาศสั้นๆ)
  * ========================================================= */
 const SFX = (() => {
   let ctx = null, master = null, bgmGain = null, noiseBuf = null;
   let muted = localStorage.getItem('sqa_muted') === '1';
   let bgmOn = localStorage.getItem('sqa_bgm') !== '0';
-  // ปิดเสียงพูด TTS หุ่นยนต์เป็นค่าเริ่มต้น ใช้เสียงเอฟเฟกต์เกมโชว์กวนๆ แทน!
-  let voiceOn = localStorage.getItem('sqa_voice') === '1';
+  let voiceOn = localStorage.getItem('sqa_voice') !== '0';
   let bgmMode = 'none';
   let bgmTimer = null;
   let bgmStep = 0;
-  let thVoice = null;
+  let currentVo = null;
+  let lastVoAt = 0;
+  const voCache = new Map();
 
   function ac() {
     try {
@@ -31,7 +26,7 @@ const SFX = (() => {
         master.gain.value = 0.55;
         master.connect(ctx.destination);
         bgmGain = ctx.createGain();
-        bgmGain.gain.value = 0.20;
+        bgmGain.gain.value = 0.18;
         bgmGain.connect(ctx.destination);
       }
       if (ctx.state === 'suspended') ctx.resume();
@@ -55,7 +50,6 @@ const SFX = (() => {
     o.frequency.setValueAtTime(f, t);
     if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
 
-    // ลูกคอ Vibrato (เช่น เสียงทรอมโบนแป้ก Wah-Wah-Waaaah)
     if (vib > 0) {
       const lfo = c.createOscillator();
       const lfoG = c.createGain();
@@ -101,63 +95,55 @@ const SFX = (() => {
 
   const seq = (arr, step, o) => arr.forEach((f, i) => f && tone(f, { at: i * step, ...o }));
 
-  /* ---------------- 🎺 เอฟเฟกต์เสียงกวนๆ สไตล์รายการเกมโชว์ ---------------- */
-  // 1. ทรอมโบนแป้ก (Wah-Wah-Wah-Waaaaah~) เวลาตอบผิดหรือโดนแกล้ง
+  /* ---------------- 🎺 เอฟเฟกต์เสียงรายการเกมโชว์ ---------------- */
   function sadTrombone() {
-    tone(293.7, { at: 0.00, dur: .24, type: 'sawtooth', vol: .22, to: 277.2, lp: 950 });
-    tone(277.2, { at: 0.27, dur: .24, type: 'sawtooth', vol: .22, to: 261.6, lp: 950 });
-    tone(261.6, { at: 0.54, dur: .24, type: 'sawtooth', vol: .22, to: 246.9, lp: 950 });
-    tone(246.9, { at: 0.81, dur: .65, type: 'sawtooth', vol: .24, to: 207.7, lp: 850, vib: 8 });
+    tone(293.7, { at: 0.00, dur: .24, type: 'sawtooth', vol: .20, to: 277.2, lp: 950 });
+    tone(277.2, { at: 0.27, dur: .24, type: 'sawtooth', vol: .20, to: 261.6, lp: 950 });
+    tone(261.6, { at: 0.54, dur: .24, type: 'sawtooth', vol: .20, to: 246.9, lp: 950 });
+    tone(246.9, { at: 0.81, dur: .65, type: 'sawtooth', vol: .22, to: 207.7, lp: 850, vib: 8 });
   }
 
-  // 2. แตร DJ Airhorn (ปู๊น! ปู๊น! ปู๊นนนน!) เวลาได้คะแนนเต็มหรือแจกไอเทม
   function airhorn() {
     const blast = (at, dur) => {
-      [480, 720, 1010].forEach(f => tone(f, { at, dur, type: 'sawtooth', vol: .11, to: f * 0.98, lp: 2400 }));
+      [480, 720, 1010].forEach(f => tone(f, { at, dur, type: 'sawtooth', vol: .09, to: f * 0.98, lp: 2400 }));
     };
     blast(0.00, 0.11);
     blast(0.14, 0.11);
-    blast(0.28, 0.42);
+    blast(0.28, 0.40);
   }
 
-  // 3. ระฆังมวยเปิดสนาม (เป๊ง! เป๊ง! เป๊ง!)
   function boxingBell() {
     [0, 0.18].forEach(at => {
-      tone(1318.5, { at, dur: .45, type: 'sine', vol: .25 });
-      tone(2637.0, { at, dur: .25, type: 'triangle', vol: .12 });
-      tone(1975.5, { at, dur: .35, type: 'sine', vol: .10 });
+      tone(1318.5, { at, dur: .42, type: 'sine', vol: .22 });
+      tone(2637.0, { at, dur: .22, type: 'triangle', vol: .11 });
     });
   }
 
-  // 4. ไซเรนโจทย์โบนัสพิเศษ (วี๊-หว่อ + กลองรัว)
   function sirenAlert() {
-    tone(520, { at: 0.00, dur: .22, type: 'triangle', vol: .22, to: 880 });
-    tone(880, { at: 0.22, dur: .22, type: 'triangle', vol: .22, to: 520 });
-    tone(520, { at: 0.44, dur: .22, type: 'triangle', vol: .24, to: 980 });
-    noise({ at: 0.65, dur: .2, vol: .2, freq: 1800 });
+    tone(520, { at: 0.00, dur: .20, type: 'triangle', vol: .20, to: 880 });
+    tone(880, { at: 0.20, dur: .20, type: 'triangle', vol: .20, to: 520 });
+    tone(520, { at: 0.40, dur: .20, type: 'triangle', vol: .22, to: 980 });
   }
 
-  // 5. สปริงเด้งดึ๋งกวนๆ (Boing~) เวลาโดนไวรัสจอตีลังกา
   function boing() {
-    tone(160, { at: 0, dur: .38, type: 'sine', vol: .3, to: 620, vib: 28 });
-    tone(320, { at: .05, dur: .32, type: 'triangle', vol: .15, to: 880, vib: 22 });
+    tone(160, { at: 0, dur: .36, type: 'sine', vol: .26, to: 620, vib: 28 });
+    tone(320, { at: .05, dur: .30, type: 'triangle', vol: .14, to: 880, vib: 22 });
   }
 
-  // 6. นกหวีดร่วง (Slide Whistle ฟิ้ววว~ตุ๊บ!) เวลาโดนขโมยแต้ม
   function slideWhistleDown() {
-    tone(1480, { at: 0, dur: .38, type: 'sine', vol: .24, to: 260 });
-    tone(110, { at: .39, dur: .12, type: 'triangle', vol: .32, to: 55 });
+    tone(1480, { at: 0, dur: .36, type: 'sine', vol: .22, to: 260 });
+    tone(110, { at: .37, dur: .12, type: 'triangle', vol: .28, to: 55 });
   }
 
-  /* ---------------- 🎵 ระบบเพลงประกอบ (Kahoot! Warm Marimba & Bonus Groove) ---------------- */
+  /* ---------------- 🎵 เพลงประกอบ (Warm Marimba & Bonus Action Groove) ---------------- */
   const PATTERNS = {
     play: {
-      interval: 240, // จังหวะ Marimba นุ่มๆ สไตล์ Kahoot Lobby/Gameplay
+      interval: 240,
       bass: [130.8, 0, 196.0, 0, 146.8, 0, 220.0, 0, 164.8, 0, 246.9, 0, 196.0, 0, 146.8, 196.0],
       lead: [523.3, 659.3, 784.0, 0, 587.3, 784.0, 880.0, 0, 659.3, 784.0, 987.8, 0, 784.0, 659.3, 587.3, 0]
     },
     bonus: {
-      interval: 165, // จังหวะเร้าใจเมื่อปล่อยโจทย์โบนัสพิเศษ!
+      interval: 165,
       bass: [164.8, 164.8, 196.0, 164.8, 220.0, 220.0, 246.9, 196.0, 164.8, 164.8, 246.9, 220.0, 293.7, 261.6, 246.9, 196.0],
       lead: [659.3, 784.0, 987.8, 659.3, 880.0, 987.8, 1174.7, 987.8, 1318.5, 1174.7, 987.8, 880.0, 1174.7, 987.8, 784.0, 987.8]
     },
@@ -178,17 +164,16 @@ const SFX = (() => {
     const isBonus = bgmMode === 'bonus';
 
     if (bFreq) {
-      tone(bFreq, { dur: isBonus ? .13 : .20, type: 'triangle', vol: .28, lp: 650, dest: bgmGain });
+      tone(bFreq, { dur: isBonus ? .13 : .20, type: 'triangle', vol: .26, lp: 650, dest: bgmGain });
     }
     if (lFreq) {
-      // ใช้ sine + triangle กรองความถี่สูงออก ให้เสียงเหมือนระนาดไม้ Marimba ของ Kahoot ไม่แหลมบาดหู
-      tone(lFreq, { dur: isBonus ? .11 : .15, type: 'sine', vol: .18, dest: bgmGain });
-      tone(lFreq * 2, { dur: .04, type: 'triangle', vol: .05, dest: bgmGain });
+      tone(lFreq, { dur: isBonus ? .11 : .15, type: 'sine', vol: .17, dest: bgmGain });
+      tone(lFreq * 2, { dur: .04, type: 'triangle', vol: .04, dest: bgmGain });
     }
     if (idx % 4 === 0) {
-      tone(95, { dur: .07, type: 'sine', vol: .30, to: 42, dest: bgmGain });
+      tone(95, { dur: .07, type: 'sine', vol: .28, to: 42, dest: bgmGain });
     } else if (isBonus && idx % 2 === 1) {
-      noise({ dur: .035, vol: .08, freq: 5500, type: 'highpass', dest: bgmGain });
+      noise({ dur: .035, vol: .07, freq: 5500, type: 'highpass', dest: bgmGain });
     }
     bgmStep++;
   }
@@ -208,144 +193,153 @@ const SFX = (() => {
     if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
   }
 
-  /* ---------------- 💬 แถบพากย์สนามกวนๆ + เสียงประกาศสั้นกระชับ ---------------- */
-  function loadThaiVoice() {
-    if (!window.speechSynthesis) return;
-    const voices = speechSynthesis.getVoices();
-    thVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('th') && /natural|premwadee|niwat/i.test(v.name))
-           || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('th'))
-           || null;
-  }
-  if (window.speechSynthesis) {
-    loadThaiVoice();
-    speechSynthesis.onvoiceschanged = loadThaiVoice;
-  }
-
+  /* ---------------- 🎙️ ระบบเล่นไฟล์เสียงพากย์ธรรมชาติ (Neural Thai Voice MP3) ---------------- */
   function showMcBubble(text) {
     let box = document.getElementById('mcAnnouncerBox');
     if (!box) {
       box = document.createElement('div');
       box.id = 'mcAnnouncerBox';
-      box.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:240;max-width:min(90vw,380px);pointer-events:none;';
+      box.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:240;max-width:min(90vw,390px);pointer-events:none;';
       document.body.appendChild(box);
     }
     box.innerHTML = `
       <div class="pop-in bg-[#333333] text-white px-4 py-2.5 rounded-[6px] shadow-[0_5px_0_#000] border-l-8 border-[#ffa602] flex items-center gap-2.5">
-        <span class="text-2xl leading-none wiggle">📢</span>
+        <span class="text-2xl leading-none wiggle">🎙️</span>
         <div class="text-xs sm:text-sm font-bold leading-snug">
-          <div class="text-[10px] font-black uppercase text-[#ffa602] tracking-wider">พากย์สดข้างสนาม</div>
+          <div class="text-[10px] font-black uppercase text-[#ffa602] tracking-wider">พิธีกรพากย์สนาม</div>
           <div>${text}</div>
         </div>
       </div>`;
     clearTimeout(box._t);
-    box._t = setTimeout(() => { box.innerHTML = ''; }, 3800);
+    box._t = setTimeout(() => { box.innerHTML = ''; }, 3900);
   }
 
-  let lastSpeakAt = 0;
-  // หากผู้ใช้กดเปิดปุ่ม 🎙️ เสียงพูด จะอ่านเฉพาะคำประกาศสั้นๆ ด้วยโทนเสียงธรรมชาติ (pitch 1.0, rate 1.0)
-  function speakShort(shortVoiceText, bubbleText, priority = false) {
+  function playVoClip(filename, bubbleText, priority = false) {
     if (bubbleText) showMcBubble(bubbleText);
-    if (muted || !voiceOn || !window.speechSynthesis || !shortVoiceText) return;
+    if (muted || !voiceOn || !filename || typeof Audio === 'undefined') return;
     const now = Date.now();
-    if (!priority && now - lastSpeakAt < 2200) return;
-    lastSpeakAt = now;
+    if (!priority && now - lastVoAt < 1800) return;
+    lastVoAt = now;
+
     try {
-      if (priority) speechSynthesis.cancel();
-      if (!thVoice) loadThaiVoice();
-      const u = new SpeechSynthesisUtterance(shortVoiceText);
-      u.lang = 'th-TH';
-      if (thVoice) u.voice = thVoice;
-      u.rate = 1.0;
-      u.pitch = 1.0;
-      u.volume = 0.95;
-      speechSynthesis.speak(u);
+      if (currentVo) {
+        currentVo.pause();
+        currentVo.currentTime = 0;
+      }
+      let audio = voCache.get(filename);
+      if (!audio) {
+        audio = new Audio(`audio/vo/${filename}`);
+        voCache.set(filename, audio);
+      }
+      audio.currentTime = 0;
+      audio.volume = 0.95;
+      currentVo = audio;
+      // ลดเสียงเพลงประกอบลงชั่วคราวขณะพิธีกรพูด (Audio Ducking)
+      if (bgmGain) bgmGain.gain.value = 0.08;
+      audio.onended = () => { if (bgmGain) bgmGain.gain.value = 0.18; };
+      audio.play().catch(() => { if (bgmGain) bgmGain.gain.value = 0.18; });
     } catch (e) {}
   }
 
   const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  // เล่นเสียงเอฟเฟกต์เกมโชว์กวนๆ + แสดงป้ายพากย์ข้างสนาม
   function announce(kind, d = {}) {
     const A = d.a || 'ผู้เล่น', B = d.b || 'เพื่อน', pts = d.pts || 0;
     switch (kind) {
       case 'start':
         boxingBell();
-        speakShort('เริ่มการแข่งขัน', '🔔 เป๊ง! เป๊ง! เปิดสนามแล้ว สแกนการ์ดลุยกันเลย!', true);
+        playVoClip(
+          pickOne(['start_1.mp3', 'start_2.mp3']),
+          `🔔 เปิดสนามแล้ว! สแกนการ์ดแล้วลุยกันเลย!`,
+          true
+        );
         break;
       case 'pause':
-        tone(440, { dur: .18, type: 'triangle', vol: .2, to: 220 });
-        speakShort('หยุดเกมชั่วคราว', '⏸️ เบรกเกมชั่วคราว หันมาฟังครูก่อนนะ!', true);
+        playVoClip('pause.mp3', '⏸️ เบรกเกมชั่วคราว วางมือถือแล้วหันมาฟังครูก่อนนะ!', true);
         break;
       case 'bonus':
         sirenAlert();
-        speakShort('คำถามโบนัสพิเศษ', '🚨 ประกาศด่วน! โจทย์โบนัสพิเศษมาแล้ว รีบตอบชิงกล่องสุ่ม!', true);
+        playVoClip(
+          pickOne(['bonus_1.mp3', 'bonus_2.mp3']),
+          '🚨 โจทย์โบนัสพิเศษจากครูมาแล้ว! รีบตอบชิงกล่องสุ่มไอเทม!',
+          true
+        );
         break;
       case 'giftAll':
         airhorn();
-        speakShort('แจกไอเทมพิเศษทุกคน', '🎁 ครูแจกไอเทมสุ่มให้ทุกคนในห้องแล้ว เตรียมรับความชุลมุน!', true);
+        playVoClip('gift_all.mp3', '🎁 ครูใจป้ำแจกไอเทมสุ่มให้ทุกคนแล้ว เตรียมรับความชุลมุน!', true);
         break;
       case 'join':
-        showMcBubble(pickOne([
-          `👋 ${A} ก้าวเข้าสู่สนามแล้ว พร้อมบวก!`,
-          `🔥 ${A} มาแล้ว! เพื่อนๆ ระวังแต้มไว้ให้ดี!`
-        ]));
+        playVoClip(
+          pickOne(['join_1.mp3', 'join_2.mp3']),
+          `👋 ${A} ก้าวเข้าสู่สนามแล้ว เพื่อนๆ ระวังคะแนนไว้ให้ดี!`
+        );
         break;
       case 'score':
-        if (d.doubled || pts >= 280) {
+        if (d.doubled) {
           airhorn();
-          speakShort(`${A} ได้ ${pts} คะแนน`, `🎺 ปู๊นนน! ${A} ฟาดไปรวดเดียว +${pts} แต้ม!`);
+          playVoClip('x2_score.mp3', `⚡ คูณสองทำงาน! ${A} ฟาดไปรวดเดียว +${pts} แต้ม!`, true);
+        } else if (pts >= 280) {
+          airhorn();
+          playVoClip('big_score.mp3', `🔥 โกยแต้มก้อนใหญ่! ${A} เก็บไป +${pts} แต้ม!`);
         } else {
           showMcBubble(`✨ ${A} เก็บเพิ่มไป +${pts} แต้ม!`);
         }
         break;
       case 'gradePerfect':
         airhorn();
-        speakShort('ถูกต้อง คะแนนเต็ม', pickOne([
-          '🎺 ปู๊นนน! แม่นเหมือนจับวาง รับไปเลยเต็ม 100%!',
-          '🔥 ความรู้แน่นปึ้ก! จัดไปคะแนนเต็ม!'
-        ]), true);
+        playVoClip(
+          pickOne(['perfect_1.mp3', 'perfect_2.mp3']),
+          '🎯 แม่นเหมือนจับวาง! รับไปเลยคะแนนเต็ม 100%!',
+          true
+        );
         break;
       case 'gradeClose':
-        speakShort('ใกล้เคียงมาก', '👍 เกือบเป๊ะแล้ว! รับไป 70% สวยๆ!', true);
+        playVoClip('close_1.mp3', '👍 เกือบเป๊ะแล้วครับ! จัดไป 70% สวยงาม!', true);
         break;
       case 'gradePartial':
-        speakShort('พอใช้ได้', '🙂 พอมีเค้าโครง! เอาแต้มไป 40%!', true);
+        playVoClip('partial_1.mp3', '🙂 พอมีเค้าโครงอยู่ค่ะ! เอาแต้มสะสมไป 40% นะคะ', true);
         break;
       case 'gradeMiss':
         sadTrombone();
-        speakShort('ลองใหม่อีกครั้ง', pickOne([
-          '🎺 แต่ว-แต๊ว-แต๋ว-แต๊ววว~ ยังไม่ตรงประเด็น ลองเติมคำสำคัญอีกนิด!',
-          '😅 เกือบแล้ว... เกือบออกทะเลแล้ว! ดูคำใบ้แล้วลองส่งใหม่เลย!'
-        ]), true);
+        playVoClip(
+          pickOne(['miss_1.mp3', 'miss_2.mp3']),
+          '🎺 ยังไม่ตรงประเด็น! ลองอ่านคำใบ้แล้วส่งใหม่อีกรอบ!',
+          true
+        );
         break;
       case 'steal':
         slideWhistleDown();
-        speakShort(`${A} ขโมยคะแนน`, `💸 ฟิ้ววว~ ${A} ฉกแต้มของ ${B} ไปหน้าตาเฉย ${pts} แต้ม!`, true);
+        playVoClip(
+          pickOne(['steal_1.mp3', 'steal_2.mp3']),
+          `💸 แสบมาก! ${A} แอบฉกคะแนนของ ${B} ไป ${pts} แต้ม!`,
+          true
+        );
         break;
       case 'freeze':
-        speakShort(`${B} ถูกแช่แข็ง`, `❄️ ${A} ส่งพายุน้ำแข็งแช่แข็งหน้าจอของ ${B} แล้ว! รีบทุบด่วน!`, true);
+        playVoClip('freeze_1.mp3', `❄️ พายุน้ำแข็งทำงาน! ${A} แช่แข็งหน้าจอของ ${B} แล้ว!`, true);
         break;
       case 'blind':
-        speakShort('ระเบิดหมอกทำงาน', `💨 ${A} ปาระเบิดหมอกบังจอของ ${B} มืดตึ๊ดตื๋อ!`, true);
+        playVoClip('blind_1.mp3', `💨 ระเบิดหมอกทำงาน! ${A} พ่นหมอกบังจอของ ${B} มืดตึ๊ดตื๋อ!`, true);
         break;
       case 'flip':
         boing();
-        speakShort('ไวรัสจอตีลังกา', `🙃 ดึ๋งงง! ${A} เสกหน้าจอของ ${B} ตีลังกากลับหัว 180 องศา!`, true);
+        playVoClip('flip_1.mp3', `🙃 โดนไวรัสจอตีลังกา! ${A} เสกหน้าจอของ ${B} กลับหัว 180°!`, true);
         break;
       case 'zap':
-        speakShort('สายฟ้าฟาด', `🌩️ เปรี้ยง! ${A} ผ่าสายฟ้าใส่ ${B} แต้มหายไป ${pts} คะแนน!`, true);
+        playVoClip('zap_1.mp3', `🌩️ เปรี้ยง! ${A} ผ่าสายฟ้าใส่ ${B} แต้มปลิวหายไป ${pts} คะแนน!`, true);
         break;
       case 'boost':
-        speakShort('น้ำยาวิทย์ทำงาน', `🧪 หวานเจี๊ยบ! ${A} ดื่มน้ำยาวิทย์ บวกฟรี +${pts} แต้ม & ส่องคำใบ้!`, true);
+        playVoClip('boost_1.mp3', `🧪 ${A} ดื่มน้ำยาวิทย์! รับโบนัส +${pts} แต้ม แถมส่องคำใบ้ฟรี!`, true);
         break;
       case 'block':
-        speakShort('โล่ป้องกันทำงาน', `🛡️ เป๊ง! ${B} กางโล่สะท้อนท่าป่วนของ ${A} ได้แบบหล่อๆ!`, true);
+        playVoClip('block_1.mp3', `🛡️ ทำอะไรไม่ได้! ${B} มีโล่ป้องกัน สะท้อนท่าป่วนของ ${A} ได้แบบหล่อๆ!`, true);
         break;
       case 'podium':
         airhorn();
-        speakShort(
-          d.winner ? `ผู้ชนะคือ ${d.winner}` : 'จบการแข่งขัน',
-          d.winner ? `🏆 แชมป์อันดับ 1 ได้แก่ "${d.winner}" (${d.score} แต้ม) ขอเสียงปรบมือ!` : '🏆 จบการแข่งขัน! มาดูโฉมหน้าผู้ชนะบนโพเดียม!',
+        playVoClip(
+          'podium_1.mp3',
+          d.winner ? `🏆 แชมป์อันดับ 1 ได้แก่ "${d.winner}" (${d.score} แต้ม) ขอเสียงปรบมือ!` : '🏆 จบการแข่งขัน! ขอแสดงความยินดีกับแชมป์บนโพเดียม!',
           true
         );
         break;
@@ -388,7 +382,7 @@ const SFX = (() => {
 
     startBgm,
     stopBgm,
-    speak: speakShort,
+    speak: playVoClip,
     announce,
 
     get muted() { return muted; },
@@ -398,9 +392,9 @@ const SFX = (() => {
     toggleMute() {
       muted = !muted;
       localStorage.setItem('sqa_muted', muted ? '1' : '0');
-      if (muted) {
-        if (window.speechSynthesis) speechSynthesis.cancel();
-      } else {
+      if (muted && currentVo) {
+        currentVo.pause();
+      } else if (!muted) {
         this.click();
       }
       return muted;
@@ -415,8 +409,8 @@ const SFX = (() => {
     toggleVoice() {
       voiceOn = !voiceOn;
       localStorage.setItem('sqa_voice', voiceOn ? '1' : '0');
-      if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
-      else if (voiceOn) speakShort('เปิดเสียงผู้ประกาศ', '🎙️ เปิดเสียงพูดผู้ประกาศแล้ว', true);
+      if (!voiceOn && currentVo) currentVo.pause();
+      else if (voiceOn) playVoClip('voice_on.mp3', '🎙️ เปิดเสียงพากย์พิธีกรสนามแล้วค่ะ!', true);
       return voiceOn;
     }
   };

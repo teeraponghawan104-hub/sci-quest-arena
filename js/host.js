@@ -533,7 +533,7 @@
       base.players = {};
       base.feed = {};
       base.hostUpdatedAt = now;
-      base.resetAt = now;
+      base.roundId = (base.roundId || 1) + 1;
       return base;
     });
     seenFeedIds.clear();
@@ -676,7 +676,11 @@
   (async () => {
     await Sync.connect(roomCode, onRoomUpdate);
     if (!Sync.room) {
-      await Sync.create(roomCode);
+      await Sync.transact(r => {
+        const base = r || Sync.defaultRoom(roomCode);
+        base.hostUpdatedAt = Date.now();
+        return base;
+      });
     } else if (forceNew || Sync.room.status === 'ended') {
       // หากกดเข้าห้องใหม่จากหน้าแรก หรือห้องเดิมเล่นจบไปแล้ว ให้ล้างห้องเริ่มใหม่ทันที
       await clearRoomForNewGame(true);

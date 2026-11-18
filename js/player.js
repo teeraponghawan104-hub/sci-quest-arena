@@ -184,12 +184,13 @@
     try {
       const ok = await Sync.exists(initRoom);
       if (!ok) return;
-      myId = savedId;
       roomCode = initRoom;
       await Sync.connect(roomCode, onRoomUpdate);
       // หากเกมในห้องเดิมจบไปแล้ว หรือผู้เล่นถูกล้างออกแล้ว ให้กลับไปหน้าล็อกอินใหม่ทันที ไม่ค้างหน้าเดิม
-      if (Sync.room && Sync.room.status !== 'ended' && Sync.room.players[myId]) {
+      if (Sync.room && Sync.room.status !== 'ended' && Sync.room.players[savedId]) {
+        myId = savedId;
         showView('game');
+        onRoomUpdate(Sync.room);
       } else {
         leaveRoomToLogin();
       }
@@ -221,28 +222,32 @@
       }
 
       roomCode = code;
-      myId = 'p_' + uid();
+      myId = null; // ยังไม่ตั้ง myId จนกว่าจะเพิ่มผู้เล่นเข้าห้องเสร็จ เพื่อไม่ให้ onRoomUpdate เตะออกระหว่าง connect
+      const newId = 'p_' + uid();
       await Sync.connect(code, onRoomUpdate);
       await Sync.transact(room => {
-        if (!room) return;
+        const base = room || Sync.defaultRoom(code);
         // หากห้องเดิมค้างสถานะ ended อยู่ ให้ล้างห้องเป็น lobby อัตโนมัติเมื่อมีผู้เล่นใหม่เข้า
-        if (room.status === 'ended') {
-          const now = Date.now();
-          room.status = 'lobby';
-          room.bonus = null;
-          room.endedAt = null;
-          room.usedBonus = {};
-          room.players = {};
-          room.feed = {};
-          room.resetAt = now;
+        if (base.status === 'ended') {
+          base.status = 'lobby';
+          base.bonus = null;
+          base.endedAt = null;
+          base.usedBonus = {};
+          base.players = {};
+          base.feed = {};
+          base.roundId = (base.roundId || 1) + 1;
         }
-        room.players[myId] = Game.newPlayer(myId, name, selectedAv, false);
-        Sync.pushFeed(room, { type: 'join', a: name, ai: myId, av: selectedAv });
-        return room;
+        const p = Game.newPlayer(newId, name, selectedAv, false);
+        p.roundId = base.roundId || 1;
+        base.players[newId] = p;
+        Sync.pushFeed(base, { type: 'join', a: name, ai: newId, av: selectedAv });
+        return base;
       });
+      myId = newId;
       sessionStorage.setItem('sqa_pid_' + code, myId);
       SFX.join();
       showView('game');
+      onRoomUpdate(Sync.room);
     } catch (err) {
       SFX.wrong();
       toast('เชื่อมต่อห้องไม่สำเร็จ กรุณาลองใหม่', 'error');

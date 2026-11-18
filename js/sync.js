@@ -2,7 +2,7 @@
  * Sci-Quest! — Realtime Sync Layer
  * ---------------------------------------------------------
  * รองรับ 4 โหมด:
- *   'cloud'    = Zero-Config Cloud Realtime (MQTT over WSS Retained + CRDT-style Merge + Local)
+ *   'cloud'    = Zero-Config Cloud Realtime (MQTT over WSS Retained + Logical Round Merge + Local)
  *                เล่นข้ามอุปกรณ์ (คอมครู + มือถือเด็กสแกน QR บน Vercel) ได้ทันทีโดยไม่ต้องตั้งค่า DB!
  *   'local'    = โหมดจำลองในเครื่องเดียว (localStorage + BroadcastChannel)
  *   'firebase' = Firebase Realtime Database
@@ -16,7 +16,7 @@ const Sync = (() => {
   function defaultRoom(c) {
     const now = Date.now();
     return {
-      code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, resetAt: 0,
+      code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
       players: {}, feed: {}, bonus: null, usedBonus: {}
     };
   }
@@ -27,7 +27,7 @@ const Sync = (() => {
     r.feed = r.feed || {};
     r.usedBonus = r.usedBonus || {};
     r.hostUpdatedAt = r.hostUpdatedAt || 0;
-    r.resetAt = r.resetAt || 0;
+    r.roundId = r.roundId || 1;
     if (r.bonus) r.bonus.answered = r.bonus.answered || {};
     else r.bonus = null;
     for (const p of Object.values(r.players)) {
@@ -35,35 +35,53 @@ const Sync = (() => {
       p.answered = p.answered || {};
       p.score = p.score || 0;
       p.updatedAt = p.updatedAt || p.joinedAt || 0;
+      p.roundId = p.roundId ?? r.roundId;
     }
     return r;
   }
 
   const clean = o => JSON.parse(JSON.stringify(o));
 
-  /* ผสานสถานะห้องจากหลายอุปกรณ์โดยไม่ให้ข้อมูลผู้เล่นหรือคะแนนทับกันหาย และเคารพการล้างห้อง (resetAt) */
+  /* ผสานสถานะห้องจากหลายอุปกรณ์โดยใช้ Logical roundId (ป้องกันปัญหานาฬิกามือถือกับคอมเวลาไม่ตรงกัน!) */
   function mergeRooms(a, b) {
     a = normalize(a); b = normalize(b);
     if (!a) return b;
     if (!b) return a;
 
-    const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
-    // หากฝั่งใดมี resetAt เก่ากว่า ให้ล้างข้อมูลที่เกิดก่อน resetAt ออกก่อนนำมาผสาน
-    const stripOld = r => {
-      if (!resetAt || (r.resetAt || 0) >= resetAt) return r;
+    const roundId = Math.max(a.roundId || 1, b.roundId || 1);
+
+    // หากฝั่งใดยังไม่ได้ซิงก์กับ Host (hostUpdatedAt === 0) ให้ปรับผู้เล่นที่เพิ่งเข้ามาให้ใช้ roundId ปัจจุบันของห้อง
+    const adoptOrStrip = r => {
       const copy = clean(r);
-      copy.usedBonus = {};
-      for (const [pid, p] of Object.entries(copy.players || {})) {
-        if ((p.updatedAt || p.joinedAt || 0) < resetAt) delete copy.players[pid];
+      const isUnsyncedClient = (copy.hostUpdatedAt || 0) === 0;
+      const rRound = copy.roundId || 1;
+      if (rRound < roundId && !isUnsyncedClient) {
+        copy.usedBonus = {};
+        copy.players = {};
+        copy.feed = {};
+        copy.bonus = null;
+      } else {
+        for (const [pid, p] of Object.entries(copy.players || {})) {
+          if (isUnsyncedClient || !p.roundId) {
+            p.roundId = roundId;
+          } else if (p.roundId < roundId) {
+            delete copy.players[pid];
+          }
+        }
+        for (const [fid, f] of Object.entries(copy.feed || {})) {
+          if (isUnsyncedClient || !f.roundId) {
+            f.roundId = roundId;
+          } else if (f.roundId < roundId) {
+            delete copy.feed[fid];
+          }
+        }
       }
-      for (const [fid, f] of Object.entries(copy.feed || {})) {
-        if ((f.t || 0) < resetAt) delete copy.feed[fid];
-      }
-      if (copy.bonus && (copy.bonus.startedAt || 0) < resetAt) copy.bonus = null;
+      copy.roundId = roundId;
       return copy;
     };
-    a = stripOld(a);
-    b = stripOld(b);
+
+    a = adoptOrStrip(a);
+    b = adoptOrStrip(b);
 
     const hostNewerB = (b.hostUpdatedAt || 0) >= (a.hostUpdatedAt || 0);
     const primary = hostNewerB ? b : a;
@@ -72,7 +90,7 @@ const Sync = (() => {
       status: primary.status || 'lobby',
       createdAt: Math.min(a.createdAt || Date.now(), b.createdAt || Date.now()),
       hostUpdatedAt: Math.max(a.hostUpdatedAt || 0, b.hostUpdatedAt || 0),
-      resetAt,
+      roundId,
       endedAt: primary.status === 'ended' ? (primary.endedAt || a.endedAt || b.endedAt || null) : null,
       usedBonus: Object.assign({}, a.usedBonus || {}, b.usedBonus || {}),
       bonus: primary.bonus ? clean(primary.bonus) : null,
@@ -80,27 +98,25 @@ const Sync = (() => {
       feed: {}
     };
 
-    // รวมผู้ตอบคำถามโบนัสเดียวกันจากทุกเครื่อง
     if (out.bonus && a.bonus && b.bonus && a.bonus.id === b.bonus.id) {
       out.bonus.answered = Object.assign({}, a.bonus.answered || {}, b.bonus.answered || {});
     }
 
-    // รวมผู้เล่นทุกคนที่อัปเดตหลัง resetAt โดยเลือกสถานะที่มี updatedAt ล่าสุดของผู้เล่นคนนั้น
     const allPids = new Set([...Object.keys(a.players || {}), ...Object.keys(b.players || {})]);
     for (const pid of allPids) {
       const pa = a.players[pid], pb = b.players[pid];
       const chosen = (pa && pb)
         ? ((pb.updatedAt || 0) >= (pa.updatedAt || 0) ? pb : pa)
         : (pa || pb);
-      if (chosen && (chosen.updatedAt || chosen.joinedAt || 0) >= resetAt) {
+      if (chosen && (chosen.roundId || roundId) >= roundId) {
         out.players[pid] = clean(chosen);
+        out.players[pid].roundId = roundId;
       }
     }
 
-    // รวม Live Feed ล่าสุด 40 รายการที่เกิดหลัง resetAt
     const allFeed = Object.assign({}, a.feed || {}, b.feed || {});
     for (const [fid, f] of Object.entries(allFeed)) {
-      if ((f.t || 0) < resetAt) delete allFeed[fid];
+      if ((f.roundId || roundId) < roundId) delete allFeed[fid];
     }
     const fKeys = Object.keys(allFeed).sort((x, y) => (allFeed[x].t || 0) - (allFeed[y].t || 0));
     while (fKeys.length > 40) delete allFeed[fKeys.shift()];
@@ -179,7 +195,7 @@ const Sync = (() => {
       await new Promise(resolve => {
         let settled = false;
         const done = () => { if (!settled) { settled = true; resolve(); } };
-        const timer = setTimeout(done, 1600);
+        const timer = setTimeout(done, 1500);
 
         try {
           this.client = window.mqtt.connect(brokers[0], {
@@ -192,7 +208,6 @@ const Sync = (() => {
           this.client.on('connect', () => {
             this.client.subscribe([tState, tPing], { qos: 0 }, () => {
               this.client.publish(tPing, '1', { qos: 0 });
-              // หากเครื่องนี้มีข้อมูลห้องอยู่แล้ว ให้ประกาศ state ล่าสุดขึ้น Cloud ด้วย
               if (this.cur) this.publishState(this.cur);
             });
           });
@@ -231,16 +246,14 @@ const Sync = (() => {
         this.client.publish(this.topicState(r.code || code), JSON.stringify(clean(r)), { qos: 0, retain: true });
       } catch (e) {}
     },
-    async exists(c) {
-      if (this.readLocal(c)) return true;
-      // ในโหมด Cloud อนุญาตให้เข้าห้องตามรหัส PIN ได้เสมอ (ซิงก์ state จาก Cloud ทันทีเมื่อ connect)
+    async exists() {
       return true;
     },
     async transact(fn, allowCreate) {
       const loc = normalize(this.readLocal());
       if (loc) this.cur = mergeRooms(this.cur, loc);
       if (!this.cur && !allowCreate) this.cur = defaultRoom(code);
-      const base = this.cur ? clean(this.cur) : null;
+      const base = this.cur ? clean(this.cur) : defaultRoom(code);
       const next = fn(base);
       if (next === undefined) return this.cur;
       this.cur = normalize(clean(next));
@@ -376,7 +389,7 @@ const Sync = (() => {
     mergeRooms,
     pushFeed(room, e) {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      room.feed[id] = Object.assign({ id, t: Date.now() }, e);
+      room.feed[id] = Object.assign({ id, t: Date.now(), roundId: room.roundId || 1 }, e);
       const keys = Object.keys(room.feed).sort((a, b) => room.feed[a].t - room.feed[b].t);
       while (keys.length > 40) delete room.feed[keys.shift()];
     }
