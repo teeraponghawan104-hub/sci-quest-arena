@@ -81,6 +81,14 @@
     frozenByText: $('frozenByText'),
     smashIceBtn: $('smashIceBtn'),
     iceLeftText: $('iceLeftText'),
+    blindOverlay: $('blindOverlay'),
+    blindedByText: $('blindedByText'),
+    wipeBlindBtn: $('wipeBlindBtn'),
+    blindLeftText: $('blindLeftText'),
+    flipOverlay: $('flipOverlay'),
+    flippedByText: $('flippedByText'),
+    repairFlipBtn: $('repairFlipBtn'),
+    flipLeftText: $('flipLeftText'),
     stateOverlay: $('stateOverlay'),
     stateIcon: $('stateIcon'),
     stateTitle: $('stateTitle'),
@@ -95,9 +103,15 @@
     const ic = SFX.muted ? '🔇' : '🔊';
     el.loginMuteBtn.textContent = ic;
     el.gameMuteBtn.textContent = ic;
+    const bBtn = $('gameBgmBtn');
+    const vBtn = $('gameVoiceBtn');
+    if (bBtn) bBtn.style.opacity = SFX.bgmOn && !SFX.muted ? '1' : '0.45';
+    if (vBtn) vBtn.style.opacity = SFX.voiceOn && !SFX.muted ? '1' : '0.45';
   }
   syncMute();
   [el.loginMuteBtn, el.gameMuteBtn].forEach(b => b.addEventListener('click', () => { SFX.toggleMute(); syncMute(); }));
+  $('gameBgmBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleBgm(); syncMute(); });
+  $('gameVoiceBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleVoice(); syncMute(); });
 
   let selectedAv = rand(AVATARS.length);
   function renderAvatarPicker() {
@@ -119,8 +133,13 @@
   let myId = null;
   let prevScore = null;
   let prevShields = null;
+  let prevZappedAt = 0;
   let wasFrozen = false;
   let iceHits = 0;
+  let wasBlinded = false;
+  let blindWipes = 0;
+  let wasFlipped = false;
+  let flipRepairs = 0;
   let currentQ = null;
   let activeBonusId = null;
   let mysteryItemPending = null;
@@ -134,15 +153,22 @@
 
   function leaveRoomToLogin(notice = '') {
     stopScanner();
+    SFX.stopBgm();
     if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
     Sync.disconnect();
     myId = null;
     prevScore = null;
     prevShields = null;
+    prevZappedAt = 0;
     wasFrozen = false;
+    wasBlinded = false;
+    wasFlipped = false;
     currentQ = null;
     activeBonusId = null;
     el.iceOverlay.classList.add('hidden');
+    el.blindOverlay.classList.add('hidden');
+    el.flipOverlay.classList.add('hidden');
+    el.gameView.classList.remove('flipped-screen');
     el.bonusOverlay.classList.add('hidden');
     el.stateOverlay.classList.add('hidden');
     el.questionPanel.classList.add('hidden');
@@ -385,6 +411,7 @@
 
     if (res.multiplier === 0) {
       SFX.wrong();
+      SFX.announce('gradeMiss');
       bump(el.gradeResult, 'shake');
       el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#e21b3c] text-white font-extrabold';
       el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองเพิ่มคำสำคัญแล้วส่งใหม่ได้เลย!';
@@ -407,8 +434,9 @@
 
     const pts = applied ? applied.pts : Math.round(COLORS[currentQ.color].points * res.multiplier);
     const doubled = applied ? applied.doubled : false;
-    if (res.accuracy >= 80) SFX.correct();
-    else SFX.partial();
+    if (res.accuracy >= 80) { SFX.correct(); SFX.announce('gradePerfect'); }
+    else if (res.accuracy >= 50) { SFX.partial(); SFX.announce('gradeClose'); }
+    else { SFX.partial(); SFX.announce('gradePartial'); }
 
     el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#26890c] text-white font-extrabold flex items-center justify-between';
     el.gradeOutcomeBox.innerHTML = `
@@ -514,12 +542,12 @@
       const count = (me.items && me.items[k]) || 0;
       const isX2On = k === 'x2' && me.x2Active;
       return `
-        <button data-item="${k}" class="item-btn relative py-2.5 px-1 flex flex-col items-center justify-center text-white ${count === 0 && !isX2On ? 'empty' : ''}"
-          style="background:${it.color};box-shadow:0 4px 0 ${it.dark}">
-          <span class="absolute top-1 left-1.5 text-[10px] font-black opacity-60">${it.shape}</span>
+        <button data-item="${k}" class="item-btn relative py-1.5 px-1 flex flex-col items-center justify-center text-white ${count === 0 && !isX2On ? 'empty' : ''}"
+          style="background:${it.color};box-shadow:0 3px 0 ${it.dark}">
+          <span class="absolute top-0.5 left-1 text-[9px] font-black opacity-60">${it.shape}</span>
           ${count > 0 ? `<span class="item-badge">${count}</span>` : ''}
-          <span class="text-2xl leading-none mb-0.5">${it.emoji}</span>
-          <span class="text-[11px] font-display font-extrabold leading-tight">${isX2On ? 'x2 เปิดอยู่!' : it.name}</span>
+          <span class="text-xl leading-none mb-0.5">${it.emoji}</span>
+          <span class="text-[10px] font-display font-extrabold leading-tight truncate max-w-full">${isX2On ? 'x2 เปิดอยู่!' : it.name}</span>
         </button>`;
     }).join('');
 
@@ -536,7 +564,7 @@
 
     if (kind === 'shield') {
       SFX.click();
-      toast(count > 0 ? `🛡️ มีโล่ ${count} อัน — ป้องกันอัตโนมัติเมื่อโดนเพื่อนแกล้ง!` : 'ยังไม่มีโล่ป้องกัน (หาได้จากโบนัสหรือการ์ดแดง)', 'info');
+      toast(count > 0 ? `🛡️ มีโล่ ${count} อัน — ป้องกันการโจมตีทุกชนิดอัตโนมัติ!` : 'ยังไม่มีโล่ป้องกัน (หาได้จากโบนัสหรือการ์ดแดง)', 'info');
       return;
     }
     if (count <= 0) {
@@ -557,6 +585,23 @@
       return;
     }
 
+    if (kind === 'boost') {
+      let res = null;
+      await Sync.transact(r => { res = Game.useBoost(r, myId); return r; });
+      if (!res) return;
+      SFX.potion();
+      SFX.announce('boost', { a: me.name, pts: res.pts });
+      if (currentQ && !el.questionPanel.classList.contains('hidden')) {
+        const kwHints = currentQ.kw.slice(0, 2).map(g => `"${g[0]}"`).join(', ');
+        el.hintBox.classList.remove('hidden');
+        el.hintBox.innerHTML = `🧪 <b>น้ำยาวิทย์ส่องพบคำสำคัญฟรี:</b> ลองใส่คำว่า <b>${esc(kwHints)}</b> ในคำตอบของคุณได้เลย!`;
+        toast(`🧪 ดื่มน้ำยาวิทย์! รับ +${res.pts} แต้ม & เปิดคำใบ้แล้ว!`, 'success', 3200);
+      } else {
+        toast(`🧪 ดื่มน้ำยาวิทย์! รับฟรี +${res.pts} แต้มทันที!`, 'success');
+      }
+      return;
+    }
+
     const others = Game.ranking(room).filter(p => p.id !== myId);
     if (!others.length) {
       SFX.wrong();
@@ -564,36 +609,52 @@
       return;
     }
     SFX.pop();
-    el.targetModalTitle.textContent = `${ITEMS[kind].emoji} เลือกเพื่อนที่จะ${ITEMS[kind].name}`;
+    el.targetModalTitle.textContent = `${ITEMS[kind].emoji} เลือกเพื่อนที่จะใช้ "${ITEMS[kind].name}"`;
     el.targetModalDesc.textContent = ITEMS[kind].desc;
-    el.targetList.innerHTML = others.map(t => `
+    el.targetList.innerHTML = others.map((t, idx) => `
       <button data-target="${t.id}" class="w-full p-2.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 hover:border-[#333] transition flex items-center justify-between gap-2 text-left">
         <div class="flex items-center gap-2.5 min-w-0">
           ${avatarHtml(t.avatar, 40)}
           <div class="min-w-0">
-            <div class="font-display font-extrabold text-[#333] truncate">${esc(t.name)}</div>
-            <div class="text-xs font-bold text-neutral-500">${t.score.toLocaleString()} แต้ม ${t.frozen ? '• ❄️ แช่แข็งอยู่' : ''}</div>
+            <div class="font-display font-extrabold text-[#333] truncate">${idx === 0 ? '👑 ' : ''}${esc(t.name)}</div>
+            <div class="text-xs font-bold text-neutral-500">${t.score.toLocaleString()} แต้ม ${t.frozen ? '• ❄️' : ''} ${t.blinded ? '• 💨' : ''} ${t.flipped ? '• 🙃' : ''}</div>
           </div>
         </div>
-        <span class="btn-3d k-btn-red px-3 py-1.5 text-xs shrink-0">เลือก!</span>
+        <span class="btn-3d k-btn-red px-3 py-1.5 text-xs shrink-0">โจมตี!</span>
       </button>`).join('');
 
     el.targetList.querySelectorAll('[data-target]').forEach(b => {
       b.addEventListener('click', async () => {
         const tid = b.dataset.target;
+        const targetName = (room.players[tid] && room.players[tid].name) || 'เพื่อน';
         el.targetModal.classList.add('hidden');
         let res = null;
         await Sync.transact(r => { res = Game.applyAttack(r, myId, tid, kind); return r; });
         if (!res) return;
         if (res.result === 'blocked') {
           SFX.block();
+          SFX.announce('block', { a: me.name, b: targetName });
           toast('🛡️ เพื่อนมีโล่ป้องกัน! การโจมตีถูกสกัดไว้ได้', 'warn');
         } else if (res.result === 'steal') {
           SFX.whoosh();
+          SFX.announce('steal', { a: me.name, b: targetName, pts: res.amt });
           toast(`💰 ขโมยมาได้ +${res.amt} แต้ม!`, 'success');
+        } else if (res.result === 'zap') {
+          SFX.zap();
+          SFX.announce('zap', { a: me.name, b: targetName, pts: res.amt });
+          toast(`🌩️ สายฟ้าฟาด! ลดแต้มเพื่อน -${res.amt} และเราได้ +${res.bonus} แต้ม!`, 'success');
+        } else if (res.result === 'blind') {
+          SFX.splat();
+          SFX.announce('blind', { a: me.name, b: targetName });
+          toast(`💨 ปาระเบิดหมอกควันบังจอ ${targetName} แล้ว!`, 'info');
+        } else if (res.result === 'flip') {
+          SFX.dizzy();
+          SFX.announce('flip', { a: me.name, b: targetName });
+          toast(`🙃 ส่งไวรัสจอตีลังกา 180° ใส่ ${targetName} แล้ว!`, 'warn');
         } else {
           SFX.whoosh();
-          toast('❄️ ส่งพายุน้ำแข็งแช่แข็งหน้าจอเพื่อนแล้ว!', 'ice');
+          SFX.announce('freeze', { a: me.name, b: targetName });
+          toast(`❄️ ส่งพายุน้ำแข็งแช่แข็งหน้าจอ ${targetName} แล้ว!`, 'ice');
         }
       });
     });
@@ -621,6 +682,48 @@
         el.iceOverlay.classList.remove('shatter-out');
         wasFrozen = false;
       }, 320);
+    }
+  });
+
+  // เช็ดระเบิดหมอกควัน (6 ครั้ง)
+  el.wipeBlindBtn.addEventListener('click', async () => {
+    if (!wasBlinded) return;
+    blindWipes++;
+    const cloud = $('smokeCloud' + Math.min(6, blindWipes));
+    if (cloud) { cloud.style.opacity = '0'; cloud.style.transform = 'scale(1.5)'; }
+    const left = Math.max(0, Game.cfg.blindWipes - blindWipes);
+    el.blindLeftText.textContent = String(left);
+    SFX.click();
+    bump(el.wipeBlindBtn, 'shake');
+
+    if (blindWipes >= Game.cfg.blindWipes) {
+      SFX.correct();
+      el.blindOverlay.classList.add('shatter-out');
+      await Sync.transact(r => { Game.unblind(r, myId); return r; });
+      setTimeout(() => {
+        el.blindOverlay.classList.add('hidden');
+        el.blindOverlay.classList.remove('shatter-out');
+        wasBlinded = false;
+      }, 300);
+    }
+  });
+
+  // ซ่อมหน้าจอตีลังกา 180° (4 ครั้ง)
+  el.repairFlipBtn.addEventListener('click', async () => {
+    if (!wasFlipped) return;
+    flipRepairs++;
+    const left = Math.max(0, Game.cfg.flipRepairs - flipRepairs);
+    el.flipLeftText.textContent = String(left);
+    SFX.click();
+    bump(el.repairFlipBtn, 'shake');
+
+    if (flipRepairs >= Game.cfg.flipRepairs) {
+      SFX.correct();
+      await Sync.transact(r => { Game.unflip(r, myId); return r; });
+      wasFlipped = false;
+      el.gameView.classList.remove('flipped-screen');
+      el.flipOverlay.classList.add('hidden');
+      toast('🔧 ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!', 'success');
     }
   });
 
@@ -686,10 +789,55 @@
       el.iceLeftText.textContent = String(Game.cfg.freezeHits);
       el.iceOverlay.classList.remove('hidden', 'shatter-out');
       SFX.freeze();
+      SFX.announce('freeze', { a: me.frozenBy || 'เพื่อน', b: me.name });
     } else if ((!me.frozen || room.status !== 'playing') && wasFrozen) {
       wasFrozen = false;
       el.iceOverlay.classList.add('hidden');
     }
+
+    // ตรวจสถานะโดนระเบิดหมอกควัน
+    if (me.blinded && room.status === 'playing' && !wasBlinded) {
+      wasBlinded = true;
+      blindWipes = 0;
+      for (let i = 1; i <= 6; i++) {
+        const c = $('smokeCloud' + i);
+        if (c) { c.style.opacity = '0.9'; c.style.transform = 'scale(1)'; }
+      }
+      el.blindedByText.textContent = me.blindedBy || 'เพื่อน';
+      el.blindLeftText.textContent = String(Game.cfg.blindWipes);
+      el.blindOverlay.classList.remove('hidden', 'shatter-out');
+      SFX.splat();
+      SFX.announce('blind', { a: me.blindedBy || 'เพื่อน', b: me.name });
+    } else if ((!me.blinded || room.status !== 'playing') && wasBlinded) {
+      wasBlinded = false;
+      el.blindOverlay.classList.add('hidden');
+    }
+
+    // ตรวจสถานะไวรัสจอตีลังกา 180°
+    if (me.flipped && room.status === 'playing' && !wasFlipped) {
+      wasFlipped = true;
+      flipRepairs = 0;
+      el.flippedByText.textContent = me.flippedBy || 'เพื่อน';
+      el.flipLeftText.textContent = String(Game.cfg.flipRepairs);
+      el.gameView.classList.add('flipped-screen');
+      el.flipOverlay.classList.remove('hidden');
+      SFX.dizzy();
+      SFX.announce('flip', { a: me.flippedBy || 'เพื่อน', b: me.name });
+    } else if ((!me.flipped || room.status !== 'playing') && wasFlipped) {
+      wasFlipped = false;
+      el.gameView.classList.remove('flipped-screen');
+      el.flipOverlay.classList.add('hidden');
+    }
+
+    // ตรวจสถานะโดนสายฟ้าฟาด
+    if ((me.zappedAt || 0) > prevZappedAt && prevZappedAt > 0) {
+      SFX.zap();
+      el.gameView.classList.remove('zap-flash');
+      void el.gameView.offsetWidth;
+      el.gameView.classList.add('zap-flash');
+      SFX.announce('zap', { a: me.zappedBy || 'เพื่อน', b: me.name, pts: Game.cfg.zapAmount });
+    }
+    prevZappedAt = me.zappedAt || Date.now();
 
     if (room.status === 'lobby') {
       el.stateIcon.textContent = '🎉';
@@ -732,6 +880,17 @@
       }
     }
 
+    // เพลงประกอบตามสถานะเกม (เล่นเพลงตื่นเต้นทันทีเมื่อมีโจทย์โบนัสพิเศษ!)
+    if (room.status === 'ended') {
+      SFX.startBgm('podium');
+    } else if (room.status === 'paused' || room.status === 'lobby') {
+      SFX.stopBgm();
+    } else if (room.bonus) {
+      SFX.startBgm('bonus');
+    } else if (room.status === 'playing') {
+      SFX.startBgm('play');
+    }
+
     if (!mysteryOpen) {
       if (room.status === 'playing' && room.bonus && !(room.bonus.answered || {})[myId]) {
         const bq = BONUS_MAP[room.bonus.qid];
@@ -747,6 +906,7 @@
           el.bonusStepQ.classList.remove('hidden');
           el.bonusOverlay.classList.remove('hidden');
           SFX.bonus();
+          SFX.announce('bonus');
         }
       } else {
         activeBonusId = null;

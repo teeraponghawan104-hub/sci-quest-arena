@@ -73,9 +73,23 @@
   renderQr(el.qrPreview, joinUrl, 120);
   renderQr(el.qrModalBox, joinUrl, 300);
 
-  function syncMute() { el.muteBtn.textContent = SFX.muted ? '🔇' : '🔊'; }
+  function syncMute() {
+    el.muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
+    const bgmBtn = $('bgmBtn');
+    const voiceBtn = $('voiceBtn');
+    if (bgmBtn) {
+      bgmBtn.textContent = SFX.bgmOn && !SFX.muted ? '🎵 เพลง: เปิด' : '🎵 เพลง: ปิด';
+      bgmBtn.style.opacity = SFX.bgmOn && !SFX.muted ? '1' : '0.55';
+    }
+    if (voiceBtn) {
+      voiceBtn.textContent = SFX.voiceOn && !SFX.muted ? '🎙️ พากย์: เปิด' : '🎙️ พากย์: ปิด';
+      voiceBtn.style.opacity = SFX.voiceOn && !SFX.muted ? '1' : '0.55';
+    }
+  }
   syncMute();
   el.muteBtn.addEventListener('click', () => { SFX.toggleMute(); syncMute(); });
+  $('bgmBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleBgm(); syncMute(); });
+  $('voiceBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleVoice(); syncMute(); });
 
   function copyJoinLink() {
     SFX.click();
@@ -208,6 +222,8 @@
       if (p.x2Active) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#d89e00] text-white">⚡ x2</span>');
       if ((p.items?.shield || 0) > 0) pills.push(`<span class="px-2 py-0.5 rounded-[3px] bg-[#1368ce] text-white">🛡️ x${p.items.shield}</span>`);
       if (p.frozen) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e21b3c] text-white animate-pulse">❄️ แช่แข็ง!</span>');
+      if (p.blinded) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#864cbf] text-white animate-pulse">💨 โดนหมอกบัง!</span>');
+      if (p.flipped) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e05a00] text-white animate-pulse">🙃 จอตีลังกา!</span>');
       row.querySelector('[data-badges]').innerHTML = pills.join('');
 
       const scoreEl = row.querySelector('[data-score]');
@@ -250,13 +266,18 @@
       fresh.forEach(e => {
         seenFeedIds.add(e.id);
         const v = feedView(e);
-        if (e.type === 'join') SFX.join();
-        else if (e.type === 'score') SFX.coin();
-        else if (e.type === 'item' || e.type === 'bonusWin') SFX.item();
-        else if (e.type === 'steal') { SFX.stolen(); showBattleBanner(`<span>💰</span><span>${v.html}</span>`, TONES.emerald); }
-        else if (e.type === 'freeze') { SFX.freeze(); showBattleBanner(`<span>❄️</span><span>${v.html}</span>`, TONES.red); }
-        else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span>🛡️</span><span>${v.html}</span>`, TONES.blue); }
-        else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); }
+        if (e.type === 'join') { SFX.join(); SFX.announce('join', e); }
+        else if (e.type === 'score') { SFX.coin(); SFX.announce('score', e); }
+        else if (e.type === 'item' || e.type === 'bonusWin') { SFX.item(); }
+        else if (e.type === 'steal') { SFX.stolen(); showBattleBanner(`<span>💰</span><span>${v.html}</span>`, TONES.emerald); SFX.announce('steal', e); }
+        else if (e.type === 'freeze') { SFX.freeze(); showBattleBanner(`<span>❄️</span><span>${v.html}</span>`, TONES.red); SFX.announce('freeze', e); }
+        else if (e.type === 'blind') { SFX.splat(); showBattleBanner(`<span>💨</span><span>${v.html}</span>`, '#864cbf'); SFX.announce('blind', e); }
+        else if (e.type === 'flip') { SFX.dizzy(); showBattleBanner(`<span>🙃</span><span>${v.html}</span>`, '#e05a00'); SFX.announce('flip', e); }
+        else if (e.type === 'zap') { SFX.zap(); showBattleBanner(`<span>🌩️</span><span>${v.html}</span>`, '#008299'); SFX.announce('zap', e); }
+        else if (e.type === 'boost') { SFX.potion(); showBattleBanner(`<span>🧪</span><span>${v.html}</span>`, '#198038'); SFX.announce('boost', e); }
+        else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
+        else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span>🛡️</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
+        else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
       });
     }
 
@@ -361,6 +382,9 @@
     if (!lastPodiumShown) {
       lastPodiumShown = true;
       SFX.fanfare();
+      SFX.startBgm('podium');
+      const top = ranked[0];
+      SFX.announce('podium', { winner: top ? top.name : '', score: top ? top.score : 0 });
       confetti(3800, 180);
     }
   }
@@ -377,19 +401,42 @@
     } else {
       lastPodiumShown = false;
       el.podiumOverlay.classList.add('hidden');
+      if (room.status === 'paused') {
+        SFX.stopBgm();
+      } else if (room.bonus) {
+        SFX.startBgm('bonus');
+      } else if (room.status === 'playing') {
+        SFX.startBgm('play');
+      }
     }
     initialLoad = false;
   }
 
   el.playPauseBtn.addEventListener('click', async () => {
     SFX.pop();
+    let newStatus = 'playing';
     await Sync.transact(room => {
       if (!room) return;
       room.status = room.status === 'playing' ? 'paused' : 'playing';
+      newStatus = room.status;
       room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'info', text: room.status === 'playing' ? 'เริ่มการแข่งขันแล้ว! ลุยเลย!' : 'ครูหยุดเกมชั่วคราว' });
       return room;
     });
+    SFX.announce(newStatus === 'playing' ? 'start' : 'pause');
+  });
+
+  $('giftAllBtn')?.addEventListener('click', async () => {
+    SFX.item();
+    let count = 0;
+    await Sync.transact(room => {
+      if (!room) return;
+      count = Game.giftRandomItemToAll(room);
+      room.hostUpdatedAt = Date.now();
+      return room;
+    });
+    if (!count) toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
+    else toast(`🎁 สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!`, 'success');
   });
 
   function openBonusModal() {
@@ -566,6 +613,8 @@
       const bot = bots[rand(bots.length)];
 
       if (bot.frozen) { Game.unfreeze(room, bot.id); return room; }
+      if (bot.blinded) { Game.unblind(room, bot.id); return room; }
+      if (bot.flipped) { Game.unflip(room, bot.id); return room; }
 
       if (room.bonus && !(room.bonus.answered || {})[bot.id] && Math.random() < 0.7) {
         Game.applyBonusWin(room, bot.id, room.bonus.id, 75 + rand(25), Game.randomItem());
@@ -577,9 +626,15 @@
         return room;
       }
 
+      if ((bot.items.boost || 0) > 0 && Math.random() < 0.6) {
+        Game.useBoost(room, bot.id);
+        return room;
+      }
+
       const others = players.filter(p => p.id !== bot.id);
-      if (others.length && (bot.items.steal > 0 || bot.items.freeze > 0) && Math.random() < 0.55) {
-        const kind = bot.items.steal > 0 ? 'steal' : 'freeze';
+      const atkKinds = ['steal', 'freeze', 'blind', 'flip', 'zap'].filter(k => (bot.items[k] || 0) > 0);
+      if (others.length && atkKinds.length && Math.random() < 0.6) {
+        const kind = atkKinds[rand(atkKinds.length)];
         const target = others.sort((a, b) => b.score - a.score)[0];
         Game.applyAttack(room, bot.id, target.id, kind);
         return room;

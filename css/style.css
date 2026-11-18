@@ -397,6 +397,42 @@ html, body {
   box-shadow: 0 6px 0 #b57400 !important;
 }
 
+/* ---------- ระเบิดหมอกควัน (Blind Smoke Overlay) ---------- */
+.smoke-overlay {
+  background: radial-gradient(circle at 30% 30%, #4c1d95, #1e1b4b 70%);
+}
+.smoke-cloud {
+  transition: opacity 0.2s ease, transform 0.25s ease;
+}
+.wipe-btn {
+  width: 170px;
+  height: 170px;
+  border-radius: 12px;
+  font-size: 4.2rem;
+  background: #ffffff;
+  color: #46178f;
+  box-shadow: 0 10px 0 #25076b;
+  transition: transform 0.05s;
+}
+.wipe-btn:active { transform: translateY(7px); box-shadow: 0 3px 0 #25076b; }
+
+/* ---------- ไวรัสจอตีลังกา 180° (Flip Virus) ---------- */
+.flipped-screen {
+  transform: rotate(180deg);
+  transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#gameView {
+  transition: transform 0.45s ease;
+}
+
+/* ---------- สายฟ้าฟาด (Zap Flash) ---------- */
+@keyframes zapFlash {
+  0%, 100% { filter: brightness(1); }
+  20%, 60% { filter: brightness(2.5) invert(0.85); }
+  40% { filter: brightness(0.6); }
+}
+.zap-flash { animation: zapFlash 0.55s ease-out; }
+
 /* ---------- Scanner ---------- */
 #reader video { border-radius: 6px; }
 #reader { border: none !important; }

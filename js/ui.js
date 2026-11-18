@@ -12,12 +12,16 @@ const COLORS = {
   red:    { key: 'red',    name: 'สีแดง',   level: 'ยาก',      points: 350, bg: '#e21b3c', dark: '#9c1128', light: '#fee2e2', text: '#ffffff', emoji: '▲', shape: '▲', prefix: 'R' }
 };
 
-/* ไอเทม 4 ชนิด จับคู่กับบล็อกสี 4 สีของ Kahoot! (● เหลือง, ◆ น้ำเงิน, ■ เขียว, ▲ แดง) */
+/* ไอเทม 8 ชนิด สไตล์บล็อกสี Kahoot! */
 const ITEMS = {
   x2:     { key: 'x2',     name: 'คูณสอง',     shape: '●', emoji: '⚡', color: '#d89e00', dark: '#9c7200', desc: 'ตอบถูกข้อถัดไปได้คะแนน 2 เท่า' },
-  shield: { key: 'shield', name: 'โล่ป้องกัน', shape: '◆', emoji: '🛡️', color: '#1368ce', dark: '#0c478f', desc: 'ป้องกันการโจมตีจากเพื่อน 1 ครั้ง (ทำงานอัตโนมัติ)' },
+  shield: { key: 'shield', name: 'โล่ป้องกัน', shape: '◆', emoji: '🛡️', color: '#1368ce', dark: '#0c478f', desc: 'ป้องกันการโจมตีทุกชนิด 1 ครั้ง (ทำงานอัตโนมัติ)' },
   steal:  { key: 'steal',  name: 'ขโมยแต้ม',   shape: '■', emoji: '💰', color: '#26890c', dark: '#195c07', desc: 'เลือกเพื่อน 1 คน ขโมยมา 100 แต้ม' },
-  freeze: { key: 'freeze', name: 'แช่แข็ง',    shape: '▲', emoji: '❄️', color: '#e21b3c', dark: '#9c1128', desc: 'ล็อกหน้าจอเพื่อน 1 คน ต้องทุบน้ำแข็ง 5 ครั้ง' }
+  freeze: { key: 'freeze', name: 'แช่แข็ง',    shape: '▲', emoji: '❄️', color: '#e21b3c', dark: '#9c1128', desc: 'ล็อกหน้าจอเพื่อน 1 คน ต้องทุบน้ำแข็ง 5 ครั้ง' },
+  blind:  { key: 'blind',  name: 'ระเบิดหมอก', shape: '◆', emoji: '💨', color: '#864cbf', dark: '#5e328a', desc: 'พ่นหมอกควันบังจอเพื่อน 1 คน ต้องเช็ดจอ 6 ครั้ง' },
+  flip:   { key: 'flip',   name: 'จอตีลังกา',  shape: '●', emoji: '🙃', color: '#e05a00', dark: '#9e3f00', desc: 'ส่งไวรัสกลับหัวหน้าจอเพื่อน 180° ต้องกดซ่อม 4 ครั้ง' },
+  zap:    { key: 'zap',    name: 'สายฟ้าฟาด',  shape: '▲', emoji: '🌩️', color: '#008299', dark: '#005969', desc: 'ผ่าสายฟ้าใส่เพื่อน ลดแต้ม 150 แต้ม + เราได้ 50 แต้ม' },
+  boost:  { key: 'boost',  name: 'น้ำยาวิทย์', shape: '■', emoji: '🧪', color: '#198038', dark: '#0f5223', desc: 'รับฟรี +120 แต้มทันที แถมส่องคำสำคัญของโจทย์!' }
 };
 const ITEM_KEYS = Object.keys(ITEMS);
 
@@ -64,7 +68,17 @@ function feedView(e) {
     case 'x2': return { emoji: '⚡', tone: 'amber', html: `${A} เปิดใช้ <b>คูณสอง (x2)</b>!` };
     case 'steal': return { emoji: '💰', tone: 'emerald', html: `${A} ขโมย <b>${e.pts}</b> แต้มจาก ${B}!`, attack: true };
     case 'freeze': return { emoji: '❄️', tone: 'red', html: `${A} แช่แข็งหน้าจอของ ${B}!`, attack: true };
-    case 'block': return { emoji: '🛡️', tone: 'blue', html: `${B} ใช้โล่กัน${e.kind === 'steal' ? 'การขโมย' : 'น้ำแข็ง'}ของ ${A}!`, attack: true };
+    case 'blind': return { emoji: '💨', tone: 'violet', html: `${A} ปาระเบิดหมอกควันบังจอของ ${B}!`, attack: true };
+    case 'unblind': return { emoji: '🧽', tone: 'sky', html: `${A} เช็ดหมอกควันออกจากจอแล้ว!` };
+    case 'flip': return { emoji: '🙃', tone: 'amber', html: `${A} ส่งไวรัสจอตีลังกา 180° ใส่ ${B}!`, attack: true };
+    case 'unflip': return { emoji: '🔧', tone: 'sky', html: `${A} ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!` };
+    case 'zap': return { emoji: '🌩️', tone: 'cyan', html: `${A} ปล่อยสายฟ้าฟาด ${B} <b>-${e.pts}</b> แต้ม!`, attack: true };
+    case 'boost': return { emoji: '🧪', tone: 'emerald', html: `${A} ดื่มน้ำยาวิทย์ <b>+${e.pts}</b> แต้ม & ส่องคำใบ้!` };
+    case 'giftAll': return { emoji: '🎁', tone: 'amber', html: `<b>ครูแจกไอเทมสุ่มให้ทุกคนในห้องแล้ว!</b>` };
+    case 'block': {
+      const atkLabel = { steal: 'การขโมย', freeze: 'พายุน้ำแข็ง', blind: 'ระเบิดหมอก', flip: 'ไวรัสกลับหัว', zap: 'สายฟ้าฟาด' }[e.kind] || 'การโจมตี';
+      return { emoji: '🛡️', tone: 'blue', html: `${B} ใช้โล่กัน${atkLabel}ของ ${A}!`, attack: true };
+    }
     case 'unfreeze': return { emoji: '🔨', tone: 'sky', html: `${A} ทุบน้ำแข็งแตกแล้ว!` };
     case 'bonus': return { emoji: '🎁', tone: 'fuchsia', html: `<b>ปล่อยคำถามโบนัส!</b> ตอบผ่านรับกล่องสุ่ม` };
     default: return { emoji: '▲', tone: 'slate', html: esc(e.text || '') };

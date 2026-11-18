@@ -31,7 +31,7 @@ const Sync = (() => {
     if (r.bonus) r.bonus.answered = r.bonus.answered || {};
     else r.bonus = null;
     for (const p of Object.values(r.players)) {
-      p.items = Object.assign({ x2: 0, shield: 0, steal: 0, freeze: 0 }, p.items || {});
+      p.items = Object.assign({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0 }, p.items || {});
       p.answered = p.answered || {};
       p.score = p.score || 0;
       p.updatedAt = p.updatedAt || p.joinedAt || 0;

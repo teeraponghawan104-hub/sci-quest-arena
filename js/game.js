@@ -1,17 +1,38 @@
-/* Sci-Quest! — กติกาเกม (ใช้ร่วมกันทั้งผู้เล่นและบอทจำลองฝั่งครู)
+/* Sci-Quest! — กติกาเกมและระบบไอเทม 8 ชนิด (ใช้ร่วมกันทั้งผู้เล่นและบอทจำลองฝั่งครู)
  * ทุกฟังก์ชัน apply* จะอัปเดต updatedAt ของผู้เล่นเพื่อรองรับการ Merge ข้ามอุปกรณ์แบบ Real-time */
 const Game = (() => {
-  const cfg = Object.assign({ redItemChance: .4, stealAmount: 100, freezeHits: 5, bonusPassThreshold: 50 },
-    (window.SQA_CONFIG || {}).game || {});
+  const cfg = Object.assign({
+    redItemChance: .5,
+    stealAmount: 100,
+    zapAmount: 150,
+    zapSelfBonus: 50,
+    boostAmount: 120,
+    freezeHits: 5,
+    blindWipes: 6,
+    flipRepairs: 4,
+    bonusPassThreshold: 50
+  }, (window.SQA_CONFIG || {}).game || {});
 
   const feedBase = (p, pid) => ({ a: p.name, ai: pid, av: p.avatar });
+  const emptyItems = () => ({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0 });
 
   return {
     cfg,
+    emptyItems,
     newPlayer(id, name, avatar, isBot = false) {
       const now = Date.now();
-      return { id, name, avatar, isBot, score: 0, items: { x2: 0, shield: 0, steal: 0, freeze: 0 },
-        x2Active: false, frozen: false, frozenBy: '', answered: {}, joinedAt: now, updatedAt: now };
+      const items = emptyItems();
+      // แจกไอเทมต้อนรับสุ่ม 1 ชิ้นทันทีที่เข้าสนาม เพื่อให้เริ่มป่วนเพื่อนได้สนุกตั้งแต่ต้นเกม!
+      items[ITEM_KEYS[rand(ITEM_KEYS.length)]] = 1;
+      return {
+        id, name, avatar, isBot, score: 0, items,
+        x2Active: false,
+        frozen: false, frozenBy: '',
+        blinded: false, blindedBy: '',
+        flipped: false, flippedBy: '',
+        zappedAt: 0, zappedBy: '',
+        answered: {}, joinedAt: now, updatedAt: now
+      };
     },
     randomItem: () => ITEM_KEYS[rand(ITEM_KEYS.length)],
     ranking: room => Object.values(room.players || {}).sort((a, b) => b.score - a.score || a.joinedAt - b.joinedAt),
@@ -34,11 +55,22 @@ const Game = (() => {
 
     useX2(room, pid) {
       const me = room.players[pid];
-      if (!me || me.items.x2 <= 0 || me.x2Active) return false;
+      if (!me || (me.items.x2 || 0) <= 0 || me.x2Active) return false;
       me.items.x2--; me.x2Active = true;
       me.updatedAt = Date.now();
       Sync.pushFeed(room, { type: 'x2', ...feedBase(me, pid) });
       return true;
+    },
+
+    useBoost(room, pid) {
+      const me = room.players[pid];
+      if (!me || (me.items.boost || 0) <= 0) return null;
+      me.items.boost--;
+      const pts = cfg.boostAmount;
+      me.score += pts;
+      me.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'boost', ...feedBase(me, pid), pts });
+      return { pts };
     },
 
     applyAttack(room, aid, tid, kind) {
@@ -49,20 +81,57 @@ const Game = (() => {
       a.updatedAt = now;
       t.updatedAt = now;
       const base = { ...feedBase(a, aid), b: t.name, bi: tid, bv: t.avatar };
+
+      // เช็คโล่ป้องกันของเป้าหมาย
       if ((t.items.shield || 0) > 0) {
         t.items.shield--;
         Sync.pushFeed(room, { type: 'block', ...base, kind });
         return { result: 'blocked' };
       }
+
       if (kind === 'steal') {
         const amt = Math.min(cfg.stealAmount, t.score);
         t.score -= amt; a.score += amt;
         Sync.pushFeed(room, { type: 'steal', ...base, pts: amt });
         return { result: 'steal', amt };
       }
+      if (kind === 'zap') {
+        const amt = Math.min(cfg.zapAmount, t.score);
+        t.score -= amt;
+        a.score += cfg.zapSelfBonus;
+        t.zappedAt = now;
+        t.zappedBy = a.name;
+        Sync.pushFeed(room, { type: 'zap', ...base, pts: amt });
+        return { result: 'zap', amt, bonus: cfg.zapSelfBonus };
+      }
+      if (kind === 'blind') {
+        t.blinded = true;
+        t.blindedBy = a.name;
+        Sync.pushFeed(room, { type: 'blind', ...base });
+        return { result: 'blind' };
+      }
+      if (kind === 'flip') {
+        t.flipped = true;
+        t.flippedBy = a.name;
+        Sync.pushFeed(room, { type: 'flip', ...base });
+        return { result: 'flip' };
+      }
       t.frozen = true; t.frozenBy = a.name;
       Sync.pushFeed(room, { type: 'freeze', ...base });
       return { result: 'freeze' };
+    },
+
+    giftRandomItemToAll(room) {
+      const now = Date.now();
+      const list = Object.values(room.players || {});
+      if (!list.length) return 0;
+      list.forEach(p => {
+        const it = ITEM_KEYS[rand(ITEM_KEYS.length)];
+        p.items[it] = (p.items[it] || 0) + 1;
+        p.updatedAt = now;
+      });
+      Sync.pushFeed(room, { type: 'giftAll' });
+      return list.length;
     },
 
     applyBonusWin(room, pid, bid, acc, item) {
@@ -83,6 +152,24 @@ const Game = (() => {
       me.frozen = false; me.frozenBy = '';
       me.updatedAt = Date.now();
       Sync.pushFeed(room, { type: 'unfreeze', ...feedBase(me, pid) });
+      return true;
+    },
+
+    unblind(room, pid) {
+      const me = room.players[pid];
+      if (!me || !me.blinded) return false;
+      me.blinded = false; me.blindedBy = '';
+      me.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'unblind', ...feedBase(me, pid) });
+      return true;
+    },
+
+    unflip(room, pid) {
+      const me = room.players[pid];
+      if (!me || !me.flipped) return false;
+      me.flipped = false; me.flippedBy = '';
+      me.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'unflip', ...feedBase(me, pid) });
       return true;
     }
   };
