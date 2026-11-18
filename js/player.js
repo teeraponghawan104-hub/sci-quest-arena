@@ -89,6 +89,21 @@
     flippedByText: $('flippedByText'),
     repairFlipBtn: $('repairFlipBtn'),
     flipLeftText: $('flipLeftText'),
+    selfieOverlay: $('selfieOverlay'),
+    selfieByText: $('selfieByText'),
+    selfieStepCamera: $('selfieStepCamera'),
+    selfieStepWaiting: $('selfieStepWaiting'),
+    selfieVideo: $('selfieVideo'),
+    selfiePreviewImg: $('selfiePreviewImg'),
+    selfieSnapControls: $('selfieSnapControls'),
+    selfieSendControls: $('selfieSendControls'),
+    snapSelfieBtn: $('snapSelfieBtn'),
+    selfieFileInput: $('selfieFileInput'),
+    mockSelfieBtn: $('mockSelfieBtn'),
+    retakeSelfieBtn: $('retakeSelfieBtn'),
+    sendSelfieBtn: $('sendSelfieBtn'),
+    selfieWaitingImg: $('selfieWaitingImg'),
+    changeSelfieBtn: $('changeSelfieBtn'),
     stateOverlay: $('stateOverlay'),
     stateIcon: $('stateIcon'),
     stateTitle: $('stateTitle'),
@@ -140,6 +155,10 @@
   let blindWipes = 0;
   let wasFlipped = false;
   let flipRepairs = 0;
+  let wasSelfieLocked = false;
+  let prevSelfieStatus = '';
+  let selfieStream = null;
+  let snappedSelfieDataUrl = '';
   let currentQ = null;
   let activeBonusId = null;
   let mysteryItemPending = null;
@@ -153,6 +172,7 @@
 
   function leaveRoomToLogin(notice = '') {
     stopScanner();
+    stopSelfieCamera();
     SFX.stopBgm();
     if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
     Sync.disconnect();
@@ -163,11 +183,14 @@
     wasFrozen = false;
     wasBlinded = false;
     wasFlipped = false;
+    wasSelfieLocked = false;
+    prevSelfieStatus = '';
     currentQ = null;
     activeBonusId = null;
     el.iceOverlay.classList.add('hidden');
     el.blindOverlay.classList.add('hidden');
     el.flipOverlay.classList.add('hidden');
+    el.selfieOverlay.classList.add('hidden');
     el.gameView.classList.remove('flipped-screen');
     el.bonusOverlay.classList.add('hidden');
     el.stateOverlay.classList.add('hidden');
@@ -547,12 +570,11 @@
       const count = (me.items && me.items[k]) || 0;
       const isX2On = k === 'x2' && me.x2Active;
       return `
-        <button data-item="${k}" class="item-btn relative py-1.5 px-1 flex flex-col items-center justify-center text-white ${count === 0 && !isX2On ? 'empty' : ''}"
+        <button data-item="${k}" class="item-btn relative py-1.5 px-1.5 flex items-center justify-center gap-1 text-white ${count === 0 && !isX2On ? 'empty' : ''}"
           style="background:${it.color};box-shadow:0 3px 0 ${it.dark}">
-          <span class="absolute top-0.5 left-1 text-[9px] font-black opacity-60">${it.shape}</span>
           ${count > 0 ? `<span class="item-badge">${count}</span>` : ''}
-          <span class="text-xl leading-none mb-0.5">${it.emoji}</span>
-          <span class="text-[10px] font-display font-extrabold leading-tight truncate max-w-full">${isX2On ? 'x2 เปิดอยู่!' : it.name}</span>
+          <span class="text-base leading-none shrink-0">${it.emoji}</span>
+          <span class="text-[11px] font-display font-extrabold leading-tight truncate">${isX2On ? 'x2 เปิดอยู่!' : it.name}</span>
         </button>`;
     }).join('');
 
@@ -656,6 +678,10 @@
           SFX.dizzy();
           SFX.announce('flip', { a: me.name, b: targetName });
           toast(`🙃 ส่งไวรัสจอตีลังกา 180° ใส่ ${targetName} แล้ว!`, 'warn');
+        } else if (res.result === 'selfie') {
+          SFX.shutter();
+          SFX.announce('selfie', { a: me.name, b: targetName });
+          toast(`📸 สั่งให้ ${targetName} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครูแล้ว!`, 'info', 3200);
         } else {
           SFX.whoosh();
           SFX.announce('freeze', { a: me.name, b: targetName });
@@ -730,6 +756,128 @@
       el.flipOverlay.classList.add('hidden');
       toast('🔧 ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!', 'success');
     }
+  });
+
+  // ===================== ระบบกล้องถ่ายรูปหน้าตลก (Selfie Lock) =====================
+  async function startSelfieCamera() {
+    snappedSelfieDataUrl = '';
+    el.selfiePreviewImg.classList.add('hidden');
+    el.selfieVideo.classList.remove('hidden');
+    el.selfieSnapControls.classList.remove('hidden');
+    el.selfieSendControls.classList.add('hidden');
+    el.selfieStepWaiting.classList.add('hidden');
+    el.selfieStepCamera.classList.remove('hidden');
+
+    if (selfieStream) return;
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        selfieStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } },
+          audio: false
+        });
+        el.selfieVideo.srcObject = selfieStream;
+      }
+    } catch (e) {
+      // หากไม่มีเว็บแคมหรือไม่อนุญาต ให้ใช้ปุ่มอัปโหลด/สร้างหน้าตลกจำลองแทนได้ทันที
+    }
+  }
+
+  function stopSelfieCamera() {
+    if (selfieStream) {
+      try { selfieStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+      selfieStream = null;
+    }
+    if (el.selfieVideo) el.selfieVideo.srcObject = null;
+  }
+
+  function showSelfiePreview(dataUrl) {
+    snappedSelfieDataUrl = dataUrl;
+    el.selfiePreviewImg.src = dataUrl;
+    el.selfiePreviewImg.classList.remove('hidden');
+    el.selfieVideo.classList.add('hidden');
+    el.selfieSnapControls.classList.add('hidden');
+    el.selfieSendControls.classList.remove('hidden');
+  }
+
+  el.snapSelfieBtn.addEventListener('click', () => {
+    SFX.shutter();
+    const v = el.selfieVideo;
+    if (!selfieStream || !v.videoWidth) {
+      // กรณีเครื่องไม่มีกล้องเว็บแคม ให้สร้างภาพหน้าตลกจำลองทันที
+      const me = Sync.room && Sync.room.players[myId];
+      showSelfiePreview(makeFunnyFaceDataUrl(me ? me.name : 'Player', me ? me.avatar : 0));
+      return;
+    }
+    const cv = document.createElement('canvas');
+    cv.width = 360; cv.height = 360;
+    const c = cv.getContext('2d');
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+    c.save();
+    c.translate(360, 0);
+    c.scale(-1, 1); // กลับซ้ายขวาเหมือนกระจกเซลฟี่
+    c.drawImage(v, sx, sy, side, side, 0, 0, 360, 360);
+    c.restore();
+    // ใส่กรอบสติกเกอร์หน้าตลกเล็กน้อย
+    c.fillStyle = 'rgba(0,0,0,0.55)';
+    c.fillRect(0, 312, 360, 48);
+    c.fillStyle = '#ffa602';
+    c.font = 'bold 22px Kanit, sans-serif';
+    c.textAlign = 'center';
+    const me = Sync.room && Sync.room.players[myId];
+    c.fillText(`🤪 หน้าตลกของ ${me ? me.name : ''}!`, 180, 343);
+    showSelfiePreview(cv.toDataURL('image/jpeg', 0.65));
+  });
+
+  el.mockSelfieBtn.addEventListener('click', () => {
+    SFX.shutter();
+    const me = Sync.room && Sync.room.players[myId];
+    showSelfiePreview(makeFunnyFaceDataUrl(me ? me.name : 'Player', me ? me.avatar : 0));
+  });
+
+  el.selfieFileInput.addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = 360; cv.height = 360;
+        const c = cv.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        c.drawImage(img, sx, sy, side, side, 0, 0, 360, 360);
+        SFX.shutter();
+        showSelfiePreview(cv.toDataURL('image/jpeg', 0.65));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  el.retakeSelfieBtn.addEventListener('click', () => {
+    SFX.click();
+    startSelfieCamera();
+  });
+
+  el.changeSelfieBtn.addEventListener('click', () => {
+    SFX.click();
+    startSelfieCamera();
+  });
+
+  el.sendSelfieBtn.addEventListener('click', async () => {
+    if (!snappedSelfieDataUrl) return;
+    SFX.shutter();
+    stopSelfieCamera();
+    const photo = snappedSelfieDataUrl;
+    await Sync.transact(r => {
+      if (r) Game.submitSelfie(r, myId, photo);
+      return r;
+    });
+    toast('📸 ส่งรูปหน้าตลกขึ้นจอใหญ่ครูแล้ว! รอครูกดอนุญาตนะ', 'info', 3200);
   });
 
   function onRoomUpdate(room) {
@@ -818,7 +966,7 @@
       el.blindOverlay.classList.add('hidden');
     }
 
-    // ตรวจสถานะไวรัสจอตีลังกา 180°
+    // ตรวจสถานะโดนไวรัสจอตีลังกา 180°
     if (me.flipped && room.status === 'playing' && !wasFlipped) {
       wasFlipped = true;
       flipRepairs = 0;
@@ -832,6 +980,48 @@
       wasFlipped = false;
       el.gameView.classList.remove('flipped-screen');
       el.flipOverlay.classList.add('hidden');
+    }
+
+    // ตรวจสถานะโดนสั่งถ่ายรูปหน้าตลกส่งให้ครูอนุมัติ (Selfie Lock)
+    if (me.selfieLocked && room.status === 'playing') {
+      el.selfieByText.textContent = me.selfieFrom || 'เพื่อน';
+      el.selfieOverlay.classList.remove('hidden');
+      if (!wasSelfieLocked) {
+        wasSelfieLocked = true;
+        prevSelfieStatus = me.selfieStatus || 'waiting_photo';
+        SFX.shutter();
+        SFX.announce('selfie', { a: me.selfieFrom || 'เพื่อน', b: me.name });
+        if (me.selfieStatus === 'pending_review' && me.selfiePhoto) {
+          stopSelfieCamera();
+          el.selfieStepCamera.classList.add('hidden');
+          el.selfieStepWaiting.classList.remove('hidden');
+          el.selfieWaitingImg.src = me.selfiePhoto;
+        } else {
+          startSelfieCamera();
+        }
+      } else if (me.selfieStatus !== prevSelfieStatus) {
+        if (me.selfieStatus === 'pending_review' && me.selfiePhoto) {
+          stopSelfieCamera();
+          el.selfieStepCamera.classList.add('hidden');
+          el.selfieStepWaiting.classList.remove('hidden');
+          el.selfieWaitingImg.src = me.selfiePhoto;
+        } else if (me.selfieStatus === 'waiting_photo' && prevSelfieStatus === 'pending_review') {
+          SFX.wrong();
+          toast('🤪 ครูบอกว่ายังไม่ตลกพอ! ทำหน้าให้ฮากว่านี้แล้วถ่ายส่งใหม่!', 'error', 3600);
+          startSelfieCamera();
+        }
+        prevSelfieStatus = me.selfieStatus;
+      }
+    } else if ((!me.selfieLocked || room.status !== 'playing') && wasSelfieLocked) {
+      wasSelfieLocked = false;
+      prevSelfieStatus = '';
+      stopSelfieCamera();
+      el.selfieOverlay.classList.add('hidden');
+      if (room.status === 'playing') {
+        SFX.correct();
+        SFX.announce('selfieApproved', { a: me.name });
+        toast('✅ ครูอนุญาตแล้ว! ลุยตอบคำถามต่อได้เลย!', 'success', 3200);
+      }
     }
 
     // ตรวจสถานะโดนสายฟ้าฟาด

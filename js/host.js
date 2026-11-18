@@ -224,6 +224,11 @@
       if (p.frozen) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e21b3c] text-white animate-pulse">❄️ แช่แข็ง!</span>');
       if (p.blinded) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#864cbf] text-white animate-pulse">💨 โดนหมอกบัง!</span>');
       if (p.flipped) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e05a00] text-white animate-pulse">🙃 จอตีลังกา!</span>');
+      if (p.selfieLocked) {
+        pills.push(p.selfieStatus === 'pending_review'
+          ? '<span class="px-2 py-0.5 rounded-[3px] bg-[#ffa602] text-[#333] animate-bounce">📸 รอครูอนุมัติรูป!</span>'
+          : '<span class="px-2 py-0.5 rounded-[3px] bg-[#c026d3] text-white animate-pulse">📸 กำลังถ่ายหน้าตลก...</span>');
+      }
       row.querySelector('[data-badges]').innerHTML = pills.join('');
 
       const scoreEl = row.querySelector('[data-score]');
@@ -275,6 +280,10 @@
         else if (e.type === 'flip') { SFX.dizzy(); showBattleBanner(`<span>🙃</span><span>${v.html}</span>`, '#e05a00'); SFX.announce('flip', e); }
         else if (e.type === 'zap') { SFX.zap(); showBattleBanner(`<span>🌩️</span><span>${v.html}</span>`, '#008299'); SFX.announce('zap', e); }
         else if (e.type === 'boost') { SFX.potion(); showBattleBanner(`<span>🧪</span><span>${v.html}</span>`, '#198038'); SFX.announce('boost', e); }
+        else if (e.type === 'selfie') { SFX.shutter(); showBattleBanner(`<span>📸</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfie', e); }
+        else if (e.type === 'selfieSent') { SFX.shutter(); showBattleBanner(`<span>🤪</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfieSent', e); }
+        else if (e.type === 'selfieApproved') { SFX.correct(); SFX.announce('selfieApproved', e); }
+        else if (e.type === 'selfieRejected') { SFX.wrong(); SFX.announce('selfieRejected', e); }
         else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
         else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span>🛡️</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
         else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
@@ -389,12 +398,84 @@
     }
   }
 
+  let currentReviewPid = null;
+  const botSelfieTimers = new Set();
+
+  function renderSelfieReview(room) {
+    const modal = $('selfieReviewModal');
+    if (!modal || room.status === 'ended') {
+      modal?.classList.add('hidden');
+      currentReviewPid = null;
+      return;
+    }
+
+    // หากบอทโดนสั่งถ่ายรูปหน้าตลก ให้บอทสร้างรูปหน้าตลกส่งขึ้นมาให้ครูตรวจอัตโนมัติใน 1.4 วินาที
+    for (const p of Object.values(room.players || {})) {
+      if (p.isBot && p.selfieLocked && p.selfieStatus === 'waiting_photo' && !botSelfieTimers.has(p.id)) {
+        botSelfieTimers.add(p.id);
+        setTimeout(async () => {
+          botSelfieTimers.delete(p.id);
+          const photo = makeFunnyFaceDataUrl(p.name, p.avatar);
+          await Sync.transact(r => {
+            if (r && r.players[p.id] && r.players[p.id].selfieLocked && r.players[p.id].selfieStatus === 'waiting_photo') {
+              Game.submitSelfie(r, p.id, photo);
+            }
+            return r;
+          });
+        }, 1400);
+      }
+    }
+
+    const pending = Object.values(room.players || {}).filter(
+      p => p.selfieLocked && p.selfieStatus === 'pending_review' && p.selfiePhoto
+    );
+
+    if (!pending.length) {
+      modal.classList.add('hidden');
+      currentReviewPid = null;
+      return;
+    }
+
+    const target = pending.find(p => p.id === currentReviewPid) || pending[0];
+    currentReviewPid = target.id;
+
+    $('selfieQueueBadge').textContent = `รอตรวจ 1 / ${pending.length}`;
+    $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54);
+    $('selfieReviewName').textContent = target.name;
+    $('selfieReviewFrom').textContent = `โดนสั่งถ่ายหน้าตลกโดย: ${target.selfieFrom || 'เพื่อน'}`;
+    $('selfieReviewImg').src = target.selfiePhoto;
+    modal.classList.remove('hidden');
+  }
+
+  $('approveSelfieBtn')?.addEventListener('click', async () => {
+    if (!currentReviewPid) return;
+    const pid = currentReviewPid;
+    await Sync.transact(room => {
+      if (!room) return;
+      Game.approveSelfie(room, pid);
+      return room;
+    });
+    toast('✅ อนุญาตให้ผู้เล่นกลับเข้าเล่นต่อแล้ว!', 'success');
+  });
+
+  $('rejectSelfieBtn')?.addEventListener('click', async () => {
+    if (!currentReviewPid) return;
+    const pid = currentReviewPid;
+    await Sync.transact(room => {
+      if (!room) return;
+      Game.rejectSelfie(room, pid);
+      return room;
+    });
+    toast('🤪 สั่งให้ผู้เล่นถ่ายรูปหน้าตลกส่งมาใหม่แล้ว!', 'warn');
+  });
+
   function onRoomUpdate(room) {
     if (!room) return;
     renderControls(room);
     renderLeaderboard(room);
     renderFeed(room);
     renderBonusBar(room);
+    renderSelfieReview(room);
     if (room.status === 'ended') {
       stopSim();
       showPodium(room);
@@ -615,6 +696,7 @@
       if (bot.frozen) { Game.unfreeze(room, bot.id); return room; }
       if (bot.blinded) { Game.unblind(room, bot.id); return room; }
       if (bot.flipped) { Game.unflip(room, bot.id); return room; }
+      if (bot.selfieLocked) return; // บอทรอส่งรูปและรอครูกดอนุญาตบนหน้าจอใหญ่
 
       if (room.bonus && !(room.bonus.answered || {})[bot.id] && Math.random() < 0.7) {
         Game.applyBonusWin(room, bot.id, room.bonus.id, 75 + rand(25), Game.randomItem());
@@ -632,7 +714,7 @@
       }
 
       const others = players.filter(p => p.id !== bot.id);
-      const atkKinds = ['steal', 'freeze', 'blind', 'flip', 'zap'].filter(k => (bot.items[k] || 0) > 0);
+      const atkKinds = ['steal', 'freeze', 'blind', 'flip', 'zap', 'selfie'].filter(k => (bot.items[k] || 0) > 0);
       if (others.length && atkKinds.length && Math.random() < 0.6) {
         const kind = atkKinds[rand(atkKinds.length)];
         const target = others.sort((a, b) => b.score - a.score)[0];

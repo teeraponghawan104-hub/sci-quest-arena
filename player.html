@@ -239,12 +239,81 @@
       </section>
     </main>
 
-    <!-- BOTTOM 8-ITEM KAHOOT BLOCK DOCK (แถบไอเทม 8 ชนิด) -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 px-2 pb-2 pt-1 pointer-events-none">
+    <!-- BOTTOM 9-ITEM KAHOOT BLOCK DOCK (แถบไอเทม 9 ชนิด 3x3 กดง่ายเต็มตา) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 px-2 pb-1.5 pt-1 pointer-events-none">
       <div class="max-w-md mx-auto bg-[#25076b] rounded-[6px] p-1.5 shadow-[0_-4px_0_rgba(0,0,0,0.28)] pointer-events-auto">
-        <div id="itemDock" class="grid grid-cols-4 gap-1.5"></div>
+        <div id="itemDock" class="grid grid-cols-3 gap-1"></div>
       </div>
     </nav>
+  </div>
+
+  <!-- ===================== OVERLAY: โดนสั่งถ่ายรูปหน้าตลกส่งให้ครูอนุมัติ! (Selfie Lock Overlay) ===================== -->
+  <div id="selfieOverlay" class="overlay dim z-[192] hidden overflow-y-auto">
+    <div class="k-box max-w-sm w-full p-4 sm:p-5 text-center pop-in border-t-8 border-[#c026d3] my-auto space-y-3">
+      <div class="inline-block px-3 py-1 rounded-[4px] bg-[#c026d3] text-white font-display font-black text-xs">
+        📸 โดน <span id="selfieByText">เพื่อน</span> สั่งแชะหน้าตลก!
+      </div>
+
+      <!-- ขั้นที่ 1: เปิดกล้องถ่ายรูปหน้าตลก -->
+      <div id="selfieStepCamera" class="space-y-3">
+        <h3 class="font-display text-xl font-black text-[#333] leading-snug">
+          ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครู!
+        </h3>
+        <p class="text-xs font-bold text-neutral-500">
+          ทำหน้าให้ฮาที่สุดแล้วกดถ่าย! ต้องรอครูกดอนุญาตบนจอใหญ่ถึงจะเล่นต่อได้
+        </p>
+
+        <div class="relative w-64 h-64 mx-auto rounded-[6px] overflow-hidden border-4 border-[#333] bg-neutral-900 shadow-lg">
+          <video id="selfieVideo" autoplay playsinline muted class="w-full h-full object-cover scale-x-[-1]"></video>
+          <img id="selfiePreviewImg" src="" alt="Preview" class="w-full h-full object-cover hidden" />
+          <div class="absolute top-2 left-2 px-2 py-0.5 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-[11px]">
+            🤪 FUNNY CAM
+          </div>
+        </div>
+
+        <!-- ปุ่มก่อนถ่าย -->
+        <div id="selfieSnapControls" class="space-y-2">
+          <button id="snapSelfieBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base flex items-center justify-center gap-2">
+            <span>📸</span>
+            <span>กดถ่ายรูปหน้าตลก!</span>
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="btn-3d k-btn-blue py-2 px-2 text-xs flex items-center justify-center gap-1 cursor-pointer">
+              <span>📷</span>
+              <span>กล้องมือถือ/อัปโหลด</span>
+              <input id="selfieFileInput" type="file" accept="image/*" capture="user" class="hidden" />
+            </label>
+            <button id="mockSelfieBtn" type="button" class="btn-3d k-btn-dark py-2 px-2 text-xs flex items-center justify-center gap-1">
+              <span>🎭</span>
+              <span>สร้างหน้าตลกจำลอง</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ปุ่มหลังถ่ายเสร็จ (ยืนยันส่งให้ครู) -->
+        <div id="selfieSendControls" class="hidden grid grid-cols-2 gap-2">
+          <button id="retakeSelfieBtn" type="button" class="btn-3d k-btn-dark py-3 text-sm">
+            🔄 ถ่ายใหม่
+          </button>
+          <button id="sendSelfieBtn" type="button" class="btn-3d k-btn-green py-3 text-sm">
+            🚀 ส่งให้ครูตรวจ!
+          </button>
+        </div>
+      </div>
+
+      <!-- ขั้นที่ 2: ส่งรูปแล้ว รอครูกดอนุญาตบนจอใหญ่ -->
+      <div id="selfieStepWaiting" class="hidden space-y-3 py-2">
+        <div class="w-56 h-56 mx-auto rounded-[6px] overflow-hidden border-4 border-[#c026d3] bg-neutral-900 shadow">
+          <img id="selfieWaitingImg" src="" alt="Submitted Funny Selfie" class="w-full h-full object-cover" />
+        </div>
+        <div class="bg-[#ffa602] text-[#333] p-3 rounded-[4px] font-display font-black text-sm animate-pulse">
+          ⏳ ส่งรูปขึ้นจอใหญ่หน้าห้องแล้ว!<br/>รอครูกดปุ่ม "อนุญาตให้เล่นต่อ"...
+        </div>
+        <button id="changeSelfieBtn" type="button" class="btn-3d k-btn-dark w-full py-2.5 text-xs">
+          🔄 ถ่ายรูปใหม่ส่งแทน
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- ===================== แถบซ่อมหน้าจอตีลังกา 180° (Flip Virus Banner) ===================== -->

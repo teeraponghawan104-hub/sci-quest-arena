@@ -30,7 +30,7 @@ const SFX = (() => {
   const SFX_LIST = [
     'click', 'pop', 'join', 'correct', 'partial', 'wrong', 'coin', 'item',
     'whoosh', 'stolen', 'freeze', 'crack', 'shatter', 'block', 'splat',
-    'dizzy', 'zap', 'potion', 'bonus', 'fanfare', 'drum'
+    'dizzy', 'zap', 'potion', 'bonus', 'fanfare', 'drum', 'shutter'
   ];
 
   function ac() {
@@ -300,6 +300,22 @@ const SFX = (() => {
       case 'boost':
         playVoClip('boost_1.mp3', `🧪 ${A} ดื่มน้ำยาวิทย์! รับโบนัส +${pts} แต้ม แถมส่องคำใบ้ฟรี!`, true);
         break;
+      case 'selfie':
+        playSfx('shutter', 0.95);
+        playVoClip('selfie_1.mp3', `📸 แชะ! ${A} สั่งให้ ${B} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครู!`, true);
+        break;
+      case 'selfieSent':
+        playSfx('shutter', 0.98);
+        playVoClip('selfie_sent.mp3', `📸 รูปหน้าตลกของ ${A} ขึ้นจอใหญ่แล้ว! รอครูกดอนุมัติ!`, true);
+        break;
+      case 'selfieApproved':
+        playSfx('correct', 0.9);
+        playVoClip('selfie_ok.mp3', `✅ ครูอนุมัติความฮาของ ${A} ผ่านแล้ว! ลุยต่อได้เลย!`, true);
+        break;
+      case 'selfieRejected':
+        playSfx('wrong', 0.9);
+        showMcBubble(`🤪 ครูบอกว่าหน้าของ ${A} ยังไม่ตลกพอ! สั่งถ่ายใหม่อีกรอบ!`);
+        break;
       case 'block':
         playVoClip('block_1.mp3', `🛡️ ทำอะไรไม่ได้! ${B} มีโล่ป้องกัน สะท้อนท่าป่วนของ ${A} ได้แบบหล่อๆ!`, true);
         break;
@@ -342,6 +358,7 @@ const SFX = (() => {
     bonus()   { playSfx('bonus', 0.95); },
     fanfare() { playSfx('fanfare', 0.98); },
     drum()    { playSfx('drum', 0.92); },
+    shutter() { playSfx('shutter', 0.95); },
 
     startBgm,
     stopBgm,

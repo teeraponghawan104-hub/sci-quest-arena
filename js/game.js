@@ -14,7 +14,7 @@ const Game = (() => {
   }, (window.SQA_CONFIG || {}).game || {});
 
   const feedBase = (p, pid) => ({ a: p.name, ai: pid, av: p.avatar });
-  const emptyItems = () => ({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0 });
+  const emptyItems = () => ({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0, selfie: 0 });
 
   return {
     cfg,
@@ -22,14 +22,16 @@ const Game = (() => {
     newPlayer(id, name, avatar, isBot = false) {
       const now = Date.now();
       const items = emptyItems();
-      // แจกไอเทมต้อนรับสุ่ม 1 ชิ้นทันทีที่เข้าสนาม เพื่อให้เริ่มป่วนเพื่อนได้สนุกตั้งแต่ต้นเกม!
+      // แจกไอเทมต้อนรับสุ่ม 1 ชิ้น + แจกไอเทม "แชะหน้าตลก (selfie)" 1 ชิ้นให้ลองเล่นสนุกได้ทันที!
       items[ITEM_KEYS[rand(ITEM_KEYS.length)]] = 1;
+      items.selfie = (items.selfie || 0) + 1;
       return {
         id, name, avatar, isBot, score: 0, items,
         x2Active: false,
         frozen: false, frozenBy: '',
         blinded: false, blindedBy: '',
         flipped: false, flippedBy: '',
+        selfieLocked: false, selfieFrom: '', selfieStatus: '', selfiePhoto: '',
         zappedAt: 0, zappedBy: '',
         answered: {}, joinedAt: now, updatedAt: now
       };
@@ -116,9 +118,49 @@ const Game = (() => {
         Sync.pushFeed(room, { type: 'flip', ...base });
         return { result: 'flip' };
       }
+      if (kind === 'selfie') {
+        t.selfieLocked = true;
+        t.selfieFrom = a.name;
+        t.selfieStatus = 'waiting_photo';
+        t.selfiePhoto = '';
+        Sync.pushFeed(room, { type: 'selfie', ...base });
+        return { result: 'selfie' };
+      }
       t.frozen = true; t.frozenBy = a.name;
       Sync.pushFeed(room, { type: 'freeze', ...base });
       return { result: 'freeze' };
+    },
+
+    submitSelfie(room, pid, photoDataUrl) {
+      const me = room.players[pid];
+      if (!me || !me.selfieLocked || !photoDataUrl) return false;
+      me.selfiePhoto = photoDataUrl;
+      me.selfieStatus = 'pending_review';
+      me.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'selfieSent', ...feedBase(me, pid), b: me.selfieFrom || 'เพื่อน' });
+      return true;
+    },
+
+    approveSelfie(room, pid) {
+      const p = room.players[pid];
+      if (!p || !p.selfieLocked) return false;
+      p.selfieLocked = false;
+      p.selfieStatus = '';
+      p.selfiePhoto = '';
+      p.selfieFrom = '';
+      p.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'selfieApproved', ...feedBase(p, pid) });
+      return true;
+    },
+
+    rejectSelfie(room, pid) {
+      const p = room.players[pid];
+      if (!p || !p.selfieLocked) return false;
+      p.selfieStatus = 'waiting_photo';
+      p.selfiePhoto = '';
+      p.updatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'selfieRejected', ...feedBase(p, pid) });
+      return true;
     },
 
     giftRandomItemToAll(room) {

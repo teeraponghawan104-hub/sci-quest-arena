@@ -12,7 +12,7 @@ const COLORS = {
   red:    { key: 'red',    name: 'สีแดง',   level: 'ยาก',      points: 350, bg: '#e21b3c', dark: '#9c1128', light: '#fee2e2', text: '#ffffff', emoji: '▲', shape: '▲', prefix: 'R' }
 };
 
-/* ไอเทม 8 ชนิด สไตล์บล็อกสี Kahoot! */
+/* ไอเทม 9 ชนิด สไตล์บล็อกสี Kahoot! */
 const ITEMS = {
   x2:     { key: 'x2',     name: 'คูณสอง',     shape: '●', emoji: '⚡', color: '#d89e00', dark: '#9c7200', desc: 'ตอบถูกข้อถัดไปได้คะแนน 2 เท่า' },
   shield: { key: 'shield', name: 'โล่ป้องกัน', shape: '◆', emoji: '🛡️', color: '#1368ce', dark: '#0c478f', desc: 'ป้องกันการโจมตีทุกชนิด 1 ครั้ง (ทำงานอัตโนมัติ)' },
@@ -21,7 +21,8 @@ const ITEMS = {
   blind:  { key: 'blind',  name: 'ระเบิดหมอก', shape: '◆', emoji: '💨', color: '#864cbf', dark: '#5e328a', desc: 'พ่นหมอกควันบังจอเพื่อน 1 คน ต้องเช็ดจอ 6 ครั้ง' },
   flip:   { key: 'flip',   name: 'จอตีลังกา',  shape: '●', emoji: '🙃', color: '#e05a00', dark: '#9e3f00', desc: 'ส่งไวรัสกลับหัวหน้าจอเพื่อน 180° ต้องกดซ่อม 4 ครั้ง' },
   zap:    { key: 'zap',    name: 'สายฟ้าฟาด',  shape: '▲', emoji: '🌩️', color: '#008299', dark: '#005969', desc: 'ผ่าสายฟ้าใส่เพื่อน ลดแต้ม 150 แต้ม + เราได้ 50 แต้ม' },
-  boost:  { key: 'boost',  name: 'น้ำยาวิทย์', shape: '■', emoji: '🧪', color: '#198038', dark: '#0f5223', desc: 'รับฟรี +120 แต้มทันที แถมส่องคำสำคัญของโจทย์!' }
+  boost:  { key: 'boost',  name: 'น้ำยาวิทย์', shape: '■', emoji: '🧪', color: '#198038', dark: '#0f5223', desc: 'รับฟรี +120 แต้มทันที แถมส่องคำสำคัญของโจทย์!' },
+  selfie: { key: 'selfie', name: 'แชะหน้าตลก', shape: '▲', emoji: '📸', color: '#c026d3', dark: '#86198f', desc: 'บังคับเพื่อนถ่ายรูปหน้าตลกขึ้นจอใหญ่ครู! ต้องรอครูอนุมัติถึงเล่นต่อได้' }
 };
 const ITEM_KEYS = Object.keys(ITEMS);
 
@@ -74,9 +75,13 @@ function feedView(e) {
     case 'unflip': return { emoji: '🔧', tone: 'sky', html: `${A} ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!` };
     case 'zap': return { emoji: '🌩️', tone: 'cyan', html: `${A} ปล่อยสายฟ้าฟาด ${B} <b>-${e.pts}</b> แต้ม!`, attack: true };
     case 'boost': return { emoji: '🧪', tone: 'emerald', html: `${A} ดื่มน้ำยาวิทย์ <b>+${e.pts}</b> แต้ม & ส่องคำใบ้!` };
+    case 'selfie': return { emoji: '📸', tone: 'fuchsia', html: `${A} สั่ง ${B} <b>ถ่ายรูปหน้าตลก</b> ส่งให้ครูตรวจ!`, attack: true };
+    case 'selfieSent': return { emoji: '🤪', tone: 'fuchsia', html: `${A} ส่งรูปหน้าตลกขึ้นจอใหญ่แล้ว! <b>รอครูกดอนุญาต</b>`, attack: true };
+    case 'selfieApproved': return { emoji: '✅', tone: 'green', html: `ครูอนุมัติรูปหน้าตลกของ ${A} ให้เล่นต่อได้!` };
+    case 'selfieRejected': return { emoji: '🔁', tone: 'red', html: `ครูสั่งให้ ${A} ถ่ายรูปหน้าตลกใหม่ (ยังไม่ฮาพอ!)` };
     case 'giftAll': return { emoji: '🎁', tone: 'amber', html: `<b>ครูแจกไอเทมสุ่มให้ทุกคนในห้องแล้ว!</b>` };
     case 'block': {
-      const atkLabel = { steal: 'การขโมย', freeze: 'พายุน้ำแข็ง', blind: 'ระเบิดหมอก', flip: 'ไวรัสกลับหัว', zap: 'สายฟ้าฟาด' }[e.kind] || 'การโจมตี';
+      const atkLabel = { steal: 'การขโมย', freeze: 'พายุน้ำแข็ง', blind: 'ระเบิดหมอก', flip: 'ไวรัสกลับหัว', zap: 'สายฟ้าฟาด', selfie: 'กล้องแชะหน้าตลก' }[e.kind] || 'การโจมตี';
       return { emoji: '🛡️', tone: 'blue', html: `${B} ใช้โล่กัน${atkLabel}ของ ${A}!`, attack: true };
     }
     case 'unfreeze': return { emoji: '🔨', tone: 'sky', html: `${A} ทุบน้ำแข็งแตกแล้ว!` };
@@ -178,3 +183,37 @@ function initFullscreenButtons() {
   syncFullscreenButtons();
 }
 document.addEventListener('DOMContentLoaded', initFullscreenButtons);
+
+/* สร้างภาพหน้าตลกการ์ตูนบน Canvas (สำหรับบอท หรือเครื่องที่ไม่มีกล้องเว็บแคม) */
+function makeFunnyFaceDataUrl(name = 'Player', avIdx = 0) {
+  const cv = document.createElement('canvas');
+  cv.width = 360; cv.height = 360;
+  const c = cv.getContext('2d');
+  const av = AVATARS[avIdx] || AVATARS[0];
+  const bgs = ['#c026d3', '#e21b3c', '#1368ce', '#d89e00', '#26890c'];
+  c.fillStyle = bgs[rand(bgs.length)];
+  c.fillRect(0, 0, 360, 360);
+  // ลายเส้นแฉกเกมโชว์
+  c.fillStyle = 'rgba(255,255,255,0.14)';
+  for (let i = 0; i < 12; i++) {
+    c.beginPath();
+    c.moveTo(180, 180);
+    c.arc(180, 180, 260, (i * Math.PI) / 6, (i * Math.PI) / 6 + 0.25);
+    c.closePath();
+    c.fill();
+  }
+  const faces = ['🤪', '😜', '🤡', '👻', '🐵', '🐸', '👽', '🤓'];
+  c.font = '150px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(faces[rand(faces.length)], 180, 155);
+  c.font = '68px sans-serif';
+  c.fillText(av.e, 285, 95);
+  c.fillText('📸', 75, 95);
+  c.fillStyle = '#333333';
+  c.fillRect(20, 278, 320, 58);
+  c.fillStyle = '#ffa602';
+  c.font = 'bold 26px Kanit, sans-serif';
+  c.fillText(`หน้าตลกของ ${name}!`, 180, 308);
+  return cv.toDataURL('image/jpeg', 0.7);
+}
