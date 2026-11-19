@@ -20,12 +20,18 @@
     hdrName: $('hdrName'),
     hdrRank: $('hdrRank'),
     hdrRoom: $('hdrRoom'),
+    hdrTimer: $('hdrTimer'),
     hdrScore: $('hdrScore'),
+    playerConnDot: $('playerConnDot'),
+    lineBanner: $('lineBanner'),
+    openExtBrowserBtn: $('openExtBrowserBtn'),
+    dismissLineBanner: $('dismissLineBanner'),
     buffPills: $('buffPills'),
     scanPanel: $('scanPanel'),
     questionPanel: $('questionPanel'),
     progressText: $('progressText'),
     openScannerBtn: $('openScannerBtn'),
+    qrFileInput: $('qrFileInput'),
     scannerBox: $('scannerBox'),
     closeScannerBtn: $('closeScannerBtn'),
     cardCodeForm: $('cardCodeForm'),
@@ -59,11 +65,15 @@
     bonusOverlay: $('bonusOverlay'),
     bonusStepQ: $('bonusStepQ'),
     bonusStepBox: $('bonusStepBox'),
+    bonusOverlayDurBadge: $('bonusOverlayDurBadge'),
     bonusOverlayFilm: $('bonusOverlayFilm'),
     bonusOverlayQ: $('bonusOverlayQ'),
+    playerBonusRing: $('playerBonusRing'),
+    playerBonusBar: $('playerBonusBar'),
     bonusNeedPct: $('bonusNeedPct'),
     bonusForm: $('bonusForm'),
     bonusInput: $('bonusInput'),
+    bonusSubmitBtn: $('bonusSubmitBtn'),
     bonusGradeBox: $('bonusGradeBox'),
     bonusGradeLabel: $('bonusGradeLabel'),
     bonusGradePct: $('bonusGradePct'),
@@ -95,9 +105,11 @@
     selfieStepWaiting: $('selfieStepWaiting'),
     selfieVideo: $('selfieVideo'),
     selfiePreviewImg: $('selfiePreviewImg'),
+    selfieCamFallbackMsg: $('selfieCamFallbackMsg'),
     selfieSnapControls: $('selfieSnapControls'),
     selfieSendControls: $('selfieSendControls'),
     snapSelfieBtn: $('snapSelfieBtn'),
+    selfieNativeCamBtn: $('selfieNativeCamBtn'),
     selfieFileInput: $('selfieFileInput'),
     mockSelfieBtn: $('mockSelfieBtn'),
     retakeSelfieBtn: $('retakeSelfieBtn'),
@@ -113,6 +125,13 @@
 
   el.loginModeBadge.textContent = modeLabel();
   if (initRoom) el.joinRoomInput.value = initRoom;
+
+  // แจ้งเตือนเมื่อเปิดผ่าน LINE / In-App Browser พร้อมปุ่มเปิดออก Safari/Chrome ใน 1 แตะ
+  if (isInAppBrowser() && el.lineBanner && el.openExtBrowserBtn) {
+    el.openExtBrowserBtn.href = withExternalBrowser(location.href);
+    el.lineBanner.classList.remove('hidden');
+    el.dismissLineBanner?.addEventListener('click', () => el.lineBanner.classList.add('hidden'));
+  }
 
   function syncMute() {
     const ic = SFX.muted ? '🔇' : '🔊';
@@ -146,6 +165,19 @@
 
   let roomCode = initRoom;
   let myId = null;
+  let joinedRoundId = 1;
+  let myLastSnapshot = null;
+  let lastHealAt = 0;
+
+  let playerMatchRemMs = 0;
+  let playerMatchLastTickAt = 0;
+  let playerMatchTotalSec = 0;
+
+  let playerBonusDurMs = 20000;
+  let playerBonusRemMs = 0;
+  let playerBonusLastTickAt = 0;
+  let bonusExpiredLocal = false;
+
   let prevScore = null;
   let prevShields = null;
   let prevZappedAt = 0;
@@ -165,6 +197,38 @@
   let mysteryOpen = false;
   let qrScanner = null;
 
+  function savePlayerSession(code, pid, roundId, snapshot) {
+    try {
+      localStorage.setItem('sqa_session_' + code, JSON.stringify({
+        id: pid, roundId: roundId || 1, snapshot: snapshot || null, savedAt: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function readPlayerSession(code) {
+    try {
+      const raw = localStorage.getItem('sqa_session_' + code);
+      if (raw) return JSON.parse(raw);
+      const old = sessionStorage.getItem('sqa_pid_' + code);
+      if (old) return { id: old, roundId: 1, snapshot: null };
+    } catch (e) {}
+    return null;
+  }
+  function clearPlayerSession(code) {
+    try {
+      if (code) {
+        localStorage.removeItem('sqa_session_' + code);
+        sessionStorage.removeItem('sqa_pid_' + code);
+      }
+    } catch (e) {}
+  }
+
+  function onPlayerConn(st) {
+    if (!el.playerConnDot) return;
+    el.playerConnDot.className = st === 'connected'
+      ? 'conn-dot conn-ok'
+      : (st === 'reconnecting' ? 'conn-dot conn-wait' : 'conn-dot conn-off');
+  }
+
   function showView(view) {
     el.loginView.classList.toggle('hidden', view !== 'login');
     el.gameView.classList.toggle('hidden', view !== 'game');
@@ -174,9 +238,11 @@
     stopScanner();
     stopSelfieCamera();
     SFX.stopBgm();
-    if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
+    clearPlayerSession(roomCode);
     Sync.disconnect();
     myId = null;
+    myLastSnapshot = null;
+    joinedRoundId = 1;
     prevScore = null;
     prevShields = null;
     prevZappedAt = 0;
@@ -187,6 +253,7 @@
     prevSelfieStatus = '';
     currentQ = null;
     activeBonusId = null;
+    bonusExpiredLocal = false;
     el.iceOverlay.classList.add('hidden');
     el.blindOverlay.classList.add('hidden');
     el.flipOverlay.classList.add('hidden');
@@ -196,22 +263,51 @@
     el.stateOverlay.classList.add('hidden');
     el.questionPanel.classList.add('hidden');
     el.scanPanel.classList.remove('hidden');
+    el.hdrTimer?.classList.add('hidden');
     showView('login');
     if (notice) toast(notice, 'info', 3200);
   }
 
   async function tryRestoreSession() {
     if (!initRoom) return;
-    const savedId = sessionStorage.getItem('sqa_pid_' + initRoom);
-    if (!savedId) return;
+    const saved = readPlayerSession(initRoom);
+    if (!saved || !saved.id) return;
+    // หากบันทึกไว้นานเกิน 6 ชั่วโมงแล้ว ให้ล็อกอินใหม่สะอาดๆ
+    if (saved.savedAt && Date.now() - saved.savedAt > 6 * 3600 * 1000) {
+      clearPlayerSession(initRoom);
+      return;
+    }
     try {
       const ok = await Sync.exists(initRoom);
       if (!ok) return;
       roomCode = initRoom;
-      await Sync.connect(roomCode, onRoomUpdate);
-      // หากเกมในห้องเดิมจบไปแล้ว หรือผู้เล่นถูกล้างออกแล้ว ให้กลับไปหน้าล็อกอินใหม่ทันที ไม่ค้างหน้าเดิม
-      if (Sync.room && Sync.room.status !== 'ended' && Sync.room.players[savedId]) {
-        myId = savedId;
+      await Sync.connect(roomCode, onRoomUpdate, { isHost: false, onConn: onPlayerConn });
+      const r = Sync.room;
+      // หากห้องเล่นจบไปแล้ว หรือครูเริ่มรอบใหม่ (roundId สูงขึ้น) ให้เริ่มล็อกอินใหม่
+      if (r && (r.status === 'ended' || (r.roundId || 1) > (saved.roundId || 1))) {
+        leaveRoomToLogin();
+        return;
+      }
+      if (r && r.players[saved.id]) {
+        myId = saved.id;
+        joinedRoundId = r.roundId || saved.roundId || 1;
+        myLastSnapshot = JSON.parse(JSON.stringify(r.players[saved.id]));
+        showView('game');
+        onRoomUpdate(r);
+      } else if (saved.snapshot) {
+        // กู้คืนผู้เล่นกลับเข้าห้องเดิมอัตโนมัติ (กรณีมือถือรีโหลดหน้าจาก LINE / ล็อกจอ)
+        const restored = Object.assign({}, saved.snapshot, {
+          roundId: (r && r.roundId) || saved.roundId || 1,
+          updatedAt: Date.now()
+        });
+        await Sync.transact(room => {
+          const base = room || Sync.defaultRoom(roomCode);
+          if (!base.players[saved.id]) base.players[saved.id] = restored;
+          return base;
+        });
+        myId = saved.id;
+        joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
+        myLastSnapshot = restored;
         showView('game');
         onRoomUpdate(Sync.room);
       } else {
@@ -245,21 +341,12 @@
       }
 
       roomCode = code;
-      myId = null; // ยังไม่ตั้ง myId จนกว่าจะเพิ่มผู้เล่นเข้าห้องเสร็จ เพื่อไม่ให้ onRoomUpdate เตะออกระหว่าง connect
+      myId = null;
       const newId = 'p_' + uid();
-      await Sync.connect(code, onRoomUpdate);
+      await Sync.connect(code, onRoomUpdate, { isHost: false, onConn: onPlayerConn });
       await Sync.transact(room => {
         const base = room || Sync.defaultRoom(code);
-        // หากห้องเดิมค้างสถานะ ended อยู่ ให้ล้างห้องเป็น lobby อัตโนมัติเมื่อมีผู้เล่นใหม่เข้า
-        if (base.status === 'ended') {
-          base.status = 'lobby';
-          base.bonus = null;
-          base.endedAt = null;
-          base.usedBonus = {};
-          base.players = {};
-          base.feed = {};
-          base.roundId = (base.roundId || 1) + 1;
-        }
+        // ผู้เล่นจะไม่แก้ roundId หรือลบเพื่อนคนอื่นเด็ดขาด (ให้ Host เป็นผู้ควบคุมรอบเท่านั้น)
         const p = Game.newPlayer(newId, name, selectedAv, false);
         p.roundId = base.roundId || 1;
         base.players[newId] = p;
@@ -267,7 +354,10 @@
         return base;
       });
       myId = newId;
-      sessionStorage.setItem('sqa_pid_' + code, myId);
+      joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
+      myLastSnapshot = Sync.room && Sync.room.players[myId]
+        ? JSON.parse(JSON.stringify(Sync.room.players[myId])) : null;
+      savePlayerSession(code, myId, joinedRoundId, myLastSnapshot);
       SFX.join();
       showView('game');
       onRoomUpdate(Sync.room);
@@ -375,10 +465,25 @@
     qrScanner = null;
   }
 
+  function extractCardFromQrText(decoded) {
+    let extracted = decoded;
+    try {
+      const u = new URL(decoded);
+      if (u.searchParams.get('card')) extracted = u.searchParams.get('card');
+    } catch (e) {}
+    return normCode(extracted);
+  }
+
   el.openScannerBtn.addEventListener('click', async () => {
     SFX.click();
     if (!window.Html5Qrcode) {
-      toast('ยังโหลดตัวสแกนกล้องไม่สำเร็จ กรุณาพิมพ์รหัสการ์ดแทน', 'warn');
+      toast('ยังโหลดตัวสแกนไม่สำเร็จ กรุณาพิมพ์รหัสการ์ดด้านล่างแทน', 'warn');
+      return;
+    }
+    // หากเปิดใน LINE ที่บล็อกกล้องสด ให้เปิดกล้องมือถือถ่ายภาพ QR แทนทันที!
+    if (isLineBrowser()) {
+      toast('📱 เปิดผ่าน LINE — ใช้กล้องมือถือถ่ายรูป QR การ์ดได้เลย!', 'info', 2800);
+      el.qrFileInput?.click();
       return;
     }
     el.scannerBox.classList.remove('hidden');
@@ -388,12 +493,7 @@
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 230, height: 230 } },
         async decoded => {
-          let extracted = decoded;
-          try {
-            const u = new URL(decoded);
-            if (u.searchParams.get('card')) extracted = u.searchParams.get('card');
-          } catch (e) {}
-          const code = normCode(extracted);
+          const code = extractCardFromQrText(decoded);
           if (!code || !QUESTION_MAP[code]) return;
           await stopScanner();
           openQuestion(code);
@@ -401,10 +501,37 @@
       );
     } catch (err) {
       await stopScanner();
-      toast('เปิดกล้องไม่ได้ (กรุณาอนุญาตสิทธิ์กล้อง หรือพิมพ์รหัสการ์ดด้านล่าง)', 'warn', 3500);
+      toast('กล้องสดถูกบล็อก — กดปุ่ม "📸 ถ่ายรูป QR การ์ด" ด้านล่างแทนได้เลย!', 'warn', 3800);
     }
   });
   $('closeScannerBtn').addEventListener('click', () => { SFX.click(); stopScanner(); });
+
+  // ถอดรหัส QR Code จากรูปถ่ายกล้องมือถือ (ทำงานได้ 100% แม้เปิดใน LINE!)
+  el.qrFileInput?.addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!window.Html5Qrcode) {
+      toast('กรุณาพิมพ์รหัสการ์ดแทน (เช่น G-01)', 'warn');
+      return;
+    }
+    toast('🔍 กำลังอ่าน QR Code จากรูปถ่าย...', 'info', 1800);
+    try {
+      const reader = new Html5Qrcode('qrFileDecoder');
+      const decoded = await reader.scanFile(file, false);
+      try { reader.clear(); } catch (e2) {}
+      const code = extractCardFromQrText(decoded);
+      if (code && QUESTION_MAP[code]) {
+        openQuestion(code);
+      } else {
+        SFX.wrong();
+        toast('ไม่พบรหัสการ์ดคำถามในรูปนี้ ลองถ่ายใกล้ขึ้นอีกนิดนะ', 'error');
+      }
+    } catch (err) {
+      SFX.wrong();
+      toast('อ่าน QR จากรูปไม่สำเร็จ ลองถ่ายให้ชัดขึ้นหรือพิมพ์รหัสการ์ด (เช่น G-01)', 'warn', 3500);
+    }
+  });
 
   el.answerForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -522,6 +649,11 @@
 
   el.bonusForm.addEventListener('submit', async e => {
     e.preventDefault();
+    if (bonusExpiredLocal) {
+      SFX.wrong();
+      toast('⏱️ หมดเวลาคำถามโบนัสแล้ว!', 'error');
+      return;
+    }
     const room = Sync.room;
     if (!room || !room.bonus) return;
     const bq = BONUS_MAP[room.bonus.qid];
@@ -570,7 +702,7 @@
       const count = (me.items && me.items[k]) || 0;
       const isX2On = k === 'x2' && me.x2Active;
       return `
-        <button data-item="${k}" class="item-btn relative py-1.5 px-1.5 flex items-center justify-center gap-1 text-white ${count === 0 && !isX2On ? 'empty' : ''}"
+        <button data-item="${k}" class="item-btn relative py-1.5 px-1.5 flex items-center justify-center gap-1 text-white ${count === 0 && !isX2On ? 'empty' : 'item-owned'}"
           style="background:${it.color};box-shadow:0 3px 0 ${it.dark}">
           ${count > 0 ? `<span class="item-badge">${count}</span>` : ''}
           <span class="text-base leading-none shrink-0">${it.emoji}</span>
@@ -763,10 +895,27 @@
     snappedSelfieDataUrl = '';
     el.selfiePreviewImg.classList.add('hidden');
     el.selfieVideo.classList.remove('hidden');
+    el.selfieCamFallbackMsg?.classList.add('hidden');
+    el.snapSelfieBtn.classList.remove('hidden');
     el.selfieSnapControls.classList.remove('hidden');
     el.selfieSendControls.classList.add('hidden');
     el.selfieStepWaiting.classList.add('hidden');
     el.selfieStepCamera.classList.remove('hidden');
+
+    const activateNativeCamFallback = () => {
+      el.selfieVideo.classList.add('hidden');
+      el.selfieCamFallbackMsg?.classList.remove('hidden');
+      el.snapSelfieBtn.classList.add('hidden');
+      if (el.selfieNativeCamBtn) {
+        el.selfieNativeCamBtn.className = 'btn-3d k-btn-green py-3.5 px-2 text-sm flex items-center justify-center gap-1 cursor-pointer col-span-2';
+      }
+    };
+
+    if (isLineBrowser()) {
+      // ใน LINE กล้องสดมักจอดำ -> สลับไปเน้นปุ่มเปิดกล้องมือถือ native ให้ใช้งานได้ทันที!
+      activateNativeCamFallback();
+      return;
+    }
 
     if (selfieStream) return;
     try {
@@ -776,9 +925,14 @@
           audio: false
         });
         el.selfieVideo.srcObject = selfieStream;
+        if (el.selfieNativeCamBtn) {
+          el.selfieNativeCamBtn.className = 'btn-3d k-btn-blue py-2.5 px-2 text-xs flex items-center justify-center gap-1 cursor-pointer';
+        }
+      } else {
+        activateNativeCamFallback();
       }
     } catch (e) {
-      // หากไม่มีเว็บแคมหรือไม่อนุญาต ให้ใช้ปุ่มอัปโหลด/สร้างหน้าตลกจำลองแทนได้ทันที
+      activateNativeCamFallback();
     }
   }
 
@@ -880,14 +1034,96 @@
     toast('📸 ส่งรูปหน้าตลกขึ้นจอใหญ่ครูแล้ว! รอครูกดอนุญาตนะ', 'info', 3200);
   });
 
+  function renderPlayerTimers() {
+    if (playerMatchTotalSec > 0 && el.hdrTimer) {
+      el.hdrTimer.classList.remove('hidden');
+      el.hdrTimer.textContent = `⏱️ ${formatClock(playerMatchRemMs)}`;
+      const sec = Math.ceil(playerMatchRemMs / 1000);
+      el.hdrTimer.classList.toggle('timer-pill-urgent', sec <= 30 && Sync.room && Sync.room.status === 'playing');
+    } else if (el.hdrTimer) {
+      el.hdrTimer.classList.add('hidden');
+    }
+
+    if (activeBonusId && el.playerBonusRing && el.playerBonusBar) {
+      const sec = Math.max(0, Math.ceil(playerBonusRemMs / 1000));
+      const pct = Math.max(0, Math.min(100, (playerBonusRemMs / Math.max(1000, playerBonusDurMs)) * 100));
+      el.playerBonusRing.textContent = String(sec);
+      el.playerBonusRing.classList.toggle('warn', sec <= 8 && sec > 5);
+      el.playerBonusRing.classList.toggle('urgent', sec <= 5);
+      el.playerBonusBar.style.width = `${pct}%`;
+      el.playerBonusBar.style.background = sec <= 5 ? '#e21b3c' : (sec <= 8 ? '#d89e00' : '#46178f');
+
+      if (playerBonusRemMs <= 0 && !bonusExpiredLocal) {
+        bonusExpiredLocal = true;
+        if (el.bonusSubmitBtn) {
+          el.bonusSubmitBtn.disabled = true;
+          el.bonusSubmitBtn.textContent = '⏱️ หมดเวลาแล้ว!';
+        }
+      }
+    }
+  }
+
+  // ตัวนับเวลาฝั่งมือถือผู้เล่น (ลื่นไหลทุก 200ms ไม่พึ่งนาฬิกาเครื่องข้ามอุปกรณ์)
+  setInterval(() => {
+    const room = Sync.room;
+    if (!room || !myId) return;
+    const now = Date.now();
+    if (room.status === 'playing' && playerMatchTotalSec > 0) {
+      const dt = playerMatchLastTickAt ? Math.min(1000, now - playerMatchLastTickAt) : 0;
+      playerMatchLastTickAt = now;
+      playerMatchRemMs = Math.max(0, playerMatchRemMs - dt);
+    } else {
+      playerMatchLastTickAt = now;
+    }
+
+    if (room.status === 'playing' && activeBonusId && !mysteryOpen && room.bonus && room.bonus.id === activeBonusId) {
+      const dt = playerBonusLastTickAt ? Math.min(1000, now - playerBonusLastTickAt) : 0;
+      playerBonusLastTickAt = now;
+      playerBonusRemMs = Math.max(0, playerBonusRemMs - dt);
+    } else {
+      playerBonusLastTickAt = now;
+    }
+    renderPlayerTimers();
+  }, 200);
+
   function onRoomUpdate(room) {
     if (!room || !myId) return;
     const me = room.players[myId];
     if (!me) {
-      // ครูได้กดเริ่มเกมใหม่ / ล้างห้องแล้ว -> พากลับหน้าล็อกอินอัตโนมัติ
-      leaveRoomToLogin('🔄 เริ่มเกมรอบใหม่แล้ว! กรุณาใส่ชื่อเข้าร่วมอีกครั้ง');
+      // เฉพาะกรณีที่ครูสั่งล้างห้อง/เริ่มรอบใหม่จริง (roundId สูงขึ้น) เท่านั้นจึงกลับหน้าล็อกอิน!
+      if ((room.roundId || 1) > joinedRoundId) {
+        leaveRoomToLogin('🔄 ครูเริ่มเกมรอบใหม่แล้ว! กรุณาใส่ชื่อเข้าร่วมอีกครั้ง');
+        return;
+      }
+      // หากอยู่รอบเดียวกันแต่แพ็กเก็ตชั่วคราวไม่มีชื่อเรา -> ซ่อมตัวเองอัตโนมัติ (ไม่เด้งออก!)
+      if (myLastSnapshot && Date.now() - lastHealAt > 1500) {
+        lastHealAt = Date.now();
+        const backup = Object.assign({}, myLastSnapshot, { roundId: room.roundId || joinedRoundId, updatedAt: Date.now() });
+        Sync.transact(r => {
+          if (r && !r.players[myId] && (r.roundId || 1) <= joinedRoundId) {
+            r.players[myId] = backup;
+          }
+          return r;
+        });
+      }
       return;
     }
+
+    // อัปเดต snapshot และเซฟ Session ลง localStorage อย่างต่อเนื่อง (กันเด้งออกเมื่อสลับแอป/ล็อกจอ)
+    joinedRoundId = Math.max(joinedRoundId, room.roundId || 1);
+    myLastSnapshot = JSON.parse(JSON.stringify(me));
+    savePlayerSession(room.code, myId, joinedRoundId, myLastSnapshot);
+
+    // อัปเดตเวลาเกมจาก Host
+    playerMatchTotalSec = Number(room.timerTotalSec || 0);
+    if (playerMatchTotalSec > 0) {
+      const incomingRem = Number(room.timerRemainingMs || 0);
+      if (Math.abs(incomingRem - playerMatchRemMs) > 2500 || room.status !== 'playing') {
+        playerMatchRemMs = incomingRem;
+      }
+      playerMatchLastTickAt = Date.now();
+    }
+    renderPlayerTimers();
 
     const ranked = Game.ranking(room);
     const rankIdx = ranked.findIndex(p => p.id === myId);
@@ -1047,7 +1283,7 @@
       el.stateExtra.innerHTML = '';
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'ended') {
-      if (roomCode) sessionStorage.removeItem('sqa_pid_' + roomCode);
+      clearPlayerSession(roomCode);
       el.stateIcon.textContent = rankIdx === 0 ? '🥇' : (rankIdx === 1 ? '🥈' : (rankIdx === 2 ? '🥉' : '🏁'));
       el.stateTitle.textContent = `ได้อันดับ #${rankIdx + 1}`;
       el.stateDesc.textContent = `คะแนนรวมของคุณคือ ${me.score.toLocaleString()} แต้ม`;
@@ -1091,20 +1327,34 @@
         const bq = BONUS_MAP[room.bonus.qid];
         if (bq && activeBonusId !== room.bonus.id) {
           activeBonusId = room.bonus.id;
+          const durSec = Number(room.bonus.durationSec || bq.sec || 20);
+          const remSec = Number(room.bonus.remainingSec ?? durSec);
+          playerBonusDurMs = durSec * 1000;
+          playerBonusRemMs = Math.min(durSec, Math.max(1, remSec)) * 1000;
+          playerBonusLastTickAt = Date.now();
+          bonusExpiredLocal = false;
+
           const f = FILMS[bq.film];
+          el.bonusOverlayDurBadge.textContent = `⏱️ ${durSec} วินาที`;
           el.bonusOverlayFilm.textContent = `${f.emoji} ${f.short}`;
           el.bonusOverlayQ.textContent = bq.q;
           el.bonusNeedPct.textContent = String(Game.cfg.bonusPassThreshold);
           el.bonusInput.value = '';
+          if (el.bonusSubmitBtn) {
+            el.bonusSubmitBtn.disabled = false;
+            el.bonusSubmitBtn.textContent = 'ส่งคำตอบโบนัส! 🎁';
+          }
           el.bonusGradeBox.classList.add('hidden');
           el.bonusStepBox.classList.add('hidden');
           el.bonusStepQ.classList.remove('hidden');
           el.bonusOverlay.classList.remove('hidden');
+          renderPlayerTimers();
           SFX.bonus();
           SFX.announce('bonus');
         }
       } else {
         activeBonusId = null;
+        bonusExpiredLocal = false;
         el.bonusOverlay.classList.add('hidden');
       }
     }

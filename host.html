@@ -36,7 +36,11 @@
             </a>
             <button id="copyLinkBtn" class="btn-3d k-btn-dark px-2.5 py-1 text-xs" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
           </div>
-          <div class="flex items-center gap-2 mt-1 text-[11px] font-bold text-neutral-500">
+          <div class="flex items-center gap-2 mt-1 text-[11px] font-bold text-neutral-500 flex-wrap">
+            <span id="hostConnBadge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] bg-neutral-100 text-[#333]">
+              <span id="hostConnDot" class="conn-dot conn-wait"></span>
+              <span id="hostConnText">กำลังเชื่อมต่อ...</span>
+            </span>
             <span id="modeBadge"></span>
             <span>•</span>
             <a id="openCardsLink" href="cards.html" target="_blank" class="text-[#333] underline hover:text-[#e21b3c]">พิมพ์การ์ด QR 36 ใบ</a>
@@ -77,13 +81,30 @@
     </header>
 
     <!-- ===================== KAHOOT! CONTROL BAR ===================== -->
-    <section class="flex flex-wrap items-center justify-between gap-2.5 bg-[#25076b] p-3 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
-      <!-- จำนวนผู้เล่น + สถานะ -->
-      <div class="flex items-center gap-2">
+    <section class="flex flex-wrap items-center justify-between gap-2.5 bg-[#25076b] p-3 rounded-[6px] shadow-[0_5px_0_rgba(0,0,0,0.3)]">
+      <!-- จำนวนผู้เล่น + สถานะ + ระบบกำหนดเวลาเกม -->
+      <div class="flex flex-wrap items-center gap-2">
         <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[4px] font-display font-extrabold text-sm sm:text-base">
           👤 0 คน
         </div>
         <span id="statusBadge" class="px-3 py-2 rounded-[4px] text-xs sm:text-sm font-extrabold uppercase">รอเริ่มเกม</span>
+
+        <!-- ระบบกำหนดเวลาเกม (หมดเวลาสรุปผลโพเดียมอัตโนมัติ) -->
+        <div class="flex items-center gap-1.5 bg-[#33106d] p-1 rounded-[4px] border border-white/15">
+          <select id="matchTimeSelect" class="bg-white text-[#333] font-display font-extrabold text-xs sm:text-sm rounded-[3px] px-2.5 py-1.5 cursor-pointer outline-none" title="ตั้งเวลาการแข่งขัน (หมดเวลาสรุปผลอัตโนมัติ)">
+            <option value="0">⏱️ ไม่จำกัดเวลา</option>
+            <option value="180">⏱️ 3 นาที</option>
+            <option value="300">⏱️ 5 นาที</option>
+            <option value="600">⏱️ 10 นาที</option>
+            <option value="900">⏱️ 15 นาที</option>
+            <option value="1200">⏱️ 20 นาที</option>
+            <option value="1800">⏱️ 30 นาที</option>
+            <option value="custom">⏱️ กำหนดเอง...</option>
+          </select>
+          <div id="matchTimerPill" class="hidden px-3 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-base sm:text-lg tabular leading-tight">
+            00:00
+          </div>
+        </div>
       </div>
 
       <!-- ปุ่มควบคุมหลักของครู (4 สี Kahoot!) -->
@@ -120,24 +141,30 @@
       </div>
     </section>
 
-    <!-- แถบคำถามโบนัสที่กำลังปล่อยอยู่ -->
-    <section id="activeBonusBar" class="hidden bonus-glow rounded-[6px] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-[4px] bg-[#333333] text-white grid place-items-center text-2xl shrink-0 wiggle">🎁</div>
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2 py-0.5 rounded-[3px] text-xs font-extrabold bg-[#333333] text-white uppercase">BONUS QUESTION LIVE!</span>
-            <span id="bonusFilmTag" class="text-xs font-extrabold text-[#333333]"></span>
+    <!-- แถบคำถามโบนัสที่กำลังปล่อยอยู่ (พร้อมเวลานับถอยหลังทรงกลมสไตล์ Kahoot!) -->
+    <section id="activeBonusBar" class="hidden bonus-glow rounded-[6px] p-4 space-y-2.5">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5 min-w-0">
+          <div id="hostBonusRing" class="k-timer-ring text-3xl">20</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2 py-0.5 rounded-[3px] text-xs font-extrabold bg-[#333333] text-white uppercase">BONUS LIVE!</span>
+              <span id="bonusDurTag" class="px-2 py-0.5 rounded-[3px] text-xs font-black bg-white text-[#333]"></span>
+              <span id="bonusFilmTag" class="text-xs font-extrabold text-[#333333]"></span>
+            </div>
+            <div id="bonusQuestionText" class="font-display text-lg sm:text-xl font-extrabold text-[#333333] mt-0.5"></div>
           </div>
-          <div id="bonusQuestionText" class="font-display text-lg sm:text-xl font-extrabold text-[#333333] mt-0.5"></div>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="text-center bg-[#333333] text-white rounded-[4px] px-4 py-1.5">
+            <div id="bonusWinCount" class="font-display text-2xl font-black text-[#ffa602] tabular">0</div>
+            <div class="text-[11px] font-bold">คนตอบผ่านแล้ว</div>
+          </div>
+          <button id="closeBonusBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm">ปิดโบนัส</button>
         </div>
       </div>
-      <div class="flex items-center gap-3 shrink-0">
-        <div class="text-center bg-[#333333] text-white rounded-[4px] px-4 py-1.5">
-          <div id="bonusWinCount" class="font-display text-2xl font-black text-[#ffa602] tabular">0</div>
-          <div class="text-[11px] font-bold">คนตอบผ่านแล้ว</div>
-        </div>
-        <button id="closeBonusBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm">ปิดโบนัส</button>
+      <div class="w-full h-3 bg-black/20 rounded-full overflow-hidden">
+        <div id="hostBonusBar" class="h-full bg-[#46178f] transition-all duration-200" style="width:100%"></div>
       </div>
     </section>
 
@@ -193,7 +220,8 @@
       <button id="closeQrModal" class="btn-3d k-btn-dark absolute top-4 right-4 w-9 h-9 grid place-items-center">✕</button>
       <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN</div>
       <div id="qrModalPin" class="font-display text-6xl font-black text-[#333] tracking-widest mb-3 tabular">----</div>
-      <div id="qrModalBox" class="w-72 h-72 mx-auto bg-white p-4 rounded-[8px] shadow-[0_0_0_2px_#e5e7eb] grid place-items-center mb-4"></div>
+      <div id="qrModalBox" class="w-72 h-72 mx-auto bg-white p-4 rounded-[8px] shadow-[0_0_0_2px_#e5e7eb] grid place-items-center mb-3"></div>
+      <div class="text-xs font-extrabold text-[#26890c] mb-2">📱 สแกนผ่านกล้องมือถือหรือ LINE ได้เลย (เปิดออก Safari/Chrome อัตโนมัติ)</div>
       <div id="qrModalUrl" class="text-xs font-bold text-neutral-600 break-all bg-neutral-100 rounded-[4px] p-2 mb-3"></div>
       <button id="qrModalCopy" class="btn-3d k-btn-blue w-full py-3 text-base">คัดลอกลิงก์เข้าเล่น</button>
     </div>
@@ -205,9 +233,17 @@
       <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
         <div>
           <h3 class="font-display text-2xl font-black text-[#333]">🎁 ปล่อยคำถามโบนัสพิเศษ</h3>
-          <p class="text-xs sm:text-sm font-semibold text-neutral-500">เด้งแทรกบนจอนักเรียนทุกคนทันที ผู้ตอบผ่านจะได้เปิดกล่องสุ่มไอเทม!</p>
+          <p class="text-xs sm:text-sm font-semibold text-neutral-500">เลือกเวลาตอบ (10 / 20 / 30 วินาที) เด้งพร้อมกันบนจอนักเรียนทุกคน!</p>
         </div>
         <button id="closeBonusModal" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
+      </div>
+
+      <!-- เลือกเวลาคำถามโบนัส: ตามระดับข้อ / 10 วิ / 20 วิ (ง่าย) / 30 วิ (ยาก) -->
+      <div class="grid grid-cols-4 gap-1.5 mb-3 bg-neutral-100 p-1.5 rounded-[6px]">
+        <button type="button" data-bonus-sec="auto" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white">🎯 ตามระดับข้อ</button>
+        <button type="button" data-bonus-sec="10" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">⚡ 10 วินาที</button>
+        <button type="button" data-bonus-sec="20" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">🟢 20 วิ (ง่าย)</button>
+        <button type="button" data-bonus-sec="30" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">🔴 30 วิ (ยาก)</button>
       </div>
 
       <button id="randomBonusBtn" class="btn-3d k-btn-yellow w-full py-3.5 mb-3 text-base flex items-center justify-center gap-2">

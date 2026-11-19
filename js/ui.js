@@ -217,3 +217,28 @@ function makeFunnyFaceDataUrl(name = 'Player', avIdx = 0) {
   c.fillText(`หน้าตลกของ ${name}!`, 180, 308);
   return cv.toDataURL('image/jpeg', 0.7);
 }
+
+/* จัดรูปแบบเวลา MM:SS */
+function formatClock(ms) {
+  const totalSec = Math.max(0, Math.ceil((ms || 0) / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/* ตรวจจับเบราว์เซอร์ในแอป LINE / Facebook / Instagram ที่มักบล็อกกล้อง */
+function isLineBrowser() {
+  return /\bLine\//i.test(navigator.userAgent || '');
+}
+function isInAppBrowser() {
+  return /\b(Line\/|FBAN|FBAV|Instagram|KAKAOTALK|MicroMessenger)/i.test(navigator.userAgent || '');
+}
+function withExternalBrowser(rawUrl) {
+  try {
+    const u = new URL(rawUrl, location.href);
+    u.searchParams.set('openExternalBrowser', '1');
+    return u.toString();
+  } catch (e) {
+    return rawUrl + (rawUrl.includes('?') ? '&' : '?') + 'openExternalBrowser=1';
+  }
+}

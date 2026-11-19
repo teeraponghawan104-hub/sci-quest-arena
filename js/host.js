@@ -8,14 +8,18 @@
   }
   history.replaceState(null, '', `?room=${roomCode}`);
 
-  const joinUrl = `${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}`;
+  const joinUrl = withExternalBrowser(`${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}`);
   const cardsUrl = `${baseUrl()}cards.html?room=${encodeURIComponent(roomCode)}`;
 
   const $ = id => document.getElementById(id);
   const el = {
     modeBadge: $('modeBadge'),
+    hostConnDot: $('hostConnDot'),
+    hostConnText: $('hostConnText'),
     statusBadge: $('statusBadge'),
     playerCountBadge: $('playerCountBadge'),
+    matchTimeSelect: $('matchTimeSelect'),
+    matchTimerPill: $('matchTimerPill'),
     roomPinText: $('roomPinText'),
     emptyPin: $('emptyPin'),
     qrPreview: $('qrPreview'),
@@ -32,6 +36,9 @@
     simToggleBtn: $('simToggleBtn'),
     resetBtn: $('resetBtn'),
     activeBonusBar: $('activeBonusBar'),
+    hostBonusRing: $('hostBonusRing'),
+    hostBonusBar: $('hostBonusBar'),
+    bonusDurTag: $('bonusDurTag'),
     bonusFilmTag: $('bonusFilmTag'),
     bonusQuestionText: $('bonusQuestionText'),
     bonusWinCount: $('bonusWinCount'),
@@ -303,19 +310,209 @@
     }).join('');
   }
 
+  // ---------------- ⏱️ ระบบจับเวลาเกม + จับเวลาคำถามโบนัส (10 / 20 / 30 วิ) ----------------
+  let selectedBonusSec = 'auto'; // 'auto' | 10 | 20 | 30
+  let matchRemainingMs = 0;
+  let matchLastTickAt = 0;
+  let matchLastSyncAt = 0;
+  let lastMatchBeepSec = -1;
+  let matchEnding = false;
+
+  let trackedBonusId = null;
+  let bonusDurationMs = 20000;
+  let bonusRemainingMs = 0;
+  let bonusLastTickAt = 0;
+  let bonusLastSyncAt = 0;
+  let lastBonusBeepSec = -1;
+  let bonusClosing = false;
+
+  function renderMatchTimerUI(room) {
+    const totalSec = (room && room.timerTotalSec) || 0;
+    if (!totalSec) {
+      el.matchTimerPill.classList.add('hidden');
+      el.matchTimerPill.classList.remove('timer-pill-urgent');
+      return;
+    }
+    el.matchTimerPill.classList.remove('hidden');
+    el.matchTimerPill.textContent = `⏱️ ${formatClock(matchRemainingMs)}`;
+    const secLeft = Math.ceil(matchRemainingMs / 1000);
+    el.matchTimerPill.classList.toggle('timer-pill-urgent', secLeft <= 30 && room && room.status === 'playing');
+  }
+
+  function renderBonusTimerUI() {
+    if (!trackedBonusId) return;
+    const secLeft = Math.max(0, Math.ceil(bonusRemainingMs / 1000));
+    const pct = Math.max(0, Math.min(100, (bonusRemainingMs / Math.max(1000, bonusDurationMs)) * 100));
+    el.hostBonusRing.textContent = String(secLeft);
+    el.hostBonusRing.classList.toggle('warn', secLeft <= 8 && secLeft > 5);
+    el.hostBonusRing.classList.toggle('urgent', secLeft <= 5);
+    el.hostBonusBar.style.width = `${pct}%`;
+    el.hostBonusBar.style.background = secLeft <= 5 ? '#e21b3c' : (secLeft <= 8 ? '#d89e00' : '#46178f');
+  }
+
   function renderBonusBar(room) {
     if (!room.bonus) {
       el.activeBonusBar.classList.add('hidden');
+      trackedBonusId = null;
+      bonusRemainingMs = 0;
+      bonusClosing = false;
       return;
     }
     const bq = BONUS_MAP[room.bonus.qid];
     if (!bq) return;
     const film = FILMS[bq.film];
+    const durSec = Number(room.bonus.durationSec || bq.sec || 20);
+    if (trackedBonusId !== room.bonus.id) {
+      trackedBonusId = room.bonus.id;
+      bonusDurationMs = durSec * 1000;
+      bonusRemainingMs = Number(room.bonus.remainingSec ?? durSec) * 1000;
+      bonusLastTickAt = Date.now();
+      bonusLastSyncAt = Date.now();
+      lastBonusBeepSec = -1;
+      bonusClosing = false;
+    }
     el.activeBonusBar.classList.remove('hidden');
+    el.bonusDurTag.textContent = `⏱️ ${durSec} วินาที`;
     el.bonusFilmTag.textContent = `${film.emoji} ${film.short}`;
     el.bonusQuestionText.textContent = bq.q;
     el.bonusWinCount.textContent = String(Object.keys(room.bonus.answered || {}).length);
+    renderBonusTimerUI();
   }
+
+  // ตัวนับเวลาหลักฝั่งครู (ทำงานทุก 200ms เพื่อความลื่นไหล และซิงก์ลงห้องแบบประหยัดแบนด์วิดท์)
+  setInterval(async () => {
+    const room = Sync.room;
+    if (!room) return;
+    const now = Date.now();
+
+    // 1) นับเวลาถอยหลังของเกมหลัก
+    if (room.status === 'playing' && room.timerTotalSec > 0) {
+      const dt = matchLastTickAt ? Math.min(1000, now - matchLastTickAt) : 0;
+      matchLastTickAt = now;
+      matchRemainingMs = Math.max(0, matchRemainingMs - dt);
+      renderMatchTimerUI(room);
+
+      const secLeft = Math.ceil(matchRemainingMs / 1000);
+      if (secLeft > 0 && secLeft <= 10 && secLeft !== lastMatchBeepSec) {
+        lastMatchBeepSec = secLeft;
+        SFX.click();
+      }
+
+      if (matchRemainingMs <= 0 && !matchEnding) {
+        matchEnding = true;
+        SFX.drum();
+        await Sync.transact(r => {
+          if (!r || r.status === 'ended') return;
+          r.status = 'ended';
+          r.endedAt = Date.now();
+          r.timerRemainingMs = 0;
+          r.timerRunning = false;
+          r.bonus = null;
+          r.hostUpdatedAt = Date.now();
+          Sync.pushFeed(r, { type: 'info', text: '⏰ หมดเวลาการแข่งขัน! สรุปผลโพเดียม 1–2–3!' });
+          return r;
+        });
+        toast('⏰ หมดเวลาการแข่งขันแล้ว! สรุปผลผู้ชนะทันที 🏆', 'info', 4000);
+        return;
+      }
+
+      // ซิงก์เวลาคงเหลือให้มือถือเด็กทุก 5 วินาที
+      if (now - matchLastSyncAt >= 5000) {
+        matchLastSyncAt = now;
+        await Sync.transact(r => {
+          if (!r || r.status !== 'playing' || !r.timerTotalSec) return;
+          r.timerRemainingMs = Math.round(matchRemainingMs);
+          r.timerRunning = true;
+          r.hostUpdatedAt = Date.now();
+          return r;
+        });
+      }
+    } else {
+      matchLastTickAt = now;
+    }
+
+    // 2) นับเวลาถอยหลังของคำถามโบนัสพิเศษ (10 / 20 / 30 วิ)
+    if (room.status === 'playing' && room.bonus && trackedBonusId === room.bonus.id) {
+      const dt = bonusLastTickAt ? Math.min(1000, now - bonusLastTickAt) : 0;
+      bonusLastTickAt = now;
+      bonusRemainingMs = Math.max(0, bonusRemainingMs - dt);
+      renderBonusTimerUI();
+
+      const bSec = Math.ceil(bonusRemainingMs / 1000);
+      if (bSec > 0 && bSec <= 5 && bSec !== lastBonusBeepSec) {
+        lastBonusBeepSec = bSec;
+        SFX.click();
+      }
+
+      if (bonusRemainingMs <= 0 && !bonusClosing) {
+        bonusClosing = true;
+        const winCnt = Object.keys(room.bonus.answered || {}).length;
+        SFX.drum();
+        await Sync.transact(r => {
+          if (!r || !r.bonus || r.bonus.id !== trackedBonusId) return;
+          r.bonus = null;
+          r.hostUpdatedAt = Date.now();
+          Sync.pushFeed(r, { type: 'info', text: `⏱️ หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน` });
+          return r;
+        });
+        toast(`⏱️ หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน 🎁`, 'warn', 3200);
+      } else if (now - bonusLastSyncAt >= 3000) {
+        bonusLastSyncAt = now;
+        await Sync.transact(r => {
+          if (!r || !r.bonus || r.bonus.id !== trackedBonusId) return;
+          r.bonus.remainingSec = Math.max(1, Math.ceil(bonusRemainingMs / 1000));
+          r.hostUpdatedAt = Date.now();
+          return r;
+        });
+      }
+    } else {
+      bonusLastTickAt = now;
+    }
+  }, 200);
+
+  // ตั้งเวลาเกมจาก dropdown
+  el.matchTimeSelect?.addEventListener('change', async () => {
+    SFX.click();
+    let val = el.matchTimeSelect.value;
+    let totalSec = 0;
+    if (val === 'custom') {
+      const mins = Number(prompt('กำหนดเวลาการแข่งขันกี่นาที? (เช่น 7 หรือ 12)', '10'));
+      if (!mins || mins <= 0 || mins > 180) {
+        el.matchTimeSelect.value = String((Sync.room && Sync.room.timerTotalSec) || 0);
+        return;
+      }
+      totalSec = Math.round(mins * 60);
+      // เพิ่มตัวเลือก custom ชั่วคราวให้แสดงตรงใน dropdown
+      let opt = el.matchTimeSelect.querySelector('option[data-custom]');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.dataset.custom = '1';
+        el.matchTimeSelect.insertBefore(opt, el.matchTimeSelect.lastElementChild);
+      }
+      opt.value = String(totalSec);
+      opt.textContent = `⏱️ ${mins} นาที`;
+      el.matchTimeSelect.value = String(totalSec);
+    } else {
+      totalSec = Number(val) || 0;
+    }
+
+    matchRemainingMs = totalSec * 1000;
+    matchLastTickAt = Date.now();
+    matchLastSyncAt = Date.now();
+    matchEnding = false;
+    lastMatchBeepSec = -1;
+
+    await Sync.transact(room => {
+      if (!room) return;
+      room.timerTotalSec = totalSec;
+      room.timerRemainingMs = totalSec * 1000;
+      room.timerRunning = room.status === 'playing' && totalSec > 0;
+      room.hostUpdatedAt = Date.now();
+      return room;
+    });
+    renderMatchTimerUI(Sync.room);
+    toast(totalSec > 0 ? `⏱️ ตั้งเวลาเกมเป็น ${formatClock(totalSec * 1000)} (หมดเวลาสรุปผลอัตโนมัติ)` : '⏱️ เปลี่ยนเป็นไม่จำกัดเวลา', 'info');
+  });
 
   function renderControls(room) {
     const st = STATUS_UI[room.status] || STATUS_UI.lobby;
@@ -471,7 +668,17 @@
 
   function onRoomUpdate(room) {
     if (!room) return;
+    // ซิงก์ค่าเวลาเกมครั้งแรกที่โหลดห้อง (หรือเมื่อรีเซ็ต)
+    if (initialLoad || room.status === 'lobby') {
+      matchRemainingMs = room.timerRemainingMs || (room.timerTotalSec || 0) * 1000;
+      matchEnding = false;
+      if (el.matchTimeSelect) {
+        const str = String(room.timerTotalSec || 0);
+        if ([...el.matchTimeSelect.options].some(o => o.value === str)) el.matchTimeSelect.value = str;
+      }
+    }
     renderControls(room);
+    renderMatchTimerUI(room);
     renderLeaderboard(room);
     renderFeed(room);
     renderBonusBar(room);
@@ -496,10 +703,17 @@
   el.playPauseBtn.addEventListener('click', async () => {
     SFX.pop();
     let newStatus = 'playing';
+    matchLastTickAt = Date.now();
+    bonusLastTickAt = Date.now();
     await Sync.transact(room => {
       if (!room) return;
       room.status = room.status === 'playing' ? 'paused' : 'playing';
       newStatus = room.status;
+      if (room.timerTotalSec > 0) {
+        if (matchRemainingMs <= 0) matchRemainingMs = room.timerTotalSec * 1000;
+        room.timerRemainingMs = Math.round(matchRemainingMs);
+        room.timerRunning = newStatus === 'playing';
+      }
       room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'info', text: room.status === 'playing' ? 'เริ่มการแข่งขันแล้ว! ลุยเลย!' : 'ครูหยุดเกมชั่วคราว' });
       return room;
@@ -520,40 +734,69 @@
     else toast(`🎁 สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!`, 'success');
   });
 
-  function openBonusModal() {
-    SFX.pop();
+  function renderBonusModalChoices() {
     const used = (Sync.room && Sync.room.usedBonus) || {};
+    const timeStyle = sec => sec <= 10
+      ? { bg: '#d89e00', txt: `⚡ 10 วิ` }
+      : (sec <= 20 ? { bg: '#26890c', txt: `🟢 20 วิ (ง่าย)` } : { bg: '#e21b3c', txt: `🔴 30 วิ (ยาก)` });
+
     el.bonusChoices.innerHTML = BONUS_QUESTIONS.map(bq => {
       const f = FILMS[bq.film];
       const isUsed = !!used[bq.id];
+      const effSec = selectedBonusSec === 'auto' ? (bq.sec || 20) : Number(selectedBonusSec);
+      const ts = timeStyle(effSec);
       return `
-        <button data-bid="${bq.id}" class="w-full text-left p-3 rounded-[4px] border-2 transition flex items-center justify-between gap-3 ${isUsed ? 'bg-neutral-100 border-neutral-300 opacity-60' : 'bg-white border-neutral-300 hover:border-[#333]'}">
+        <button data-bid="${bq.id}" class="w-full text-left p-3 rounded-[6px] border-2 transition flex items-center justify-between gap-3 ${isUsed ? 'bg-neutral-100 border-neutral-300 opacity-60' : 'bg-white border-neutral-300 hover:border-[#46178f]'}">
           <div>
-            <div class="flex items-center gap-2 mb-1">
-              <span class="px-2 py-0.5 rounded-[3px] text-xs font-extrabold text-white" style="background:${f.color}">${f.emoji} ${f.short}</span>
-              ${isUsed ? '<span class="text-xs font-extrabold text-neutral-500">ปล่อยไปแล้ว</span>' : ''}
+            <div class="flex items-center gap-1.5 flex-wrap mb-1">
+              <span class="px-2 py-0.5 rounded-[3px] text-[11px] font-black text-white" style="background:${ts.bg}">${ts.txt}</span>
+              <span class="px-2 py-0.5 rounded-[3px] text-[11px] font-extrabold text-white" style="background:${f.color}">${f.emoji} ${f.short}</span>
+              ${isUsed ? '<span class="text-[11px] font-extrabold text-neutral-500">ปล่อยไปแล้ว</span>' : ''}
             </div>
             <div class="font-bold text-[#333] text-sm sm:text-base">${esc(bq.q)}</div>
           </div>
-          <span class="btn-3d k-btn-green px-3 py-1.5 text-xs shrink-0">ปล่อยข้อนี้</span>
+          <span class="btn-3d k-btn-green px-3 py-1.5 text-xs shrink-0">ปล่อย (${effSec} วิ)</span>
         </button>`;
     }).join('');
     el.bonusChoices.querySelectorAll('[data-bid]').forEach(btn => {
       btn.addEventListener('click', () => launchBonus(btn.dataset.bid));
     });
+  }
+
+  document.querySelectorAll('.bonus-sec-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      SFX.click();
+      selectedBonusSec = btn.dataset.bonusSec === 'auto' ? 'auto' : Number(btn.dataset.bonusSec);
+      document.querySelectorAll('.bonus-sec-btn').forEach(b => {
+        b.className = b === btn
+          ? 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white'
+          : 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200';
+      });
+      renderBonusModalChoices();
+    });
+  });
+
+  function openBonusModal() {
+    SFX.pop();
+    renderBonusModalChoices();
     el.bonusModal.classList.remove('hidden');
   }
 
   async function launchBonus(qid) {
     el.bonusModal.classList.add('hidden');
+    const bq = BONUS_MAP[qid];
+    const durationSec = selectedBonusSec === 'auto' ? ((bq && bq.sec) || 20) : Number(selectedBonusSec);
     SFX.bonus();
     await Sync.transact(room => {
       if (!room) return;
-      if (room.status === 'lobby' || room.status === 'paused') room.status = 'playing';
+      if (room.status === 'lobby' || room.status === 'paused') {
+        room.status = 'playing';
+        if (room.timerTotalSec > 0) room.timerRunning = true;
+      }
       room.usedBonus[qid] = true;
-      room.bonus = { id: uid(), qid, startedAt: Date.now(), answered: {} };
+      room.bonus = { id: uid(), qid, durationSec, remainingSec: durationSec, startedAt: Date.now(), answered: {} };
       room.hostUpdatedAt = Date.now();
-      Sync.pushFeed(room, { type: 'bonus', qid });
+      Sync.pushFeed(room, { type: 'bonus', qid, sec: durationSec });
       return room;
     });
   }
@@ -604,6 +847,8 @@
   async function clearRoomForNewGame(silent = false) {
     if (!silent) SFX.pop();
     stopSim();
+    matchEnding = false;
+    trackedBonusId = null;
     await Sync.transact(room => {
       const now = Date.now();
       const base = room || Sync.defaultRoom(roomCode);
@@ -613,10 +858,13 @@
       base.usedBonus = {};
       base.players = {};
       base.feed = {};
+      base.timerRunning = false;
+      base.timerRemainingMs = (base.timerTotalSec || 0) * 1000;
       base.hostUpdatedAt = now;
       base.roundId = (base.roundId || 1) + 1;
       return base;
     });
+    matchRemainingMs = ((Sync.room && Sync.room.timerTotalSec) || 0) * 1000;
     seenFeedIds.clear();
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
@@ -755,8 +1003,22 @@
     runBotTick();
   });
 
+  function onConnStatus(st) {
+    if (!el.hostConnDot || !el.hostConnText) return;
+    if (st === 'connected') {
+      el.hostConnDot.className = 'conn-dot conn-ok';
+      el.hostConnText.textContent = 'ออนไลน์';
+    } else if (st === 'reconnecting') {
+      el.hostConnDot.className = 'conn-dot conn-wait';
+      el.hostConnText.textContent = 'กำลังต่อใหม่...';
+    } else {
+      el.hostConnDot.className = 'conn-dot conn-off';
+      el.hostConnText.textContent = 'ออฟไลน์';
+    }
+  }
+
   (async () => {
-    await Sync.connect(roomCode, onRoomUpdate);
+    await Sync.connect(roomCode, onRoomUpdate, { isHost: true, onConn: onConnStatus });
     if (!Sync.room) {
       await Sync.transact(r => {
         const base = r || Sync.defaultRoom(roomCode);
@@ -764,7 +1026,6 @@
         return base;
       });
     } else if (forceNew || Sync.room.status === 'ended') {
-      // หากกดเข้าห้องใหม่จากหน้าแรก หรือห้องเดิมเล่นจบไปแล้ว ให้ล้างห้องเริ่มใหม่ทันที
       await clearRoomForNewGame(true);
     }
     refreshIcons();

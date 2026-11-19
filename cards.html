@@ -186,6 +186,7 @@
         const p = new URLSearchParams();
         if (r) p.set('room', r);
         p.set('card', cardId);
+        p.set('openExternalBrowser', '1');
         return `${baseUrl()}player.html?${p.toString()}`;
       }
       return cardId;

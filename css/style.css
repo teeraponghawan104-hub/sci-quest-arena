@@ -50,6 +50,7 @@ html, body {
   transform: rotate(45deg);
   pointer-events: none;
   z-index: 0;
+  animation: slowSpin 60s linear infinite;
 }
 /* วงกลมยักษ์มุมขวาล่าง */
 .bg-arena::after {
@@ -63,6 +64,48 @@ html, body {
   background: rgba(0, 0, 0, 0.14);
   pointer-events: none;
   z-index: 0;
+  animation: slowPulse 12s ease-in-out infinite;
+}
+@keyframes slowSpin { from { transform: rotate(45deg); } to { transform: rotate(405deg); } }
+@keyframes slowPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+/* ---------- นาฬิกานับถอยหลังทรงกลมสไตล์ Kahoot! ---------- */
+.k-timer-ring {
+  width: 66px;
+  height: 66px;
+  border-radius: 9999px;
+  background: #46178f;
+  color: #ffffff;
+  border: 4px solid #ffffff;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+  display: grid;
+  place-items: center;
+  font-family: 'Montserrat', 'Kanit', sans-serif;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.15s;
+}
+.k-timer-ring.warn { background: #d89e00; }
+.k-timer-ring.urgent { background: #e21b3c; animation: urgentPulse 0.6s ease-in-out infinite; }
+@keyframes urgentPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+.timer-pill-urgent {
+  background: #e21b3c !important;
+  color: #ffffff !important;
+  animation: urgentPulse 0.7s ease-in-out infinite;
+}
+
+/* ---------- จุดสถานะการเชื่อมต่อ ---------- */
+.conn-dot { width: 9px; height: 9px; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
+.conn-ok   { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
+.conn-wait { background: #facc15; animation: liveDot 0.9s infinite; }
+.conn-off  { background: #ef4444; }
+
+/* ---------- ไฮไลต์ไอเทมที่มีในกระเป๋า ---------- */
+.item-owned {
+  outline: 2px solid rgba(255, 255, 255, 0.75);
 }
 
 /* ---------- โลโก้สไตล์ Kahoot! ---------- */

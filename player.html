@@ -14,6 +14,19 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="bg-arena min-h-screen relative overflow-x-hidden">
+  <!-- แถบแจ้งเตือนเมื่อเปิดผ่าน LINE / In-App Browser (ช่วยให้กล้องทำงาน 100%) -->
+  <div id="lineBanner" class="hidden relative z-[120] bg-[#ffa602] text-[#333333] px-3 py-2 border-b-4 border-[#9c7200]">
+    <div class="max-w-md mx-auto flex items-center justify-between gap-2">
+      <div class="text-xs font-extrabold leading-snug">
+        📱 เปิดในแอป LINE อยู่ (กล้องสดอาจไม่ติด) — แนะนำเปิดใน Safari/Chrome
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <a id="openExtBrowserBtn" href="#" class="btn-3d k-btn-dark px-2.5 py-1 text-[11px] whitespace-nowrap">เปิดเบราว์เซอร์ ↗</a>
+        <button id="dismissLineBanner" type="button" class="px-1.5 py-1 text-xs font-black">✕</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== VIEW 1: LOGIN (สไตล์ kahoot.it แท้) ===================== -->
   <main id="loginView" class="relative z-10 max-w-md mx-auto min-h-screen px-4 py-4 flex flex-col justify-between">
     <div class="flex items-center justify-between">
@@ -80,6 +93,7 @@
               <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[3px] bg-neutral-200 hover:bg-neutral-300 text-[#333]">ออก</button>
             </div>
             <div class="flex items-center gap-1.5 text-xs font-extrabold text-neutral-500">
+              <span id="playerConnDot" class="conn-dot conn-ok" title="สถานะการเชื่อมต่อ"></span>
               <span>PIN: <b id="hdrRoom" class="text-[#333]"></b></span>
               <span>•</span>
               <span id="hdrRank" class="text-[#1368ce]">อันดับ #1</span>
@@ -88,6 +102,9 @@
         </div>
 
         <div class="flex items-center gap-1 shrink-0">
+          <div id="hdrTimer" class="hidden bg-[#46178f] text-white rounded-[4px] px-2 py-1 font-display font-black text-xs sm:text-sm tabular leading-tight">
+            00:00
+          </div>
           <div class="bg-[#333333] text-white rounded-[4px] px-2.5 py-1 text-right">
             <div id="hdrScore" class="font-display font-black text-lg leading-tight tabular">0</div>
           </div>
@@ -115,10 +132,18 @@
             <span id="progressText" class="px-2.5 py-0.5 rounded-[3px] bg-[#333] text-white text-xs font-extrabold">0 / 36</span>
           </div>
 
-          <button id="openScannerBtn" class="btn-3d k-btn-blue w-full py-3.5 px-4 text-base flex items-center justify-center gap-2">
-            <span class="font-black text-lg">◆</span>
-            <span>สแกน QR Code การ์ดคำถาม</span>
-          </button>
+          <div class="grid grid-cols-1 gap-2">
+            <button id="openScannerBtn" class="btn-3d k-btn-blue w-full py-3.5 px-4 text-base flex items-center justify-center gap-2">
+              <span class="font-black text-lg">◆</span>
+              <span>สแกน QR Code การ์ดคำถาม</span>
+            </button>
+            <label class="btn-3d k-btn-white border-2 border-neutral-300 w-full py-2.5 px-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>📸</span>
+              <span>ถ่ายรูป QR การ์ด (ใช้ได้ใน LINE / กล้องสดไม่ติด)</span>
+              <input id="qrFileInput" type="file" accept="image/*" capture="environment" class="hidden" />
+            </label>
+          </div>
+          <div id="qrFileDecoder" class="hidden"></div>
 
           <!-- กล้องสแกน QR -->
           <div id="scannerBox" class="hidden space-y-2 bg-[#333] rounded-[4px] p-2.5 text-white">
@@ -263,9 +288,14 @@
           ทำหน้าให้ฮาที่สุดแล้วกดถ่าย! ต้องรอครูกดอนุญาตบนจอใหญ่ถึงจะเล่นต่อได้
         </p>
 
-        <div class="relative w-64 h-64 mx-auto rounded-[6px] overflow-hidden border-4 border-[#333] bg-neutral-900 shadow-lg">
+        <div id="selfieCamBox" class="relative w-64 h-64 mx-auto rounded-[6px] overflow-hidden border-4 border-[#333] bg-neutral-900 shadow-lg">
           <video id="selfieVideo" autoplay playsinline muted class="w-full h-full object-cover scale-x-[-1]"></video>
           <img id="selfiePreviewImg" src="" alt="Preview" class="w-full h-full object-cover hidden" />
+          <div id="selfieCamFallbackMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center p-4 text-white text-center bg-[#25076b]">
+            <div class="text-5xl mb-2">📸</div>
+            <div class="font-display font-black text-sm">กดปุ่ม "เปิดกล้องมือถือถ่ายรูป" ด้านล่างได้เลย!</div>
+            <div class="text-[11px] text-white/75 mt-1">(ใช้ได้ทันทีแม้เปิดผ่าน LINE)</div>
+          </div>
           <div class="absolute top-2 left-2 px-2 py-0.5 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-[11px]">
             🤪 FUNNY CAM
           </div>
@@ -278,12 +308,12 @@
             <span>กดถ่ายรูปหน้าตลก!</span>
           </button>
           <div class="grid grid-cols-2 gap-2">
-            <label class="btn-3d k-btn-blue py-2 px-2 text-xs flex items-center justify-center gap-1 cursor-pointer">
+            <label id="selfieNativeCamBtn" class="btn-3d k-btn-blue py-2.5 px-2 text-xs flex items-center justify-center gap-1 cursor-pointer">
               <span>📷</span>
-              <span>กล้องมือถือ/อัปโหลด</span>
+              <span>เปิดกล้องมือถือถ่ายรูป</span>
               <input id="selfieFileInput" type="file" accept="image/*" capture="user" class="hidden" />
             </label>
-            <button id="mockSelfieBtn" type="button" class="btn-3d k-btn-dark py-2 px-2 text-xs flex items-center justify-center gap-1">
+            <button id="mockSelfieBtn" type="button" class="btn-3d k-btn-dark py-2.5 px-2 text-xs flex items-center justify-center gap-1">
               <span>🎭</span>
               <span>สร้างหน้าตลกจำลอง</span>
             </button>
@@ -371,17 +401,26 @@
   <!-- ===================== OVERLAY: คำถามโบนัสพิเศษ + กล่องสุ่ม ===================== -->
   <div id="bonusOverlay" class="overlay dim z-[160] hidden overflow-y-auto">
     <div class="k-box max-w-md w-full p-5 pop-in border-t-8 border-[#ffa602] my-auto">
-      <!-- ขั้นที่ 1: ตอบคำถามโบนัส -->
+      <!-- ขั้นที่ 1: ตอบคำถามโบนัส (พร้อมเวลานับถอยหลังทรงกลม 10 / 20 / 30 วิ) -->
       <div id="bonusStepQ" class="space-y-3">
-        <div class="flex items-center justify-between">
-          <span class="px-2.5 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-xs uppercase">🎁 BONUS QUESTION!</span>
-          <span id="bonusOverlayFilm" class="text-xs font-extrabold text-[#333]"></span>
+        <div class="flex items-center justify-between gap-2">
+          <div class="space-y-1">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2.5 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-xs uppercase">🎁 BONUS!</span>
+              <span id="bonusOverlayDurBadge" class="px-2 py-0.5 rounded-[3px] bg-[#333] text-white font-display font-black text-[11px]">⏱️ 20 วิ</span>
+            </div>
+            <div id="bonusOverlayFilm" class="text-xs font-extrabold text-[#333]"></div>
+          </div>
+          <div id="playerBonusRing" class="k-timer-ring text-2xl">20</div>
+        </div>
+        <div class="w-full h-2.5 bg-neutral-200 rounded-full overflow-hidden">
+          <div id="playerBonusBar" class="h-full bg-[#46178f] transition-all duration-200" style="width:100%"></div>
         </div>
         <h3 id="bonusOverlayQ" class="font-display text-xl font-black text-[#333] leading-snug"></h3>
-        <p class="text-xs font-semibold text-neutral-500">ตอบให้แม่นยำอย่างน้อย <b id="bonusNeedPct">50</b>% เพื่อเปิดกล่องสุ่มไอเทม!</p>
+        <p class="text-xs font-semibold text-neutral-500">ตอบให้แม่นยำอย่างน้อย <b id="bonusNeedPct">50</b>% ก่อนหมดเวลาเพื่อเปิดกล่องสุ่ม!</p>
         <form id="bonusForm" class="space-y-2.5">
           <textarea id="bonusInput" rows="3" placeholder="พิมพ์คำตอบโบนัสที่นี่..." class="input-big text-base resize-none"></textarea>
-          <button type="submit" class="btn-3d k-btn-yellow w-full py-3.5 text-lg">
+          <button id="bonusSubmitBtn" type="submit" class="btn-3d k-btn-yellow w-full py-3.5 text-lg">
             ส่งคำตอบโบนัส! 🎁
           </button>
         </form>
