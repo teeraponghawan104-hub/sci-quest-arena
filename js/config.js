@@ -29,7 +29,9 @@ window.SQA_CONFIG = {
   supabase: {
     url: '',
     anonKey: '',
-    table: 'sqa_rooms'
+    table: 'sqa_rooms',
+    playersTable: 'sqa_players',
+    scalable: true   // แยกตาราง sqa_players รองรับ 200 เครื่องพร้อมกันไร้ write conflict
   },
 
   // URL สาธารณะของเว็บ (เว้นว่าง = ใช้ URL ปัจจุบันอัตโนมัติ เช่น https://sci-quest-arena.vercel.app/)

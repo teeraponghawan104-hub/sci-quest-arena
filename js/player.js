@@ -61,6 +61,8 @@
     targetModal: $('targetModal'),
     targetModalTitle: $('targetModalTitle'),
     targetModalDesc: $('targetModalDesc'),
+    targetSearchInput: $('targetSearchInput'),
+    targetRandomBtn: $('targetRandomBtn'),
     targetList: $('targetList'),
     bonusOverlay: $('bonusOverlay'),
     bonusStepQ: $('bonusStepQ'),
@@ -191,6 +193,10 @@
   let prevSelfieStatus = '';
   let selfieStream = null;
   let snappedSelfieDataUrl = '';
+  let localSubmittedSelfieUrl = '';
+  let lastRenderedCardsKey = '';
+  let lastRenderedDockKey = '';
+  let activeAttackKind = null;
   let currentQ = null;
   let activeBonusId = null;
   let mysteryItemPending = null;
@@ -251,6 +257,9 @@
     wasFlipped = false;
     wasSelfieLocked = false;
     prevSelfieStatus = '';
+    localSubmittedSelfieUrl = '';
+    lastRenderedCardsKey = '';
+    lastRenderedDockKey = '';
     currentQ = null;
     activeBonusId = null;
     bonusExpiredLocal = false;
@@ -768,59 +777,78 @@
       return;
     }
     SFX.pop();
+    activeAttackKind = kind;
     el.targetModalTitle.textContent = `${ITEMS[kind].emoji} เลือกเพื่อนที่จะใช้ "${ITEMS[kind].name}"`;
-    el.targetModalDesc.textContent = ITEMS[kind].desc;
-    el.targetList.innerHTML = others.map((t, idx) => `
-      <button data-target="${t.id}" class="w-full p-2.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 hover:border-[#333] transition flex items-center justify-between gap-2 text-left">
-        <div class="flex items-center gap-2.5 min-w-0">
-          ${avatarHtml(t.avatar, 40)}
-          <div class="min-w-0">
-            <div class="font-display font-extrabold text-[#333] truncate">${idx === 0 ? '👑 ' : ''}${esc(t.name)}</div>
-            <div class="text-xs font-bold text-neutral-500">${t.score.toLocaleString()} แต้ม ${t.frozen ? '• ❄️' : ''} ${t.blinded ? '• 💨' : ''} ${t.flipped ? '• 🙃' : ''}</div>
-          </div>
-        </div>
-        <span class="btn-3d k-btn-red px-3 py-1.5 text-xs shrink-0">โจมตี!</span>
-      </button>`).join('');
+    el.targetModalDesc.textContent = `${ITEMS[kind].desc} (แสดง Top 25 หรือพิมพ์ค้นหาชื่อจาก ${others.length} คน)`;
+    if (el.targetSearchInput) el.targetSearchInput.value = '';
 
-    el.targetList.querySelectorAll('[data-target]').forEach(b => {
-      b.addEventListener('click', async () => {
-        const tid = b.dataset.target;
-        const targetName = (room.players[tid] && room.players[tid].name) || 'เพื่อน';
-        el.targetModal.classList.add('hidden');
-        let res = null;
-        await Sync.transact(r => { res = Game.applyAttack(r, myId, tid, kind); return r; });
-        if (!res) return;
-        if (res.result === 'blocked') {
-          SFX.block();
-          SFX.announce('block', { a: me.name, b: targetName });
-          toast('🛡️ เพื่อนมีโล่ป้องกัน! การโจมตีถูกสกัดไว้ได้', 'warn');
-        } else if (res.result === 'steal') {
-          SFX.whoosh();
-          SFX.announce('steal', { a: me.name, b: targetName, pts: res.amt });
-          toast(`💰 ขโมยมาได้ +${res.amt} แต้ม!`, 'success');
-        } else if (res.result === 'zap') {
-          SFX.zap();
-          SFX.announce('zap', { a: me.name, b: targetName, pts: res.amt });
-          toast(`🌩️ สายฟ้าฟาด! ลดแต้มเพื่อน -${res.amt} และเราได้ +${res.bonus} แต้ม!`, 'success');
-        } else if (res.result === 'blind') {
-          SFX.splat();
-          SFX.announce('blind', { a: me.name, b: targetName });
-          toast(`💨 ปาระเบิดหมอกควันบังจอ ${targetName} แล้ว!`, 'info');
-        } else if (res.result === 'flip') {
-          SFX.dizzy();
-          SFX.announce('flip', { a: me.name, b: targetName });
-          toast(`🙃 ส่งไวรัสจอตีลังกา 180° ใส่ ${targetName} แล้ว!`, 'warn');
-        } else if (res.result === 'selfie') {
-          SFX.shutter();
-          SFX.announce('selfie', { a: me.name, b: targetName });
-          toast(`📸 สั่งให้ ${targetName} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครูแล้ว!`, 'info', 3200);
-        } else {
-          SFX.whoosh();
-          SFX.announce('freeze', { a: me.name, b: targetName });
-          toast(`❄️ ส่งพายุน้ำแข็งแช่แข็งหน้าจอ ${targetName} แล้ว!`, 'ice');
-        }
+    const executeAttack = async tid => {
+      const curRoom = Sync.room;
+      const targetName = (curRoom && curRoom.players[tid] && curRoom.players[tid].name) || 'เพื่อน';
+      el.targetModal.classList.add('hidden');
+      let res = null;
+      await Sync.transact(r => { res = Game.applyAttack(r, myId, tid, kind); return r; });
+      if (!res) return;
+      if (res.result === 'blocked') {
+        SFX.block();
+        SFX.announce('block', { a: me.name, b: targetName });
+        toast('🛡️ เพื่อนมีโล่ป้องกัน! การโจมตีถูกสกัดไว้ได้', 'warn');
+      } else if (res.result === 'steal') {
+        SFX.whoosh();
+        SFX.announce('steal', { a: me.name, b: targetName, pts: res.amt });
+        toast(`💰 ขโมยมาได้ +${res.amt} แต้ม!`, 'success');
+      } else if (res.result === 'zap') {
+        SFX.zap();
+        SFX.announce('zap', { a: me.name, b: targetName, pts: res.amt });
+        toast(`🌩️ สายฟ้าฟาด! ลดแต้มเพื่อน -${res.amt} และเราได้ +${res.bonus} แต้ม!`, 'success');
+      } else if (res.result === 'blind') {
+        SFX.splat();
+        SFX.announce('blind', { a: me.name, b: targetName });
+        toast(`💨 ปาระเบิดหมอกควันบังจอ ${targetName} แล้ว!`, 'info');
+      } else if (res.result === 'flip') {
+        SFX.dizzy();
+        SFX.announce('flip', { a: me.name, b: targetName });
+        toast(`🙃 ส่งไวรัสจอตีลังกา 180° ใส่ ${targetName} แล้ว!`, 'warn');
+      } else if (res.result === 'selfie') {
+        SFX.shutter();
+        SFX.announce('selfie', { a: me.name, b: targetName });
+        toast(`📸 สั่งให้ ${targetName} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครูแล้ว!`, 'info', 3200);
+      } else {
+        SFX.whoosh();
+        SFX.announce('freeze', { a: me.name, b: targetName });
+        toast(`❄️ ส่งพายุน้ำแข็งแช่แข็งหน้าจอ ${targetName} แล้ว!`, 'ice');
+      }
+    };
+
+    const renderTargetRows = () => {
+      const q = (el.targetSearchInput?.value || '').trim().toLowerCase();
+      const filtered = q ? others.filter(t => (t.name || '').toLowerCase().includes(q)) : others;
+      const shown = filtered.slice(0, 25);
+      el.targetList.innerHTML = shown.map((t, idx) => `
+        <button data-target="${t.id}" class="w-full p-2.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 hover:border-[#333] transition flex items-center justify-between gap-2 text-left">
+          <div class="flex items-center gap-2.5 min-w-0">
+            ${avatarHtml(t.avatar, 38)}
+            <div class="min-w-0">
+              <div class="font-display font-extrabold text-[#333] truncate">${!q && idx === 0 ? '👑 ' : ''}${esc(t.name)}</div>
+              <div class="text-xs font-bold text-neutral-500">${t.score.toLocaleString()} แต้ม ${t.frozen ? '• ❄️' : ''} ${t.blinded ? '• 💨' : ''} ${t.flipped ? '• 🙃' : ''}</div>
+            </div>
+          </div>
+          <span class="btn-3d k-btn-red px-3 py-1.5 text-xs shrink-0">โจมตี!</span>
+        </button>`).join('') || '<div class="text-center text-xs font-bold text-neutral-400 py-5">ไม่พบเพื่อนชื่อนี้</div>';
+      el.targetList.querySelectorAll('[data-target]').forEach(b => {
+        b.addEventListener('click', () => executeAttack(b.dataset.target));
       });
-    });
+    };
+
+    if (el.targetSearchInput) el.targetSearchInput.oninput = renderTargetRows;
+    if (el.targetRandomBtn) {
+      el.targetRandomBtn.onclick = () => {
+        const pick = others[rand(others.length)];
+        if (pick) executeAttack(pick.id);
+      };
+    }
+
+    renderTargetRows();
     el.targetModal.classList.remove('hidden');
   }
   $('closeTargetModal').addEventListener('click', () => { SFX.click(); el.targetModal.classList.add('hidden'); });
@@ -1027,10 +1055,16 @@
     SFX.shutter();
     stopSelfieCamera();
     const photo = snappedSelfieDataUrl;
+    localSubmittedSelfieUrl = photo;
+    // ส่งไฟล์รูปถ่ายตรงถึงหน้าจอครูผ่านช่อง /selfie เท่านั้น (ไม่กระจายไปโหลดบนมือถือเพื่อนอีก 199 เครื่อง!)
+    Sync.sendSelfie(myId, photo);
     await Sync.transact(r => {
-      if (r) Game.submitSelfie(r, myId, photo);
+      if (r) Game.submitSelfie(r, myId, 'sent');
       return r;
     });
+    el.selfieStepCamera.classList.add('hidden');
+    el.selfieStepWaiting.classList.remove('hidden');
+    el.selfieWaitingImg.src = photo;
     toast('📸 ส่งรูปหน้าตลกขึ้นจอใหญ่ครูแล้ว! รอครูกดอนุญาตนะ', 'info', 3200);
   });
 
@@ -1155,20 +1189,28 @@
     el.buffPills.innerHTML = pills.join('');
     el.buffPills.classList.toggle('hidden', pills.length === 0);
 
-    const doneCount = Object.keys(me.answered || {}).length;
+    const doneKeys = Object.keys(me.answered || {}).sort().join(',');
+    const doneCount = Math.max(Number(me.answeredCount || 0), Object.keys(me.answered || {}).length);
     el.progressText.textContent = `${doneCount} / ${QUESTIONS.length} การ์ด`;
-    el.allCardsGrid.innerHTML = QUESTIONS.map(q => {
-      const c = COLORS[q.color];
-      const done = !!me.answered[q.id];
-      return `<button type="button" data-card-pick="${q.id}"
-        class="py-1.5 rounded-[4px] text-[11px] font-display font-black transition ${done ? 'opacity-40 ring-2 ring-white' : 'hover:brightness-110'}"
-        style="background:${c.bg};color:${c.text}">${q.id}${done ? '✓' : ''}</button>`;
-    }).join('');
-    el.allCardsGrid.querySelectorAll('[data-card-pick]').forEach(b => {
-      b.addEventListener('click', () => openQuestion(b.dataset.cardPick));
-    });
+    if (doneKeys !== lastRenderedCardsKey) {
+      lastRenderedCardsKey = doneKeys;
+      el.allCardsGrid.innerHTML = QUESTIONS.map(q => {
+        const c = COLORS[q.color];
+        const done = !!me.answered[q.id];
+        return `<button type="button" data-card-pick="${q.id}"
+          class="py-1.5 rounded-[4px] text-[11px] font-display font-black transition ${done ? 'opacity-40 ring-2 ring-white' : 'hover:brightness-110'}"
+          style="background:${c.bg};color:${c.text}">${q.id}${done ? '✓' : ''}</button>`;
+      }).join('');
+      el.allCardsGrid.querySelectorAll('[data-card-pick]').forEach(b => {
+        b.addEventListener('click', () => openQuestion(b.dataset.cardPick));
+      });
+    }
 
-    renderItemDock(me);
+    const dockKey = JSON.stringify(me.items) + '|' + (me.x2Active ? '1' : '0');
+    if (dockKey !== lastRenderedDockKey) {
+      lastRenderedDockKey = dockKey;
+      renderItemDock(me);
+    }
 
     if (me.frozen && room.status === 'playing' && !wasFrozen) {
       wasFrozen = true;
@@ -1227,20 +1269,22 @@
         prevSelfieStatus = me.selfieStatus || 'waiting_photo';
         SFX.shutter();
         SFX.announce('selfie', { a: me.selfieFrom || 'เพื่อน', b: me.name });
-        if (me.selfieStatus === 'pending_review' && me.selfiePhoto) {
+        if (me.selfieStatus === 'pending_review') {
           stopSelfieCamera();
           el.selfieStepCamera.classList.add('hidden');
           el.selfieStepWaiting.classList.remove('hidden');
-          el.selfieWaitingImg.src = me.selfiePhoto;
+          const preview = localSubmittedSelfieUrl || (me.selfiePhoto && me.selfiePhoto.startsWith('data:') ? me.selfiePhoto : '');
+          if (preview) el.selfieWaitingImg.src = preview;
         } else {
           startSelfieCamera();
         }
       } else if (me.selfieStatus !== prevSelfieStatus) {
-        if (me.selfieStatus === 'pending_review' && me.selfiePhoto) {
+        if (me.selfieStatus === 'pending_review') {
           stopSelfieCamera();
           el.selfieStepCamera.classList.add('hidden');
           el.selfieStepWaiting.classList.remove('hidden');
-          el.selfieWaitingImg.src = me.selfiePhoto;
+          const preview = localSubmittedSelfieUrl || (me.selfiePhoto && me.selfiePhoto.startsWith('data:') ? me.selfiePhoto : '');
+          if (preview) el.selfieWaitingImg.src = preview;
         } else if (me.selfieStatus === 'waiting_photo' && prevSelfieStatus === 'pending_review') {
           SFX.wrong();
           toast('🤪 ครูบอกว่ายังไม่ตลกพอ! ทำหน้าให้ฮากว่านี้แล้วถ่ายส่งใหม่!', 'error', 3600);

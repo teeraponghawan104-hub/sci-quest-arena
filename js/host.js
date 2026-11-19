@@ -140,13 +140,60 @@
     bannerTimer = setTimeout(() => el.battleBanner.classList.add('hidden'), 3200);
   }
 
-  function renderLeaderboard(room) {
-    const players = Game.ranking(room);
-    el.playerCountBadge.textContent = `👤 ${players.length} คน`;
+  const MAX_VISIBLE_ROWS = 15;
+  const selfiePhotoCache = new Map();
+  let allRanksOpen = false;
 
-    if (!players.length) {
+  function renderAllRanksModal() {
+    const modal = $('allRanksModal');
+    if (!modal || modal.classList.contains('hidden') || !Sync.room) return;
+    const all = Game.ranking(Sync.room);
+    const q = ($('allRanksSearch')?.value || '').trim().toLowerCase();
+    const filtered = q ? all.filter(p => (p.name || '').toLowerCase().includes(q)) : all;
+    $('allRanksCount').textContent = `แสดง ${filtered.length} จากผู้เข้าแข่งขันทั้งหมด ${all.length} คน`;
+    $('allRanksList').innerHTML = filtered.map(p => {
+      const rank = all.indexOf(p) + 1;
+      const ansCnt = p.answeredCount ?? Object.keys(p.answered || {}).length;
+      return `
+        <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-[4px] bg-neutral-100 border border-neutral-200 text-sm">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-8 h-8 rounded-[4px] bg-[#333] text-white font-display font-black text-xs grid place-items-center shrink-0">#${rank}</span>
+            ${avatarHtml(p.avatar, 32)}
+            <div class="min-w-0">
+              <div class="font-display font-extrabold text-[#333] truncate">${esc(p.name)} ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}</div>
+              <div class="text-[11px] font-bold text-neutral-500">🃏 ${ansCnt}/${QUESTIONS.length}</div>
+            </div>
+          </div>
+          <span class="font-display font-black text-lg text-[#46178f] tabular shrink-0">${p.score.toLocaleString()}</span>
+        </div>`;
+    }).join('') || '<div class="text-center text-neutral-400 font-bold py-6">ไม่พบรายชื่อที่ค้นหา</div>';
+  }
+
+  $('openAllRanksBtn')?.addEventListener('click', () => {
+    SFX.pop();
+    allRanksOpen = true;
+    $('allRanksModal').classList.remove('hidden');
+    renderAllRanksModal();
+    setTimeout(() => $('allRanksSearch')?.focus(), 80);
+  });
+  $('closeAllRanksModal')?.addEventListener('click', () => {
+    SFX.click();
+    allRanksOpen = false;
+    $('allRanksModal').classList.add('hidden');
+  });
+  $('allRanksModal')?.addEventListener('click', e => {
+    if (e.target === $('allRanksModal')) { allRanksOpen = false; $('allRanksModal').classList.add('hidden'); }
+  });
+  $('allRanksSearch')?.addEventListener('input', renderAllRanksModal);
+
+  function renderLeaderboard(room) {
+    const allPlayers = Game.ranking(room);
+    el.playerCountBadge.textContent = `👤 ${allPlayers.length} คน`;
+
+    if (!allPlayers.length) {
       el.lbEmpty.classList.remove('hidden');
       el.lbWrap.classList.add('hidden');
+      $('lbOverflowBar')?.classList.add('hidden');
       for (const n of rowNodes.values()) n.remove();
       rowNodes.clear();
       prevRanks.clear();
@@ -154,9 +201,22 @@
       return;
     }
 
+    // แสดง Top 15 แบบ Animation ลื่น 60 FPS แม้ห้องมี 200 คน!
+    const players = allPlayers.slice(0, MAX_VISIBLE_ROWS);
     el.lbEmpty.classList.add('hidden');
     el.lbWrap.classList.remove('hidden');
     el.lbWrap.style.height = `${players.length * ROW_STEP}px`;
+
+    const overflowBar = $('lbOverflowBar');
+    if (overflowBar) {
+      if (allPlayers.length > MAX_VISIBLE_ROWS) {
+        overflowBar.classList.remove('hidden');
+        $('lbOverflowText').textContent = `🏆 แสดง Top ${MAX_VISIBLE_ROWS} จากผู้เข้าแข่งขันทั้งหมด ${allPlayers.length} คน`;
+      } else {
+        overflowBar.classList.add('hidden');
+      }
+    }
+    if (allRanksOpen) renderAllRanksModal();
 
     const activeIds = new Set(players.map(p => p.id));
     for (const [id, node] of rowNodes.entries()) {
@@ -224,7 +284,7 @@
       row.querySelector('[data-name]').textContent = p.name;
       row.querySelector('[data-bot]').classList.toggle('hidden', !p.isBot);
 
-      const answeredCount = Object.keys(p.answered || {}).length;
+      const answeredCount = p.answeredCount ?? Object.keys(p.answered || {}).length;
       const pills = [`<span class="px-2 py-0.5 rounded-[3px] bg-neutral-200 text-[#333]">🃏 ${answeredCount}/${QUESTIONS.length}</span>`];
       if (p.x2Active) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#d89e00] text-white">⚡ x2</span>');
       if ((p.items?.shield || 0) > 0) pills.push(`<span class="px-2 py-0.5 rounded-[3px] bg-[#1368ce] text-white">🛡️ x${p.items.shield}</span>`);
@@ -613,9 +673,10 @@
         setTimeout(async () => {
           botSelfieTimers.delete(p.id);
           const photo = makeFunnyFaceDataUrl(p.name, p.avatar);
+          selfiePhotoCache.set(p.id, photo);
           await Sync.transact(r => {
             if (r && r.players[p.id] && r.players[p.id].selfieLocked && r.players[p.id].selfieStatus === 'waiting_photo') {
-              Game.submitSelfie(r, p.id, photo);
+              Game.submitSelfie(r, p.id, 'host_cached');
             }
             return r;
           });
@@ -624,7 +685,7 @@
     }
 
     const pending = Object.values(room.players || {}).filter(
-      p => p.selfieLocked && p.selfieStatus === 'pending_review' && p.selfiePhoto
+      p => p.selfieLocked && p.selfieStatus === 'pending_review' && (selfiePhotoCache.get(p.id) || (p.selfiePhoto && p.selfiePhoto.startsWith('data:')))
     );
 
     if (!pending.length) {
@@ -635,18 +696,20 @@
 
     const target = pending.find(p => p.id === currentReviewPid) || pending[0];
     currentReviewPid = target.id;
+    const imgSrc = selfiePhotoCache.get(target.id) || target.selfiePhoto;
 
     $('selfieQueueBadge').textContent = `รอตรวจ 1 / ${pending.length}`;
     $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54);
     $('selfieReviewName').textContent = target.name;
     $('selfieReviewFrom').textContent = `โดนสั่งถ่ายหน้าตลกโดย: ${target.selfieFrom || 'เพื่อน'}`;
-    $('selfieReviewImg').src = target.selfiePhoto;
+    $('selfieReviewImg').src = imgSrc;
     modal.classList.remove('hidden');
   }
 
   $('approveSelfieBtn')?.addEventListener('click', async () => {
     if (!currentReviewPid) return;
     const pid = currentReviewPid;
+    selfiePhotoCache.delete(pid);
     await Sync.transact(room => {
       if (!room) return;
       Game.approveSelfie(room, pid);
@@ -658,6 +721,7 @@
   $('rejectSelfieBtn')?.addEventListener('click', async () => {
     if (!currentReviewPid) return;
     const pid = currentReviewPid;
+    selfiePhotoCache.delete(pid);
     await Sync.transact(room => {
       if (!room) return;
       Game.rejectSelfie(room, pid);
@@ -666,7 +730,21 @@
     toast('🤪 สั่งให้ผู้เล่นถ่ายรูปหน้าตลกส่งมาใหม่แล้ว!', 'warn');
   });
 
+  let rafRenderId = 0;
+  let queuedRoom = null;
   function onRoomUpdate(room) {
+    if (!room) return;
+    queuedRoom = room;
+    if (rafRenderId) return;
+    rafRenderId = requestAnimationFrame(() => {
+      rafRenderId = 0;
+      const r = queuedRoom;
+      if (!r) return;
+      applyRoomRender(r);
+    });
+  }
+
+  function applyRoomRender(room) {
     if (!room) return;
     // ซิงก์ค่าเวลาเกมครั้งแรกที่โหลดห้อง (หรือเมื่อรีเซ็ต)
     if (initialLoad || room.status === 'lobby') {
@@ -866,6 +944,7 @@
     });
     matchRemainingMs = ((Sync.room && Sync.room.timerTotalSec) || 0) * 1000;
     seenFeedIds.clear();
+    selfiePhotoCache.clear();
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
     if (!silent) toast('เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว 🔄', 'success');
@@ -1018,7 +1097,14 @@
   }
 
   (async () => {
-    await Sync.connect(roomCode, onRoomUpdate, { isHost: true, onConn: onConnStatus });
+    await Sync.connect(roomCode, onRoomUpdate, {
+      isHost: true,
+      onConn: onConnStatus,
+      onSelfie: (pid, photo) => {
+        selfiePhotoCache.set(pid, photo);
+        if (Sync.room) renderSelfieReview(Sync.room);
+      }
+    });
     if (!Sync.room) {
       await Sync.transact(r => {
         const base = r || Sync.defaultRoom(roomCode);

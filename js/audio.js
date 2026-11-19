@@ -25,6 +25,7 @@ const SFX = (() => {
 
   const sfxBuffers = new Map();
   const sfxLoading = new Map();
+  const sfxLastPlayed = new Map();
   const voCache = new Map();
 
   const SFX_LIST = [
@@ -72,6 +73,12 @@ const SFX = (() => {
 
   function playSfx(name, vol = 0.85, rate = 1.0) {
     if (muted) return;
+    // กันเสียงซ้อนถี่เกินไปเมื่อมีผู้เล่น 200 เครื่องเข้าห้องหรือได้คะแนนพร้อมกัน
+    const now = Date.now();
+    const minGap = (name === 'crack' || name === 'click') ? 35 : 130;
+    if (now - (sfxLastPlayed.get(name) || 0) < minGap) return;
+    sfxLastPlayed.set(name, now);
+
     const url = `audio/sfx/${name}.mp3`;
     const c = ac();
     const buf = sfxBuffers.get(url);

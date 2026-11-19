@@ -386,14 +386,18 @@
     </div>
   </div>
 
-  <!-- ===================== MODAL: เลือกเพื่อนที่จะใช้ไอเทม ===================== -->
+  <!-- ===================== MODAL: เลือกเพื่อนที่จะใช้ไอเทม (รองรับค้นหา 200 คน!) ===================== -->
   <div id="targetModal" class="overlay dim z-[140] hidden">
-    <div class="k-box max-w-sm w-full p-4 pop-in max-h-[82vh] flex flex-col">
+    <div class="k-box max-w-sm w-full p-4 pop-in max-h-[84vh] flex flex-col">
       <div class="flex items-center justify-between mb-2 pb-2 border-b-2 border-neutral-200">
         <h3 id="targetModalTitle" class="font-display text-lg font-black text-[#333]"></h3>
         <button id="closeTargetModal" class="btn-3d k-btn-dark w-8 h-8 grid place-items-center text-xs">✕</button>
       </div>
-      <p id="targetModalDesc" class="text-xs font-semibold text-neutral-500 mb-3"></p>
+      <p id="targetModalDesc" class="text-xs font-semibold text-neutral-500 mb-2"></p>
+      <div class="flex gap-1.5 mb-2.5">
+        <input id="targetSearchInput" type="text" placeholder="🔍 ค้นหาชื่อเพื่อน..." class="input-big text-xs !py-2 flex-1" />
+        <button id="targetRandomBtn" type="button" class="btn-3d k-btn-yellow px-3 py-2 text-xs shrink-0">🎲 สุ่มเพื่อน</button>
+      </div>
       <div id="targetList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
     </div>
   </div>

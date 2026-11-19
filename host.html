@@ -195,6 +195,14 @@
         </div>
 
         <div id="lbWrap" class="relative w-full hidden" style="min-height: 200px;"></div>
+
+        <!-- แถบแสดงเมื่อผู้เล่นเกิน 15 คน (รองรับ 200+ คนลื่นๆ 60 FPS) -->
+        <div id="lbOverflowBar" class="hidden mt-3 pt-3 border-t-2 border-white/15 flex flex-wrap items-center justify-between gap-2">
+          <span id="lbOverflowText" class="text-xs sm:text-sm font-extrabold text-white/85"></span>
+          <button id="openAllRanksBtn" type="button" class="btn-3d k-btn-white px-4 py-1.5 text-xs sm:text-sm">
+            🔍 ดูอันดับทั้งหมด / ค้นหาชื่อ
+          </button>
+        </div>
       </section>
 
       <!-- Live Feed (4 cols) -->
@@ -212,6 +220,21 @@
         </div>
       </aside>
     </main>
+  </div>
+
+  <!-- MODAL: ดูอันดับผู้เล่นทั้งหมด 200+ คน พร้อมค้นหา -->
+  <div id="allRanksModal" class="overlay dim z-[185] hidden">
+    <div class="k-box max-w-2xl w-full p-5 pop-in max-h-[88vh] flex flex-col">
+      <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b-2 border-neutral-200">
+        <div>
+          <h3 class="font-display text-xl font-black text-[#333]">🏅 อันดับผู้เข้าแข่งขันทั้งหมด</h3>
+          <p id="allRanksCount" class="text-xs font-bold text-neutral-500"></p>
+        </div>
+        <button id="closeAllRanksModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
+      </div>
+      <input id="allRanksSearch" type="text" placeholder="🔍 พิมพ์ค้นหาชื่อนักเรียน..." class="input-big text-sm !py-2 mb-3" />
+      <div id="allRanksList" class="overflow-y-auto space-y-1.5 flex-1 pr-1"></div>
+    </div>
   </div>
 
   <!-- MODAL: ขยาย QR Code เต็มจอ -->
