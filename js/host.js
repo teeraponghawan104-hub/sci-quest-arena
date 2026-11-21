@@ -8,7 +8,8 @@
   }
   history.replaceState(null, '', `?room=${roomCode}`);
 
-  const joinUrl = withExternalBrowser(`${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}`);
+  let activeBrokerIdx = 0;
+  let joinUrl = withExternalBrowser(`${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}`);
   const cardsUrl = `${baseUrl()}cards.html?room=${encodeURIComponent(roomCode)}`;
 
   const $ = id => document.getElementById(id);
@@ -77,8 +78,16 @@
     container.innerHTML = `<img src="${src}" alt="QR ${esc(roomCode)}" class="w-full h-full object-contain"
       onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'text-xs font-extrabold text-[#333] text-center p-2',textContent:'PIN: ${esc(roomCode)}'}))">`;
   }
-  renderQr(el.qrPreview, joinUrl, 120);
-  renderQr(el.qrModalBox, joinUrl, 300);
+  function refreshJoinLinks(brokerIdx = 0) {
+    activeBrokerIdx = Number(brokerIdx || 0) || 0;
+    const bParam = activeBrokerIdx > 0 ? `&b=${activeBrokerIdx}` : '';
+    joinUrl = withExternalBrowser(`${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}${bParam}`);
+    el.qrModalUrl.textContent = joinUrl;
+    el.openPlayerLink.href = joinUrl;
+    renderQr(el.qrPreview, joinUrl, 120);
+    renderQr(el.qrModalBox, joinUrl, 300);
+  }
+  refreshJoinLinks(0);
 
   function syncMute() {
     el.muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
@@ -335,8 +344,10 @@
       entries.forEach(e => seenFeedIds.add(e.id));
     } else {
       const fresh = entries.filter(e => !seenFeedIds.has(e.id)).reverse();
-      fresh.forEach(e => {
-        seenFeedIds.add(e.id);
+      fresh.forEach(e => seenFeedIds.add(e.id));
+      // กันเสียงพากย์/SFX รัวล้นเมื่อผู้เล่น 200 คนเข้าห้องหรือตอบถูกพร้อมกัน (เล่นเฉพาะ 2 เหตุการณ์ล่าสุดต่อรอบ)
+      const audioEvents = fresh.length > 4 ? fresh.slice(-2) : fresh;
+      audioEvents.forEach(e => {
         const v = feedView(e);
         if (e.type === 'join') { SFX.join(); SFX.announce('join', e); }
         else if (e.type === 'score') { SFX.coin(); SFX.announce('score', e); }
@@ -476,8 +487,8 @@
         return;
       }
 
-      // ซิงก์เวลาคงเหลือให้มือถือเด็กทุก 5 วินาที
-      if (now - matchLastSyncAt >= 5000) {
+      // ซิงก์เวลาคงเหลือให้มือถือเด็กทุก 15 วินาที (มือถือเด็กนับเวลาเองทุก 200ms อยู่แล้ว -> ลดทราฟฟิก 3 เท่า!)
+      if (now - matchLastSyncAt >= 15000) {
         matchLastSyncAt = now;
         await Sync.transact(r => {
           if (!r || r.status !== 'playing' || !r.timerTotalSec) return;
@@ -485,7 +496,7 @@
           r.timerRunning = true;
           r.hostUpdatedAt = Date.now();
           return r;
-        });
+        }, { deferBroadcast: true });
       }
     } else {
       matchLastTickAt = now;
@@ -516,14 +527,14 @@
           return r;
         });
         toast(`⏱️ หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน 🎁`, 'warn', 3200);
-      } else if (now - bonusLastSyncAt >= 3000) {
+      } else if (now - bonusLastSyncAt >= 5000) {
         bonusLastSyncAt = now;
         await Sync.transact(r => {
           if (!r || !r.bonus || r.bonus.id !== trackedBonusId) return;
           r.bonus.remainingSec = Math.max(1, Math.ceil(bonusRemainingMs / 1000));
           r.hostUpdatedAt = Date.now();
           return r;
-        });
+        }, { deferBroadcast: true });
       }
     } else {
       bonusLastTickAt = now;
@@ -574,7 +585,10 @@
     toast(totalSec > 0 ? `⏱️ ตั้งเวลาเกมเป็น ${formatClock(totalSec * 1000)} (หมดเวลาสรุปผลอัตโนมัติ)` : '⏱️ เปลี่ยนเป็นไม่จำกัดเวลา', 'info');
   });
 
+  let lastRenderedStatus = '';
   function renderControls(room) {
+    if (room.status === lastRenderedStatus) return;
+    lastRenderedStatus = room.status;
     const st = STATUS_UI[room.status] || STATUS_UI.lobby;
     el.statusBadge.textContent = st.text;
     el.statusBadge.className = `px-3 py-2 rounded-[4px] text-xs sm:text-sm font-extrabold uppercase ${st.cls}`;
@@ -626,10 +640,13 @@
         </div>`;
     }).join('');
 
-    const rest = ranked.slice(3);
+    const rest = ranked.slice(3, 33);
     if (rest.length) {
       el.podiumRest.classList.remove('hidden');
-      el.podiumRest.innerHTML = `<div class="font-display font-black text-sm text-[#ffa602] mb-2 uppercase">Runner-ups (อันดับอื่น ๆ)</div>
+      const moreBtn = ranked.length > 33
+        ? `<button id="podiumAllRanksBtn" type="button" class="btn-3d k-btn-white w-full mt-2 py-2 text-xs">🔍 ดูอันดับทั้งหมดครบ ${ranked.length} คน</button>`
+        : '';
+      el.podiumRest.innerHTML = `<div class="font-display font-black text-sm text-[#ffa602] mb-2 uppercase">Runner-ups (อันดับ 4–${Math.min(33, ranked.length)} จาก ${ranked.length} คน)</div>
         <div class="space-y-1.5 max-h-40 overflow-y-auto">` +
         rest.map((p, i) => `
           <div class="flex items-center justify-between text-sm bg-white text-[#333] font-bold rounded-[4px] px-3 py-1.5">
@@ -639,7 +656,13 @@
               <span>${esc(p.name)}</span>
             </div>
             <span class="font-display font-black text-[#333] tabular">${p.score.toLocaleString()}</span>
-          </div>`).join('') + '</div>';
+          </div>`).join('') + '</div>' + moreBtn;
+      $('podiumAllRanksBtn')?.addEventListener('click', () => {
+        SFX.pop();
+        allRanksOpen = true;
+        $('allRanksModal').classList.remove('hidden');
+        renderAllRanksModal();
+      });
     } else {
       el.podiumRest.classList.add('hidden');
     }
@@ -657,6 +680,7 @@
 
   let currentReviewPid = null;
   const botSelfieTimers = new Set();
+  const lastSelfieReqAt = new Map();
 
   function renderSelfieReview(room) {
     const modal = $('selfieReviewModal');
@@ -666,7 +690,9 @@
       return;
     }
 
-    // หากบอทโดนสั่งถ่ายรูปหน้าตลก ให้บอทสร้างรูปหน้าตลกส่งขึ้นมาให้ครูตรวจอัตโนมัติใน 1.4 วินาที
+    const now = Date.now();
+    // 1) หากบอทโดนสั่งถ่ายรูปหน้าตลก ให้บอทสร้างรูปส่งอัตโนมัติ
+    // 2) หากผู้เล่นจริงส่งสถานะ pending_review แล้วแต่รูปตกหล่นกลางทาง (QoS 0) -> ขอส่งซ้ำอัตโนมัติ!
     for (const p of Object.values(room.players || {})) {
       if (p.isBot && p.selfieLocked && p.selfieStatus === 'waiting_photo' && !botSelfieTimers.has(p.id)) {
         botSelfieTimers.add(p.id);
@@ -681,6 +707,11 @@
             return r;
           });
         }, 1400);
+      } else if (!p.isBot && p.selfieLocked && p.selfieStatus === 'pending_review' && !selfiePhotoCache.get(p.id) && !(p.selfiePhoto && p.selfiePhoto.startsWith('data:'))) {
+        if (now - (lastSelfieReqAt.get(p.id) || 0) > 4000) {
+          lastSelfieReqAt.set(p.id, now);
+          Sync.requestSelfie(p.id);
+        }
       }
     }
 
@@ -710,11 +741,15 @@
     if (!currentReviewPid) return;
     const pid = currentReviewPid;
     selfiePhotoCache.delete(pid);
+    lastSelfieReqAt.delete(pid);
+    let updatedPlayer = null;
     await Sync.transact(room => {
       if (!room) return;
       Game.approveSelfie(room, pid);
+      updatedPlayer = room.players[pid];
       return room;
     });
+    if (updatedPlayer) Sync.sendDirectPlayer(pid, updatedPlayer);
     toast('✅ อนุญาตให้ผู้เล่นกลับเข้าเล่นต่อแล้ว!', 'success');
   });
 
@@ -722,11 +757,15 @@
     if (!currentReviewPid) return;
     const pid = currentReviewPid;
     selfiePhotoCache.delete(pid);
+    lastSelfieReqAt.delete(pid);
+    let updatedPlayer = null;
     await Sync.transact(room => {
       if (!room) return;
       Game.rejectSelfie(room, pid);
+      updatedPlayer = room.players[pid];
       return room;
     });
+    if (updatedPlayer) Sync.sendDirectPlayer(pid, updatedPlayer);
     toast('🤪 สั่งให้ผู้เล่นถ่ายรูปหน้าตลกส่งมาใหม่แล้ว!', 'warn');
   });
 
@@ -1100,8 +1139,13 @@
     await Sync.connect(roomCode, onRoomUpdate, {
       isHost: true,
       onConn: onConnStatus,
+      onBrokerChange: idx => {
+        refreshJoinLinks(idx);
+        toast('🔄 สลับเซิร์ฟเวอร์สำรองอัตโนมัติ (อัปเดต QR Code แล้ว)', 'info', 3000);
+      },
       onSelfie: (pid, photo) => {
         selfiePhotoCache.set(pid, photo);
+        lastSelfieReqAt.delete(pid);
         if (Sync.room) renderSelfieReview(Sync.room);
       }
     });

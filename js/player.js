@@ -2,6 +2,7 @@
 (() => {
   const qs = new URLSearchParams(location.search);
   const initRoom = (qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const brokerIdx = qs.has('b') ? (Number(qs.get('b')) || 0) : 0;
   let pendingCard = normCode(qs.get('card'));
 
   const $ = id => document.getElementById(id);
@@ -203,12 +204,25 @@
   let mysteryOpen = false;
   let qrScanner = null;
 
-  function savePlayerSession(code, pid, roundId, snapshot) {
+  let lastSavedKey = '';
+  function savePlayerSession(code, pid, roundId, snapshot, force = false) {
+    const key = `${pid}|${roundId}|${snapshot ? (snapshot.rev || 0) : 0}|${snapshot ? (snapshot.score || 0) : 0}|${snapshot ? (snapshot.updatedAt || 0) : 0}`;
+    if (!force && key === lastSavedKey) return;
+    lastSavedKey = key;
     try {
       localStorage.setItem('sqa_session_' + code, JSON.stringify({
         id: pid, roundId: roundId || 1, snapshot: snapshot || null, savedAt: Date.now()
       }));
     } catch (e) {}
+  }
+  function handleSelfieResend() {
+    if (!myId) return;
+    const photo = localSubmittedSelfieUrl || (() => {
+      try { return sessionStorage.getItem(`sqa_selfie_buf_${roomCode}_${myId}`) || ''; } catch (e) { return ''; }
+    })();
+    if (photo && Sync.room && Sync.room.players[myId] && Sync.room.players[myId].selfieLocked && Sync.room.players[myId].selfieStatus === 'pending_review') {
+      Sync.sendSelfie(myId, photo);
+    }
   }
   function readPlayerSession(code) {
     try {
@@ -229,10 +243,15 @@
   }
 
   function onPlayerConn(st) {
-    if (!el.playerConnDot) return;
-    el.playerConnDot.className = st === 'connected'
-      ? 'conn-dot conn-ok'
-      : (st === 'reconnecting' ? 'conn-dot conn-wait' : 'conn-dot conn-off');
+    if (el.playerConnDot) {
+      el.playerConnDot.className = st === 'connected'
+        ? 'conn-dot conn-ok'
+        : (st === 'reconnecting' ? 'conn-dot conn-wait' : 'conn-dot conn-off');
+    }
+    if (st === 'connected' && myId) {
+      Sync.setPlayerId(myId);
+      handleSelfieResend();
+    }
   }
 
   function showView(view) {
@@ -290,7 +309,7 @@
       const ok = await Sync.exists(initRoom);
       if (!ok) return;
       roomCode = initRoom;
-      await Sync.connect(roomCode, onRoomUpdate, { isHost: false, onConn: onPlayerConn });
+      await Sync.connect(roomCode, onRoomUpdate, { isHost: false, brokerIdx, playerId: saved.id, onConn: onPlayerConn, onSelfieRequest: handleSelfieResend });
       const r = Sync.room;
       // หากห้องเล่นจบไปแล้ว หรือครูเริ่มรอบใหม่ (roundId สูงขึ้น) ให้เริ่มล็อกอินใหม่
       if (r && (r.status === 'ended' || (r.roundId || 1) > (saved.roundId || 1))) {
@@ -299,15 +318,17 @@
       }
       if (r && r.players[saved.id]) {
         myId = saved.id;
+        Sync.setPlayerId(myId);
         joinedRoundId = r.roundId || saved.roundId || 1;
         myLastSnapshot = JSON.parse(JSON.stringify(r.players[saved.id]));
         showView('game');
-        onRoomUpdate(r);
+        applyPlayerRoomRender(r);
       } else if (saved.snapshot) {
         // กู้คืนผู้เล่นกลับเข้าห้องเดิมอัตโนมัติ (กรณีมือถือรีโหลดหน้าจาก LINE / ล็อกจอ)
         const restored = Object.assign({}, saved.snapshot, {
           roundId: (r && r.roundId) || saved.roundId || 1,
-          updatedAt: Date.now()
+          rev: (saved.snapshot.rev || 0) + 1,
+          updatedAt: Math.max((saved.snapshot.updatedAt || 0) + 1, Date.now())
         });
         await Sync.transact(room => {
           const base = room || Sync.defaultRoom(roomCode);
@@ -315,10 +336,11 @@
           return base;
         });
         myId = saved.id;
+        Sync.setPlayerId(myId);
         joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
         myLastSnapshot = restored;
         showView('game');
-        onRoomUpdate(Sync.room);
+        applyPlayerRoomRender(Sync.room);
       } else {
         leaveRoomToLogin();
       }
@@ -352,7 +374,7 @@
       roomCode = code;
       myId = null;
       const newId = 'p_' + uid();
-      await Sync.connect(code, onRoomUpdate, { isHost: false, onConn: onPlayerConn });
+      await Sync.connect(code, onRoomUpdate, { isHost: false, brokerIdx, playerId: newId, onConn: onPlayerConn, onSelfieRequest: handleSelfieResend });
       await Sync.transact(room => {
         const base = room || Sync.defaultRoom(code);
         // ผู้เล่นจะไม่แก้ roundId หรือลบเพื่อนคนอื่นเด็ดขาด (ให้ Host เป็นผู้ควบคุมรอบเท่านั้น)
@@ -363,13 +385,14 @@
         return base;
       });
       myId = newId;
+      Sync.setPlayerId(myId);
       joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
       myLastSnapshot = Sync.room && Sync.room.players[myId]
         ? JSON.parse(JSON.stringify(Sync.room.players[myId])) : null;
-      savePlayerSession(code, myId, joinedRoundId, myLastSnapshot);
+      savePlayerSession(code, myId, joinedRoundId, myLastSnapshot, true);
       SFX.join();
       showView('game');
-      onRoomUpdate(Sync.room);
+      applyPlayerRoomRender(Sync.room);
     } catch (err) {
       SFX.wrong();
       toast('เชื่อมต่อห้องไม่สำเร็จ กรุณาลองใหม่', 'error');
@@ -1056,6 +1079,7 @@
     stopSelfieCamera();
     const photo = snappedSelfieDataUrl;
     localSubmittedSelfieUrl = photo;
+    try { sessionStorage.setItem(`sqa_selfie_buf_${roomCode}_${myId}`, photo); } catch (e) {}
     // ส่งไฟล์รูปถ่ายตรงถึงหน้าจอครูผ่านช่อง /selfie เท่านั้น (ไม่กระจายไปโหลดบนมือถือเพื่อนอีก 199 เครื่อง!)
     Sync.sendSelfie(myId, photo);
     await Sync.transact(r => {
@@ -1120,7 +1144,20 @@
     renderPlayerTimers();
   }, 200);
 
+  let playerRafId = 0;
+  let queuedPlayerRoom = null;
   function onRoomUpdate(room) {
+    if (!room || !myId) return;
+    queuedPlayerRoom = room;
+    if (playerRafId) return;
+    playerRafId = requestAnimationFrame(() => {
+      playerRafId = 0;
+      const r = queuedPlayerRoom;
+      if (r && myId) applyPlayerRoomRender(r);
+    });
+  }
+
+  function applyPlayerRoomRender(room) {
     if (!room || !myId) return;
     const me = room.players[myId];
     if (!me) {
@@ -1132,7 +1169,11 @@
       // หากอยู่รอบเดียวกันแต่แพ็กเก็ตชั่วคราวไม่มีชื่อเรา -> ซ่อมตัวเองอัตโนมัติ (ไม่เด้งออก!)
       if (myLastSnapshot && Date.now() - lastHealAt > 1500) {
         lastHealAt = Date.now();
-        const backup = Object.assign({}, myLastSnapshot, { roundId: room.roundId || joinedRoundId, updatedAt: Date.now() });
+        const backup = Object.assign({}, myLastSnapshot, {
+          roundId: room.roundId || joinedRoundId,
+          rev: (myLastSnapshot.rev || 0) + 1,
+          updatedAt: Math.max((myLastSnapshot.updatedAt || 0) + 1, Date.now())
+        });
         Sync.transact(r => {
           if (r && !r.players[myId] && (r.roundId || 1) <= joinedRoundId) {
             r.players[myId] = backup;
@@ -1143,10 +1184,14 @@
       return;
     }
 
-    // อัปเดต snapshot และเซฟ Session ลง localStorage อย่างต่อเนื่อง (กันเด้งออกเมื่อสลับแอป/ล็อกจอ)
+    // อัปเดต snapshot และเซฟ Session ลง localStorage เฉพาะเมื่อข้อมูลเราเปลี่ยนจริง (ลดการเขียนดิสก์รัวบนมือถือ!)
     joinedRoundId = Math.max(joinedRoundId, room.roundId || 1);
-    myLastSnapshot = JSON.parse(JSON.stringify(me));
-    savePlayerSession(room.code, myId, joinedRoundId, myLastSnapshot);
+    const meSig = `${me.rev || 0}|${me.hostRev || 0}|${me.score}|${me.updatedAt}`;
+    if (!myLastSnapshot || myLastSnapshot._sig !== meSig) {
+      myLastSnapshot = JSON.parse(JSON.stringify(me));
+      myLastSnapshot._sig = meSig;
+      savePlayerSession(room.code, myId, joinedRoundId, me);
+    }
 
     // อัปเดตเวลาเกมจาก Host
     playerMatchTotalSec = Number(room.timerTotalSec || 0);
@@ -1162,7 +1207,10 @@
     const ranked = Game.ranking(room);
     const rankIdx = ranked.findIndex(p => p.id === myId);
 
-    el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 38);
+    if (el.hdrAvatar.dataset.avIdx !== String(me.avatar)) {
+      el.hdrAvatar.dataset.avIdx = String(me.avatar);
+      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 38);
+    }
     el.hdrName.textContent = me.name;
     el.hdrRoom.textContent = room.code;
     el.hdrRank.textContent = `#${rankIdx + 1}/${ranked.length}`;

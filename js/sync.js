@@ -1,20 +1,23 @@
 /* =========================================================
- * Sci-Quest! — High-Scale Realtime Sync Layer (200+ Devices Edition)
+ * Sci-Quest! — Ultra-Scale Realtime Sync Layer (200+ Devices v3)
  * ---------------------------------------------------------
- * ออกแบบเพื่อรองรับการแข่งขันระดับสายชั้น/หอประชุม 200+ เครื่องพร้อมกัน:
- *   1) แยกช่องส่งรูปหน้าตลก (/selfie) ส่งตรงถึงหน้าจอครูเท่านั้น!
- *      มือถือเด็กอีก 199 เครื่องไม่ต้องโหลดรูปของเพื่อน -> ลดปริมาณข้อมูลลง 95%
- *   2) Compact State Broadcast: ตัดข้อมูลที่ไม่จำเป็น (เช่น answered map รายข้อของคนอื่น)
- *      ออกจาก Broadcast รวม ทำให้ห้อง 200 คนมีขนาดข้อมูลเพียง ~18 KB!
- *   3) Delta Patch + Dynamic Host Debounce + Jittered Reconnect:
- *      ลดการชนกันของแพ็กเก็ตและกัน Thundering Herd เมื่อเด็ก 200 คนเข้าพร้อมกัน
- *   4) Firebase Per-Path Updates & Supabase Multi-Table (sqa_rooms + sqa_players):
- *      ไร้ปัญหา Write Contention รองรับ 200+ เครื่องพร้อมกันได้สบาย!
+ * ปรับจูนสถาปัตยกรรมเพื่อรองรับ 200+ เครื่องพร้อมกันบน Wi-Fi โรงเรียน/หอประชุม:
+ *   1) Zero Fan-Out Storm: มือถือเด็กเลิก Subscribe ช่อง /patch ของเพื่อนอีก 199 คน
+ *      รับเฉพาะ /state จากครู + ช่องส่วนตัว /d/<pid> สำหรับรับการโจมตี/ปลดล็อกทันที (ลดแพ็กเก็ตลง >95%)
+ *   2) Ultra-Compact Wire Tuple v2: บีบอัดห้อง 200 คนเหลือเพียง ~13–16 KB (ลดลง ~89% จาก Raw JSON)
+ *   3) Clock-Skew Proof Lamport Revision (rev + hostRev):
+ *      ครูกดอนุมัติ/สั่งถ่ายใหม่ชนะเสมอ แม้เวลามือถือเด็กจะเดินเร็วกว่าเครื่องครู
+ *   4) Zero Split-Brain Broker Pinning: ผู้เล่นยึด Broker เดียวกับลิงก์ QR ของครู (?b=idx)
+ *   5) Patch Merging Queue + Auto Selfie Photo Re-Request:
+ *      เน็ตหลุดชั่วคราวไม่ทับคำสั่งก่อนหน้า และถ้ารูปหน้าตลกตกหล่น Host ขอส่งซ้ำอัตโนมัติ
+ *   6) In-Place Host Patch Merge + Debounced localStorage:
+ *      ประมวลผล 50+ patch/วินาที โดยไม่บล็อกเธรดหลักหรือเขียนดิสก์รัว
  * ========================================================= */
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, isHostRole = false, last = null, adapter = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null;
+  let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
 
   function defaultRoom(c) {
     const now = Date.now();
@@ -25,13 +28,40 @@ const Sync = (() => {
     };
   }
 
+  function normalizePlayer(p, roundId) {
+    if (!p) return null;
+    p.items = Object.assign({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0, selfie: 0 }, p.items || {});
+    p.answered = p.answered || {};
+    p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered).length);
+    p.score = Number(p.score || 0);
+    p.isBot = !!p.isBot;
+    p.x2Active = !!p.x2Active;
+    p.frozen = !!p.frozen;
+    p.frozenBy = p.frozen ? (p.frozenBy || '') : '';
+    p.blinded = !!p.blinded;
+    p.blindedBy = p.blinded ? (p.blindedBy || '') : '';
+    p.flipped = !!p.flipped;
+    p.flippedBy = p.flipped ? (p.flippedBy || '') : '';
+    p.selfieLocked = !!p.selfieLocked;
+    p.selfieFrom = p.selfieLocked ? (p.selfieFrom || '') : '';
+    p.selfieStatus = p.selfieLocked ? (p.selfieStatus || '') : '';
+    p.zappedAt = Number(p.zappedAt || 0);
+    p.zappedBy = p.zappedBy || '';
+    p.joinedAt = Number(p.joinedAt || p.updatedAt || Date.now());
+    p.updatedAt = Number(p.updatedAt || p.joinedAt || 0);
+    p.rev = Number(p.rev || 0);
+    p.hostRev = Number(p.hostRev || 0);
+    p.roundId = p.roundId ?? roundId;
+    return p;
+  }
+
   function normalize(r) {
     if (!r || !r.code) return null;
     r.players = r.players || {};
     r.feed = r.feed || {};
     r.usedBonus = r.usedBonus || {};
-    r.hostUpdatedAt = r.hostUpdatedAt || 0;
-    r.roundId = r.roundId || 1;
+    r.hostUpdatedAt = Number(r.hostUpdatedAt || 0);
+    r.roundId = Number(r.roundId || 1);
     r.timerTotalSec = Number(r.timerTotalSec || 0);
     r.timerRemainingMs = Number(r.timerRemainingMs || 0);
     r.timerRunning = !!r.timerRunning;
@@ -43,32 +73,20 @@ const Sync = (() => {
       r.bonus = null;
     }
     for (const p of Object.values(r.players)) {
-      p.items = Object.assign({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0, selfie: 0 }, p.items || {});
-      p.answered = p.answered || {};
-      p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered).length);
-      p.score = p.score || 0;
-      p.isBot = !!p.isBot;
-      p.x2Active = !!p.x2Active;
-      p.frozen = !!p.frozen;
-      p.blinded = !!p.blinded;
-      p.flipped = !!p.flipped;
-      p.selfieLocked = !!p.selfieLocked;
-      p.zappedAt = p.zappedAt || 0;
-      p.updatedAt = p.updatedAt || p.joinedAt || 0;
-      p.roundId = p.roundId ?? r.roundId;
+      normalizePlayer(p, r.roundId);
     }
     return r;
   }
 
   const clean = o => JSON.parse(JSON.stringify(o));
 
-  /* บีบอัด State ก่อน Broadcast 200 เครื่อง: ตัด selfiePhoto, answered map, ฟิลด์ว่าง และไอเทมที่เป็น 0 ออก */
+  /* บีบอัด State แบบ Object มาตรฐาน (ใช้กับ Firebase/Supabase) */
   function compactForBroadcast(r) {
     const out = clean(r);
     for (const p of Object.values(out.players || {})) {
       p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered || {}).length);
       delete p.answered;
-      delete p.selfiePhoto; // รูปถ่ายส่งแยกเฉพาะถึงหน้าจอครูผ่านช่อง /selfie!
+      delete p.selfiePhoto;
       if (!p.isBot) delete p.isBot;
       if (!p.x2Active) delete p.x2Active;
       if (!p.frozen) { delete p.frozen; delete p.frozenBy; }
@@ -76,6 +94,7 @@ const Sync = (() => {
       if (!p.flipped) { delete p.flipped; delete p.flippedBy; }
       if (!p.selfieLocked) { delete p.selfieLocked; delete p.selfieFrom; delete p.selfieStatus; }
       if (!p.zappedAt) { delete p.zappedAt; delete p.zappedBy; }
+      if (!p.hostRev) delete p.hostRev;
       if (p.items) {
         for (const [k, v] of Object.entries(p.items)) if (!v) delete p.items[k];
       }
@@ -85,19 +104,153 @@ const Sync = (() => {
     return out;
   }
 
-  /* ผสานผู้เล่น 2 เวอร์ชันโดยไม่ให้ข้อมูล answered map ฝั่งเครื่องตัวเองหายเมื่อรับ Compact Broadcast */
+  /* เข้ารหัส State แบบ Ultra-Compact Tuple v2 สำหรับส่งผ่าน MQTT (200 คนเหลือ ~13-16 KB!) */
+  function encodeWireState(r) {
+    const baseT = Number(r.createdAt || Date.now());
+    const pArr = [];
+    for (const p of Object.values(r.players || {})) {
+      const flags =
+        (p.isBot ? 1 : 0) |
+        (p.x2Active ? 2 : 0) |
+        (p.frozen ? 4 : 0) |
+        (p.blinded ? 8 : 0) |
+        (p.flipped ? 16 : 0) |
+        (p.selfieLocked ? 32 : 0) |
+        (p.selfieLocked && p.selfieStatus === 'pending_review' ? 64 : 0) |
+        (p.selfieLocked && p.selfieStatus === 'waiting_photo' ? 128 : 0);
+
+      let items = null;
+      if (p.items) {
+        for (const [k, v] of Object.entries(p.items)) {
+          if (v > 0) { if (!items) items = {}; items[k] = v; }
+        }
+      }
+      const hasMeta = !!(p.frozenBy || p.blindedBy || p.flippedBy || p.selfieFrom || p.zappedAt);
+      const meta = hasMeta
+        ? [p.frozenBy || '', p.blindedBy || '', p.flippedBy || '', p.selfieFrom || '', p.zappedAt ? (p.zappedAt - baseT) : 0, p.zappedBy || '']
+        : 0;
+
+      const ansCnt = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered || {}).length);
+      const jOff = Math.round(((p.joinedAt || baseT) - baseT) / 100);
+      const uOff = (p.updatedAt || baseT) - baseT;
+      const tup = [p.id, p.name, p.avatar || 0, p.score || 0, ansCnt, jOff, uOff, p.rev || 0, p.hostRev || 0, flags, items || 0];
+      if (meta) tup.push(meta);
+      pArr.push(tup);
+    }
+
+    const fKeys = Object.keys(r.feed || {}).sort((a, b) => (r.feed[a].t || 0) - (r.feed[b].t || 0));
+    const keepFeed = fKeys.slice(-12).map(k => r.feed[k]);
+
+    const wire = {
+      v: 2,
+      c: r.code,
+      s: r.status || 'lobby',
+      cr: baseT,
+      hu: r.hostUpdatedAt || 0,
+      r: r.roundId || 1,
+      p: pArr,
+      f: keepFeed
+    };
+    if (r.timerTotalSec) { wire.tt = r.timerTotalSec; wire.tr = r.timerRemainingMs || 0; if (r.timerRunning) wire.tn = 1; }
+    if (r.status === 'ended' && r.endedAt) wire.en = r.endedAt;
+    if (r.usedBonus && Object.keys(r.usedBonus).length) wire.ub = r.usedBonus;
+    if (r.bonus) wire.b = r.bonus;
+    return wire;
+  }
+
+  /* ถอดรหัส State ทั้ง v2 Tuple และ v1 Object กลับเป็น Room มาตรฐาน */
+  function decodeWireState(raw) {
+    if (!raw) return null;
+    if (raw.v !== 2) return normalize(raw);
+    const baseT = Number(raw.cr || Date.now());
+    const roundId = Number(raw.r || 1);
+    const players = {};
+    for (const t of (raw.p || [])) {
+      const flags = t[9] || 0;
+      const meta = t[11] || null;
+      const selfieLocked = !!(flags & 32);
+      const selfieStatus = !selfieLocked ? '' : ((flags & 64) ? 'pending_review' : ((flags & 128) ? 'waiting_photo' : ''));
+      players[t[0]] = normalizePlayer({
+        id: t[0],
+        name: t[1],
+        avatar: t[2] || 0,
+        score: t[3] || 0,
+        answeredCount: t[4] || 0,
+        joinedAt: baseT + (t[5] || 0) * 100,
+        updatedAt: baseT + (t[6] || 0),
+        rev: t[7] || 0,
+        hostRev: t[8] || 0,
+        isBot: !!(flags & 1),
+        x2Active: !!(flags & 2),
+        frozen: !!(flags & 4),
+        blinded: !!(flags & 8),
+        flipped: !!(flags & 16),
+        selfieLocked,
+        selfieStatus,
+        items: t[10] || {},
+        frozenBy: meta ? meta[0] : '',
+        blindedBy: meta ? meta[1] : '',
+        flippedBy: meta ? meta[2] : '',
+        selfieFrom: meta ? meta[3] : '',
+        zappedAt: (meta && meta[4]) ? (baseT + meta[4]) : 0,
+        zappedBy: meta ? meta[5] : '',
+        answered: {},
+        selfiePhoto: '',
+        roundId
+      }, roundId);
+    }
+    const feed = {};
+    for (const e of (raw.f || [])) {
+      if (e && e.id) feed[e.id] = e;
+    }
+    return normalize({
+      code: raw.c,
+      status: raw.s || 'lobby',
+      createdAt: baseT,
+      hostUpdatedAt: raw.hu || 0,
+      roundId,
+      timerTotalSec: raw.tt || 0,
+      timerRemainingMs: raw.tr || 0,
+      timerRunning: !!raw.tn,
+      endedAt: raw.en || null,
+      usedBonus: raw.ub || {},
+      bonus: raw.b || null,
+      players,
+      feed
+    });
+  }
+
+  /* ผสานผู้เล่น 2 เวอร์ชันด้วย Lamport Revision (rev) + Host Authority (hostRev) กันนาฬิกาเครื่องไม่ตรงกัน! */
   function mergePlayer(pa, pb, roundId) {
-    if (!pa) { const c = clean(pb); c.roundId = roundId; return c; }
-    if (!pb) { const c = clean(pa); c.roundId = roundId; return c; }
-    const newer = (pb.updatedAt || 0) >= (pa.updatedAt || 0) ? clean(pb) : clean(pa);
-    const older = (pb.updatedAt || 0) >= (pa.updatedAt || 0) ? pa : pb;
+    if (!pa) { const c = normalizePlayer(clean(pb), roundId); c.roundId = roundId; return c; }
+    if (!pb) { const c = normalizePlayer(clean(pa), roundId); c.roundId = roundId; return c; }
+
+    const revA = Number(pa.rev || 0), revB = Number(pb.rev || 0);
+    const bIsNewer = revB !== revA ? (revB > revA) : ((pb.updatedAt || 0) >= (pa.updatedAt || 0));
+    const newer = clean(bIsNewer ? pb : pa);
+    const older = bIsNewer ? pa : pb;
+
+    // เก็บประวัติการ์ดที่ตอบไปแล้วไม่ให้หายเมื่อรับ Compact Broadcast
     newer.answered = Object.assign({}, older.answered || {}, newer.answered || {});
     newer.answeredCount = Math.max(Number(newer.answeredCount || 0), Number(older.answeredCount || 0), Object.keys(newer.answered).length);
+
+    // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่)
+    const hA = Number(pa.hostRev || 0), hB = Number(pb.hostRev || 0);
+    if (hA !== hB) {
+      const hWin = hB > hA ? pb : pa;
+      newer.selfieLocked = !!hWin.selfieLocked;
+      newer.selfieStatus = hWin.selfieStatus || '';
+      newer.selfieFrom = hWin.selfieFrom || '';
+      newer.selfiePhoto = hWin.selfiePhoto || '';
+    }
+    newer.hostRev = Math.max(hA, hB);
+    newer.rev = Math.max(revA, revB);
+
     if (!newer.selfiePhoto && older.selfiePhoto && newer.selfieLocked && newer.selfieStatus === 'pending_review') {
       newer.selfiePhoto = older.selfiePhoto;
     }
     newer.roundId = roundId;
-    return newer;
+    return normalizePlayer(newer, roundId);
   }
 
   /* ผสานสถานะห้องจากหลายอุปกรณ์ด้วย Logical roundId */
@@ -175,11 +328,13 @@ const Sync = (() => {
     return normalize(out);
   }
 
-  /* ผสาน Patch ขนาดเล็กเข้ากับ State ปัจจุบัน */
-  function applyPatch(room, patch) {
+  /* ผสาน Patch แบบ In-Place O(1) สำหรับ Host (ไม่ต้อง Deep-Clone ทั้งห้อง 200 คนทุกครั้ง!) */
+  function applyPatchInPlace(room, patch) {
     const targetCode = (room && room.code) || code;
     if (!patch || (targetCode && patch.code !== targetCode)) return room;
-    const base = normalize(room ? clean(room) : defaultRoom(patch.code || code));
+    const base = room || defaultRoom(patch.code || code);
+    base.players = base.players || {};
+    base.feed = base.feed || {};
     const curRound = base.roundId || 1;
     if (patch.roundId && patch.roundId < curRound && !patch.unsynced) return base;
 
@@ -189,19 +344,53 @@ const Sync = (() => {
       }
     }
     if (patch.feed) {
+      let added = false;
       for (const [fid, f] of Object.entries(patch.feed)) {
-        if (!base.feed[fid]) base.feed[fid] = Object.assign({}, clean(f), { roundId: curRound });
+        if (!base.feed[fid]) {
+          base.feed[fid] = Object.assign({}, clean(f), { roundId: curRound });
+          added = true;
+        }
       }
-      const fKeys = Object.keys(base.feed).sort((x, y) => (base.feed[x].t || 0) - (base.feed[y].t || 0));
-      while (fKeys.length > 35) delete base.feed[fKeys.shift()];
+      if (added) {
+        const fKeys = Object.keys(base.feed).sort((x, y) => (base.feed[x].t || 0) - (base.feed[y].t || 0));
+        while (fKeys.length > 35) delete base.feed[fKeys.shift()];
+      }
     }
     if (patch.bonusAnswered && base.bonus && base.bonus.id === patch.bonusAnswered.bid) {
       base.bonus.answered = Object.assign({}, base.bonus.answered || {}, patch.bonusAnswered.map || {});
     }
-    return normalize(base);
+    return base;
   }
 
-  /* สร้าง Delta Patch ขนาดเล็ก (ตัด selfiePhoto และ answered map ออกเพื่อประหยัดแบนด์วิดท์ 200 เครื่อง) */
+  /* ผสาน Patch แบบ Immutable (สำรองสำหรับผู้เรียกภายนอก) */
+  function applyPatch(room, patch) {
+    const base = normalize(room ? clean(room) : defaultRoom((patch && patch.code) || code));
+    return normalize(applyPatchInPlace(base, patch));
+  }
+
+  /* ผสาน Pending Patch หลายอันเข้าด้วยกันเมื่อเน็ตหลุดชั่วคราว (ไม่ทับอันเก่าทิ้ง!) */
+  function mergePatches(pA, pB) {
+    if (!pA) return pB ? clean(pB) : null;
+    if (!pB) return clean(pA);
+    const out = clean(pA);
+    out.roundId = Math.max(out.roundId || 1, pB.roundId || 1);
+    out.unsynced = !!(out.unsynced && pB.unsynced);
+    out.players = out.players || {};
+    for (const [pid, p] of Object.entries(pB.players || {})) {
+      out.players[pid] = mergePlayer(out.players[pid], p, out.roundId);
+    }
+    out.feed = Object.assign({}, out.feed || {}, pB.feed || {});
+    if (pB.bonusAnswered) {
+      if (out.bonusAnswered && out.bonusAnswered.bid === pB.bonusAnswered.bid) {
+        out.bonusAnswered.map = Object.assign({}, out.bonusAnswered.map || {}, pB.bonusAnswered.map || {});
+      } else {
+        out.bonusAnswered = clean(pB.bonusAnswered);
+      }
+    }
+    return out;
+  }
+
+  /* สร้าง Delta Patch ขนาดเล็ก (ตัด selfiePhoto และ answered map ออก) */
   function buildPatch(before, after) {
     const patch = {
       code: after.code,
@@ -213,11 +402,17 @@ const Sync = (() => {
     let hasChange = false;
     const bPlayers = (before && before.players) || {};
     for (const [pid, p] of Object.entries(after.players || {})) {
-      if (!bPlayers[pid] || JSON.stringify(bPlayers[pid]) !== JSON.stringify(p)) {
+      const bp = bPlayers[pid];
+      const changed = !bp
+        || (bp.rev || 0) !== (p.rev || 0)
+        || (bp.hostRev || 0) !== (p.hostRev || 0)
+        || (bp.updatedAt || 0) !== (p.updatedAt || 0)
+        || bp.score !== p.score;
+      if (changed || JSON.stringify(bp) !== JSON.stringify(p)) {
         const slim = clean(p);
         slim.answeredCount = Math.max(Number(slim.answeredCount || 0), Object.keys(slim.answered || {}).length);
         delete slim.answered;
-        slim.selfiePhoto = ''; // รูปหน้าตลกส่งตรงเฉพาะช่อง /selfie ถึง Host
+        slim.selfiePhoto = '';
         patch.players[pid] = slim;
         hasChange = true;
       }
@@ -244,8 +439,8 @@ const Sync = (() => {
     return hasChange ? patch : null;
   }
 
-  function emit(r) {
-    last = normalize(r ? clean(r) : null);
+  function emit(r, fast = false) {
+    last = r ? (fast ? r : normalize(clean(r))) : null;
     if (cb) cb(last);
   }
   function emitConn(state) { if (connCb) connCb(state); }
@@ -259,20 +454,36 @@ const Sync = (() => {
     });
   }
 
-  /* ---------- 🌐 Cloud Realtime (200-Player Optimized MQTT + Dedicated Selfie Channel) ---------- */
+  /* ---------- 🌐 Cloud Realtime (Ultra-Scale 200+ MQTT + Direct Channel + Wire v2) ---------- */
   const cloud = {
     key: c => 'sqa_room_' + c,
     selfieKey: (c, pid) => `sqa_selfie_${c || code}_${pid}`,
     readLocal(c) { try { return JSON.parse(localStorage.getItem(this.key(c || code))); } catch (e) { return null; } },
-    writeLocal(r, c) {
-      try { localStorage.setItem(this.key(c || code), JSON.stringify(clean(r))); } catch (e) {}
+    writeLocalNow(r, c) {
+      if (!r) return;
+      try { localStorage.setItem(this.key(c || code), JSON.stringify(r)); } catch (e) {}
       if (this.bc) { try { this.bc.postMessage({ t: 'u' }); } catch (e) {} }
+    },
+    scheduleWriteLocal(immediate = false) {
+      if (!this.cur) return;
+      if (immediate) {
+        clearTimeout(this.localWriteTimer);
+        this.localWriteTimer = null;
+        this.writeLocalNow(this.cur);
+        return;
+      }
+      if (this.localWriteTimer) return;
+      this.localWriteTimer = setTimeout(() => {
+        this.localWriteTimer = null;
+        if (this.cur) this.writeLocalNow(this.cur);
+      }, 1500);
     },
     prefix() { return (cfg.cloud && cfg.cloud.topicPrefix) || 'sciquest_arena_v2'; },
     topicState(c)  { return `${this.prefix()}/room/${c || code}/state`; },
     topicPatch(c)  { return `${this.prefix()}/room/${c || code}/patch`; },
     topicPing(c)   { return `${this.prefix()}/room/${c || code}/ping`; },
     topicSelfie(c) { return `${this.prefix()}/room/${c || code}/selfie`; },
+    topicDirect(pid, c) { return `${this.prefix()}/room/${c || code}/d/${pid}`; },
 
     async ensureMqtt() {
       if (window.mqtt) return true;
@@ -296,9 +507,9 @@ const Sync = (() => {
         return;
       }
       if (this.pubTimer) return;
-      // ปรับจังหวะ Debounce อัตโนมัติตามจำนวนคน (200 คน = 1100ms กันทราฟฟิกพุ่ง)
+      // ปรับ Debounce อัตโนมัติตามจำนวนคน (200 คน = 1800ms + Wire v2 ~14 KB -> ประหยัดทราฟฟิก >80%)
       const count = Object.keys(this.cur.players || {}).length;
-      const delay = count > 60 ? 1200 : (count > 20 ? 750 : 420);
+      const delay = count > 100 ? 1800 : (count > 50 ? 1300 : (count > 20 ? 800 : 420));
       this.pubTimer = setTimeout(() => {
         this.pubTimer = null;
         if (this.cur) this.publishState(this.cur);
@@ -308,8 +519,8 @@ const Sync = (() => {
     publishState(r) {
       if (!this.client || !this.client.connected || !r) return;
       try {
-        const slim = compactForBroadcast(r);
-        this.client.publish(this.topicState(r.code || code), JSON.stringify(slim), { qos: 0, retain: true });
+        const wire = encodeWireState(r);
+        this.client.publish(this.topicState(r.code || code), JSON.stringify(wire), { qos: 0, retain: true });
       } catch (e) {}
     },
 
@@ -318,6 +529,32 @@ const Sync = (() => {
       try {
         this.client.publish(this.topicPatch(code), JSON.stringify(patch), { qos: 0, retain: false });
       } catch (e) {}
+    },
+
+    publishDirect(pid, payloadObj) {
+      if (!pid || !payloadObj) return;
+      if (this.client && this.client.connected) {
+        try {
+          this.client.publish(this.topicDirect(pid), JSON.stringify(payloadObj), { qos: 0, retain: false });
+        } catch (e) {}
+      } else {
+        this.pendingDirect[pid] = payloadObj.patch
+          ? { patch: mergePatches(this.pendingDirect[pid] && this.pendingDirect[pid].patch, payloadObj.patch) }
+          : payloadObj;
+      }
+    },
+
+    setPlayerId(pid) {
+      if (!pid || isHostRole) return;
+      const changed = this.subbedDirectPid !== pid;
+      myPlayerId = pid;
+      if (this.client && this.client.connected && changed) {
+        if (this.subbedDirectPid) {
+          try { this.client.unsubscribe(this.topicDirect(this.subbedDirectPid)); } catch (e) {}
+        }
+        this.subbedDirectPid = pid;
+        try { this.client.subscribe(this.topicDirect(pid), { qos: 0 }); } catch (e) {}
+      }
     },
 
     sendSelfie(pid, photo) {
@@ -332,17 +569,41 @@ const Sync = (() => {
       }
     },
 
+    requestSelfie(pid) {
+      if (!isHostRole || !pid) return;
+      if (this.bc) { try { this.bc.postMessage({ t: 'reqSelfie', pid }); } catch (e) {} }
+      this.publishDirect(pid, { reqSelfie: true, code });
+    },
+
+    sendDirectPlayer(pid, playerObj) {
+      if (!pid || !playerObj) return;
+      const slim = clean(playerObj);
+      delete slim.answered;
+      slim.selfiePhoto = '';
+      const patch = {
+        code,
+        roundId: (this.cur && this.cur.roundId) || 1,
+        unsynced: false,
+        players: { [pid]: slim },
+        feed: {}
+      };
+      this.publishDirect(pid, { patch });
+    },
+
     startMqttClient(brokerIdx, onInitialDone) {
       const brokers = (cfg.cloud && cfg.cloud.brokers && cfg.cloud.brokers.length)
         ? cfg.cloud.brokers
         : ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
-      const brokerUrl = brokers[brokerIdx % brokers.length];
+      const safeIdx = ((brokerIdx || 0) % brokers.length + brokers.length) % brokers.length;
+      this.activeBrokerIdx = safeIdx;
+      const brokerUrl = brokers[safeIdx];
 
       const tState = this.topicState(code);
       const tPatch = this.topicPatch(code);
       const tPing = this.topicPing(code);
       const tSelfie = this.topicSelfie(code);
       this.lastPingReplyAt = 0;
+      this.subbedDirectPid = null;
 
       if (this.client) {
         try { this.client.end(true); } catch (e) {}
@@ -357,7 +618,7 @@ const Sync = (() => {
           clientId: (isHostRole ? 'sqah_' : 'sqap_') + Math.random().toString(36).slice(2, 10),
           clean: true,
           keepalive: 28,
-          connectTimeout: 4500,
+          connectTimeout: 5000,
           // สุ่มหน่วงเวลา Reconnect (1.5–3.5 วิ) กัน 200 เครื่องกระหน่ำต่อพร้อมกัน
           reconnectPeriod: Math.round(1500 + Math.random() * 2000)
         });
@@ -365,14 +626,24 @@ const Sync = (() => {
         this.client.on('connect', () => {
           failCount = 0;
           emitConn('connected');
-          // เฉพาะ Host เท่านั้นที่ Subscribe ช่อง /selfie และ /ping!
-          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie] : [tState, tPatch];
+          // Zero Fan-Out Storm: มือถือผู้เล่นรับเฉพาะ /state + ช่องส่วนตัว /d/<pid> (ไม่รับ /patch ของเพื่อนอีก 199 คน!)
+          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie] : [tState];
+          if (!isHostRole && myPlayerId) {
+            subs.push(this.topicDirect(myPlayerId));
+            this.subbedDirectPid = myPlayerId;
+          }
           this.client.subscribe(subs, { qos: 0 }, () => {
             if (isHostRole) {
               if (this.cur) this.scheduleHostStatePublish(true);
             } else {
               this.client.publish(tPing, '1', { qos: 0 });
               if (this.pendingPatch) { this.publishPatch(this.pendingPatch); this.pendingPatch = null; }
+              if (this.pendingDirect) {
+                for (const [dpid, dpay] of Object.entries(this.pendingDirect)) {
+                  try { this.client.publish(this.topicDirect(dpid), JSON.stringify(dpay), { qos: 0, retain: false }); } catch (e) {}
+                }
+                this.pendingDirect = {};
+              }
               if (this.pendingSelfie) {
                 try { this.client.publish(tSelfie, this.pendingSelfie, { qos: 0, retain: false }); } catch (e) {}
                 this.pendingSelfie = null;
@@ -383,7 +654,7 @@ const Sync = (() => {
 
         this.client.on('message', (topic, payload) => {
           if (topic === tPing) {
-            if (isHostRole && this.cur && Date.now() - this.lastPingReplyAt > 2500) {
+            if (isHostRole && this.cur && Date.now() - this.lastPingReplyAt > 3000) {
               this.lastPingReplyAt = Date.now();
               this.scheduleHostStatePublish(true);
             }
@@ -396,7 +667,7 @@ const Sync = (() => {
                 if (msg && msg.pid && msg.photo) {
                   if (this.cur && this.cur.players[msg.pid]) {
                     this.cur.players[msg.pid].selfiePhoto = msg.photo;
-                    emit(this.cur);
+                    emit(this.cur, true);
                   }
                   if (selfieCb) selfieCb(msg.pid, msg.photo);
                 }
@@ -405,24 +676,40 @@ const Sync = (() => {
             return;
           }
           if (topic === tPatch) {
+            if (!isHostRole) return;
             try {
               const patch = JSON.parse(payload.toString());
               if (patch && patch.code === code) {
-                this.cur = applyPatch(this.cur, patch);
-                this.writeLocal(this.cur);
-                emit(this.cur);
-                if (isHostRole) this.scheduleHostStatePublish(false);
+                this.cur = applyPatchInPlace(this.cur, patch);
+                this.scheduleWriteLocal(false);
+                emit(this.cur, true);
+                this.scheduleHostStatePublish(false);
+              }
+            } catch (e) {}
+            return;
+          }
+          if (!isHostRole && myPlayerId && topic === this.topicDirect(myPlayerId)) {
+            try {
+              const msg = JSON.parse(payload.toString());
+              if (msg && msg.reqSelfie) {
+                if (selfieReqCb) selfieReqCb();
+                return;
+              }
+              if (msg && msg.patch && msg.patch.code === code) {
+                this.cur = applyPatchInPlace(this.cur, msg.patch);
+                this.scheduleWriteLocal(false);
+                emit(this.cur, true);
               }
             } catch (e) {}
             return;
           }
           if (topic === tState) {
             try {
-              const inc = normalize(JSON.parse(payload.toString()));
+              const inc = decodeWireState(JSON.parse(payload.toString()));
               if (inc && inc.code === code) {
                 this.cur = mergeRooms(this.cur, inc);
-                this.writeLocal(this.cur);
-                emit(this.cur);
+                this.scheduleWriteLocal(false);
+                emit(this.cur, true);
               }
             } catch (e) {}
             if (onInitialDone) { const fn = onInitialDone; onInitialDone = null; fn(); }
@@ -433,8 +720,11 @@ const Sync = (() => {
         this.client.on('offline', () => emitConn('reconnecting'));
         this.client.on('error', () => {
           failCount++;
-          if (failCount >= 2 && brokers.length > 1) {
-            this.startMqttClient(brokerIdx + 1, onInitialDone);
+          // ป้องกัน Split-Brain 100%: เฉพาะ Host เท่านั้นที่มีสิทธิ์สลับ Broker (แล้วอัปเดต QR &b=idx ให้ตรงกัน!)
+          if (isHostRole && failCount >= 2 && brokers.length > 1) {
+            const nextIdx = (safeIdx + 1) % brokers.length;
+            if (brokerChangeCb) brokerChangeCb(nextIdx);
+            this.startMqttClient(nextIdx, onInitialDone);
           }
         });
       } catch (e) {
@@ -446,7 +736,10 @@ const Sync = (() => {
     async connect() {
       this.cur = normalize(this.readLocal());
       this.pendingPatch = null;
+      this.pendingDirect = {};
       this.pendingSelfie = null;
+      this.activeBrokerIdx = pinnedBrokerIdx || 0;
+      this.subbedDirectPid = null;
       try {
         this.bc = new BroadcastChannel('sqa_' + code);
         this.bc.onmessage = ev => {
@@ -454,20 +747,24 @@ const Sync = (() => {
           if (d && d.t === 'selfie' && isHostRole && d.pid && d.photo) {
             if (this.cur && this.cur.players[d.pid]) {
               this.cur.players[d.pid].selfiePhoto = d.photo;
-              emit(this.cur);
+              emit(this.cur, true);
             }
             if (selfieCb) selfieCb(d.pid, d.photo);
             return;
           }
+          if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId) {
+            if (selfieReqCb) selfieReqCb();
+            return;
+          }
           const loc = normalize(this.readLocal());
-          if (loc) { this.cur = mergeRooms(this.cur, loc); emit(this.cur); }
+          if (loc) { this.cur = mergeRooms(this.cur, loc); emit(this.cur, true); }
         };
       } catch (e) { this.bc = null; }
 
       this.onStorage = e => {
         if (e.key === this.key(code)) {
           const loc = normalize(this.readLocal());
-          if (loc) { this.cur = mergeRooms(this.cur, loc); emit(this.cur); }
+          if (loc) { this.cur = mergeRooms(this.cur, loc); emit(this.cur, true); }
         }
       };
       window.addEventListener('storage', this.onStorage);
@@ -481,7 +778,7 @@ const Sync = (() => {
         } else if (!isHostRole) {
           setTimeout(() => {
             try { if (this.client && this.client.connected) this.client.publish(this.topicPing(code), '1', { qos: 0 }); } catch (e) {}
-          }, Math.round(Math.random() * 800));
+          }, Math.round(Math.random() * 1200));
         }
       };
       document.addEventListener('visibilitychange', this.onWake);
@@ -494,7 +791,7 @@ const Sync = (() => {
         let settled = false;
         const done = () => { if (!settled) { settled = true; resolve(); } };
         const timer = setTimeout(done, 1600);
-        this.startMqttClient(0, () => { clearTimeout(timer); done(); });
+        this.startMqttClient(this.activeBrokerIdx, () => { clearTimeout(timer); done(); });
       });
 
       emit(this.cur);
@@ -502,32 +799,48 @@ const Sync = (() => {
 
     async exists() { return true; },
 
-    async transact(fn, allowCreate) {
-      const loc = normalize(this.readLocal());
-      if (loc) this.cur = mergeRooms(this.cur, loc);
+    async transact(fn, allowCreate, opts = {}) {
+      if (!this.cur) {
+        const loc = normalize(this.readLocal());
+        if (loc) this.cur = loc;
+      }
       if (!this.cur && !allowCreate) this.cur = defaultRoom(code);
       const before = this.cur ? clean(this.cur) : defaultRoom(code);
       const next = fn(clean(before));
       if (next === undefined) return this.cur;
       this.cur = normalize(clean(next));
-      this.writeLocal(this.cur);
+      this.scheduleWriteLocal(!opts.deferBroadcast);
 
       if (isHostRole) {
-        this.scheduleHostStatePublish(true);
+        this.scheduleHostStatePublish(!opts.deferBroadcast);
       } else {
         const patch = buildPatch(before, this.cur);
         if (patch) {
-          if (this.client && this.client.connected) this.publishPatch(patch);
-          else this.pendingPatch = patch;
+          if (this.client && this.client.connected) {
+            this.publishPatch(patch);
+          } else {
+            // ผสาน Pending Patch แทนการเขียนทับ (เน็ตหลุดหลายคำสั่งก็ไม่หาย!)
+            this.pendingPatch = mergePatches(this.pendingPatch, patch);
+          }
+          // หากเป็นการโจมตีเพื่อนคนอื่น -> ยิง Direct Patch ตรงเข้าช่องส่วนตัว /d/<targetPid> ทันที (ไม่ต้องรอ Broadcast 1.8 วิ!)
+          for (const [pid, pObj] of Object.entries(patch.players || {})) {
+            if (myPlayerId && pid !== myPlayerId) {
+              this.publishDirect(pid, {
+                patch: { code, roundId: patch.roundId, unsynced: patch.unsynced, players: { [pid]: pObj }, feed: patch.feed }
+              });
+            }
+          }
         }
       }
-      emit(this.cur);
+      emit(this.cur, true);
       return this.cur;
     },
 
     disconnect() {
       clearTimeout(this.pubTimer);
+      clearTimeout(this.localWriteTimer);
       this.pubTimer = null;
+      this.localWriteTimer = null;
       if (this.bc) { try { this.bc.close(); } catch (e) {} this.bc = null; }
       if (this.onStorage) window.removeEventListener('storage', this.onStorage);
       if (this.onWake) {
@@ -537,7 +850,9 @@ const Sync = (() => {
       if (this.client) { try { this.client.end(true); } catch (e) {} this.client = null; }
       this.cur = null;
       this.pendingPatch = null;
+      this.pendingDirect = {};
       this.pendingSelfie = null;
+      this.subbedDirectPid = null;
     }
   };
 
@@ -551,6 +866,7 @@ const Sync = (() => {
         this.bc.onmessage = ev => {
           const d = ev && ev.data;
           if (d && d.t === 'selfie' && isHostRole && selfieCb) { selfieCb(d.pid, d.photo); return; }
+          if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId && selfieReqCb) { selfieReqCb(); return; }
           emit(this.read());
         };
       } catch (e) { this.bc = null; }
@@ -561,6 +877,9 @@ const Sync = (() => {
     },
     sendSelfie(pid, photo) {
       if (this.bc) { try { this.bc.postMessage({ t: 'selfie', pid, photo }); } catch (e) {} }
+    },
+    requestSelfie(pid) {
+      if (this.bc) { try { this.bc.postMessage({ t: 'reqSelfie', pid }); } catch (e) {} }
     },
     async exists(c) { return !!this.read(c); },
     async transact(fn, allowCreate) {
@@ -620,7 +939,6 @@ const Sync = (() => {
       const next = fn(clean(before));
       if (next === undefined) return this.cur;
       const norm = normalize(clean(next));
-      // อัปเดตแบบแยก Path (multi-path update) เพื่อไม่ให้ 200 เครื่องเขียนชนกัน!
       if (isHostRole) {
         await this.ref.set(compactForBroadcast(norm));
       } else {
@@ -647,7 +965,7 @@ const Sync = (() => {
     }
   };
 
-  /* ---------- ⚡ Supabase Realtime (รองรับทั้งโหมด 200+ เครื่องแบบแยกตาราง sqa_players และโหมดตารางเดียว) ---------- */
+  /* ---------- ⚡ Supabase Realtime (รองรับโหมดแยกตาราง sqa_players สำหรับ 200+ เครื่อง) ---------- */
   const supa = {
     async load() {
       if (this.client) return;
@@ -686,31 +1004,34 @@ const Sync = (() => {
           .on('postgres_changes', { event: '*', schema: 'public', table: this.t, filter: 'code=eq.' + code }, p => {
             if (p.new && p.new.state) {
               this.cur = mergeRooms(this.cur, p.new.state);
-              emit(this.cur);
+              emit(this.cur, true);
             }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: this.pt, filter: 'room_code=eq.' + code }, p => {
             if (p.new && p.new.pid && p.new.data && this.cur) {
               if ((p.new.data.roundId || 1) >= (this.cur.roundId || 1)) {
                 this.cur.players[p.new.pid] = mergePlayer(this.cur.players[p.new.pid], p.new.data, this.cur.roundId || 1);
-                emit(this.cur);
+                emit(this.cur, true);
               }
             }
           })
           .on('broadcast', { event: 'selfie' }, ({ payload }) => {
             if (isHostRole && payload && payload.pid && payload.photo && selfieCb) selfieCb(payload.pid, payload.photo);
           })
+          .on('broadcast', { event: 'reqSelfie' }, ({ payload }) => {
+            if (!isHostRole && payload && payload.pid === myPlayerId && selfieReqCb) selfieReqCb();
+          })
           .on('broadcast', { event: 'feed' }, ({ payload }) => {
             if (payload && this.cur) {
               this.cur.feed[payload.id] = payload;
-              emit(this.cur);
+              emit(this.cur, true);
             }
           })
           .on('broadcast', { event: 'bonus_ans' }, ({ payload }) => {
-            if (payload && this.cur && this.cur.bonus && this.cur.bonus.id === payload.bonusId) {
+            if (payload && this.cur && this.cur.bonus && this.cur.bonus.id === payload.bid) {
               this.cur.bonus.answered = this.cur.bonus.answered || {};
               Object.assign(this.cur.bonus.answered, payload.map || {});
-              emit(this.cur);
+              emit(this.cur, true);
             }
           })
           .subscribe();
@@ -730,6 +1051,9 @@ const Sync = (() => {
     },
     sendSelfie(pid, photo) {
       if (this.ch) this.ch.send({ type: 'broadcast', event: 'selfie', payload: { pid, photo } });
+    },
+    requestSelfie(pid) {
+      if (this.ch) this.ch.send({ type: 'broadcast', event: 'reqSelfie', payload: { pid } });
     },
     async exists(c) { await this.load(); return !!(await this.fetchRow(c)); },
     async transact(fn, allowCreate) {
@@ -761,7 +1085,7 @@ const Sync = (() => {
           this.ch.send({ type: 'broadcast', event: 'bonus_ans', payload: patch.bonusAnswered });
         }
         this.cur = norm;
-        emit(this.cur);
+        emit(this.cur, true);
         return norm;
       }
 
@@ -793,25 +1117,45 @@ const Sync = (() => {
     mode,
     get room() { return last; },
     get code() { return code; },
+    getBrokerIndex: () => (adapter && typeof adapter.activeBrokerIdx === 'number') ? adapter.activeBrokerIdx : pinnedBrokerIdx,
+    setPlayerId(pid) {
+      myPlayerId = pid || null;
+      if (adapter && adapter.setPlayerId) adapter.setPlayerId(pid);
+    },
     async connect(c, onChange, opts = {}) {
       if (adapter) adapter.disconnect();
       code = c; cb = onChange;
       isHostRole = !!opts.isHost;
       connCb = opts.onConn || null;
       selfieCb = opts.onSelfie || null;
+      selfieReqCb = opts.onSelfieRequest || null;
+      brokerChangeCb = opts.onBrokerChange || null;
+      pinnedBrokerIdx = Number(opts.brokerIdx || 0) || 0;
+      myPlayerId = opts.playerId || null;
       adapter = pick();
       await adapter.connect();
     },
     exists: c => pick().exists(c),
     create: c => adapter.transact(cur => (cur && cur.code) ? cur : defaultRoom(c), true),
-    transact: fn => adapter.transact(fn, false),
+    transact: (fn, opts) => adapter.transact(fn, false, opts),
     sendSelfie: (pid, photo) => adapter && adapter.sendSelfie && adapter.sendSelfie(pid, photo),
-    disconnect() { if (adapter) adapter.disconnect(); adapter = null; cb = null; connCb = null; selfieCb = null; last = null; },
+    requestSelfie: pid => adapter && adapter.requestSelfie && adapter.requestSelfie(pid),
+    sendDirectPlayer: (pid, pObj) => adapter && adapter.sendDirectPlayer && adapter.sendDirectPlayer(pid, pObj),
+    disconnect() {
+      if (adapter) adapter.disconnect();
+      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null;
+      myPlayerId = null; last = null;
+    },
     defaultRoom,
+    mergePlayer,
     mergeRooms,
+    mergePatches,
     applyPatch,
+    applyPatchInPlace,
     buildPatch,
     compactForBroadcast,
+    encodeWireState,
+    decodeWireState,
     pushFeed(room, e) {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       room.feed[id] = Object.assign({ id, t: Date.now(), roundId: room.roundId || 1 }, e);

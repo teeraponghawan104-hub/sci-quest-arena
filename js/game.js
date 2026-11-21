@@ -1,5 +1,6 @@
-/* Sci-Quest! — กติกาเกมและระบบไอเทม 8 ชนิด (ใช้ร่วมกันทั้งผู้เล่นและบอทจำลองฝั่งครู)
- * ทุกฟังก์ชัน apply* จะอัปเดต updatedAt ของผู้เล่นเพื่อรองรับการ Merge ข้ามอุปกรณ์แบบ Real-time */
+/* Sci-Quest! — กติกาเกมและระบบไอเทม 9 ชนิด (ใช้ร่วมกันทั้งผู้เล่นและบอทจำลองฝั่งครู)
+ * ทุกฟังก์ชัน apply* อัปเดตทั้ง Logical Revision (rev / hostRev) และ updatedAt
+ * เพื่อป้องกันปัญหานาฬิกาเครื่องไม่ตรงกันข้ามอุปกรณ์ 200+ เครื่อง */
 const Game = (() => {
   const cfg = Object.assign({
     redItemChance: .5,
@@ -16,9 +17,18 @@ const Game = (() => {
   const feedBase = (p, pid) => ({ a: p.name, ai: pid, av: p.avatar });
   const emptyItems = () => ({ x2: 0, shield: 0, steal: 0, freeze: 0, blind: 0, flip: 0, zap: 0, boost: 0, selfie: 0 });
 
+  /* อัปเดต Logical Clock + Monotonic Timestamp (กันนาฬิกามือถือเด็กเดินเร็วกว่าเครื่องครู) */
+  function touch(p, isHostAuthority = false) {
+    if (!p) return;
+    p.rev = (p.rev || 0) + 1;
+    p.updatedAt = Math.max((p.updatedAt || 0) + 1, Date.now());
+    if (isHostAuthority) p.hostRev = (p.hostRev || 0) + 1;
+  }
+
   return {
     cfg,
     emptyItems,
+    touch,
     newPlayer(id, name, avatar, isBot = false) {
       const now = Date.now();
       const items = emptyItems();
@@ -33,7 +43,8 @@ const Game = (() => {
         flipped: false, flippedBy: '',
         selfieLocked: false, selfieFrom: '', selfieStatus: '', selfiePhoto: '',
         zappedAt: 0, zappedBy: '',
-        answered: {}, joinedAt: now, updatedAt: now
+        answered: {}, answeredCount: 0,
+        joinedAt: now, updatedAt: now, rev: 1, hostRev: 0
       };
     },
     randomItem: () => ITEM_KEYS[rand(ITEM_KEYS.length)],
@@ -41,12 +52,14 @@ const Game = (() => {
 
     applyAnswer(room, pid, q, mult, acc, item) {
       const me = room.players[pid];
-      if (!me || me.answered[q.id]) return null;
+      if (!me || (me.answered && me.answered[q.id])) return null;
+      me.answered = me.answered || {};
       let pts = Math.round(COLORS[q.color].points * mult), doubled = false;
       if (me.x2Active) { pts *= 2; doubled = true; me.x2Active = false; }
       me.score += pts;
       me.answered[q.id] = pts;
-      me.updatedAt = Date.now();
+      me.answeredCount = Math.max(Number(me.answeredCount || 0) + 1, Object.keys(me.answered).length);
+      touch(me, false);
       Sync.pushFeed(room, { type: 'score', ...feedBase(me, pid), pts, color: q.color, acc, doubled });
       if (item) {
         me.items[item] = (me.items[item] || 0) + 1;
@@ -59,7 +72,7 @@ const Game = (() => {
       const me = room.players[pid];
       if (!me || (me.items.x2 || 0) <= 0 || me.x2Active) return false;
       me.items.x2--; me.x2Active = true;
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'x2', ...feedBase(me, pid) });
       return true;
     },
@@ -70,7 +83,7 @@ const Game = (() => {
       me.items.boost--;
       const pts = cfg.boostAmount;
       me.score += pts;
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'boost', ...feedBase(me, pid), pts });
       return { pts };
     },
@@ -80,8 +93,8 @@ const Game = (() => {
       if (!a || !t || aid === tid || (a.items[kind] || 0) <= 0) return null;
       const now = Date.now();
       a.items[kind]--;
-      a.updatedAt = now;
-      t.updatedAt = now;
+      touch(a, false);
+      touch(t, false);
       const base = { ...feedBase(a, aid), b: t.name, bi: tid, bv: t.avatar };
 
       // เช็คโล่ป้องกันของเป้าหมาย
@@ -101,7 +114,7 @@ const Game = (() => {
         const amt = Math.min(cfg.zapAmount, t.score);
         t.score -= amt;
         a.score += cfg.zapSelfBonus;
-        t.zappedAt = now;
+        t.zappedAt = Math.max((t.zappedAt || 0) + 1, now);
         t.zappedBy = a.name;
         Sync.pushFeed(room, { type: 'zap', ...base, pts: amt });
         return { result: 'zap', amt, bonus: cfg.zapSelfBonus };
@@ -136,7 +149,7 @@ const Game = (() => {
       if (!me || !me.selfieLocked || !photoDataUrl) return false;
       me.selfiePhoto = photoDataUrl;
       me.selfieStatus = 'pending_review';
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'selfieSent', ...feedBase(me, pid), b: me.selfieFrom || 'เพื่อน' });
       return true;
     },
@@ -148,7 +161,7 @@ const Game = (() => {
       p.selfieStatus = '';
       p.selfiePhoto = '';
       p.selfieFrom = '';
-      p.updatedAt = Date.now();
+      touch(p, true); // สิทธิ์ Host Authority ชนะนาฬิกาเครื่องลูกเสมอ!
       Sync.pushFeed(room, { type: 'selfieApproved', ...feedBase(p, pid) });
       return true;
     },
@@ -158,19 +171,18 @@ const Game = (() => {
       if (!p || !p.selfieLocked) return false;
       p.selfieStatus = 'waiting_photo';
       p.selfiePhoto = '';
-      p.updatedAt = Date.now();
+      touch(p, true); // สิทธิ์ Host Authority ชนะนาฬิกาเครื่องลูกเสมอ!
       Sync.pushFeed(room, { type: 'selfieRejected', ...feedBase(p, pid) });
       return true;
     },
 
     giftRandomItemToAll(room) {
-      const now = Date.now();
       const list = Object.values(room.players || {});
       if (!list.length) return 0;
       list.forEach(p => {
         const it = ITEM_KEYS[rand(ITEM_KEYS.length)];
         p.items[it] = (p.items[it] || 0) + 1;
-        p.updatedAt = now;
+        touch(p, true);
       });
       Sync.pushFeed(room, { type: 'giftAll' });
       return list.length;
@@ -183,7 +195,7 @@ const Game = (() => {
       if (room.bonus.answered[pid]) return false;
       room.bonus.answered[pid] = acc;
       me.items[item] = (me.items[item] || 0) + 1;
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'bonusWin', ...feedBase(me, pid), item });
       return true;
     },
@@ -192,7 +204,7 @@ const Game = (() => {
       const me = room.players[pid];
       if (!me || !me.frozen) return false;
       me.frozen = false; me.frozenBy = '';
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'unfreeze', ...feedBase(me, pid) });
       return true;
     },
@@ -201,7 +213,7 @@ const Game = (() => {
       const me = room.players[pid];
       if (!me || !me.blinded) return false;
       me.blinded = false; me.blindedBy = '';
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'unblind', ...feedBase(me, pid) });
       return true;
     },
@@ -210,7 +222,7 @@ const Game = (() => {
       const me = room.players[pid];
       if (!me || !me.flipped) return false;
       me.flipped = false; me.flippedBy = '';
-      me.updatedAt = Date.now();
+      touch(me, false);
       Sync.pushFeed(room, { type: 'unflip', ...feedBase(me, pid) });
       return true;
     }
