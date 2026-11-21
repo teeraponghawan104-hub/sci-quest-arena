@@ -16,14 +16,14 @@
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
 
   function defaultRoom(c) {
     const now = Date.now();
     return {
       code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
-      timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false,
+      timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false, timerEpoch: 1,
       players: {}, feed: {}, bonus: null, usedBonus: {}
     };
   }
@@ -65,6 +65,7 @@ const Sync = (() => {
     r.timerTotalSec = Number(r.timerTotalSec || 0);
     r.timerRemainingMs = Number(r.timerRemainingMs || 0);
     r.timerRunning = !!r.timerRunning;
+    r.timerEpoch = Number(r.timerEpoch || 1);
     if (r.bonus) {
       r.bonus.answered = r.bonus.answered || {};
       r.bonus.durationSec = Number(r.bonus.durationSec || 20);
@@ -151,7 +152,7 @@ const Sync = (() => {
       p: pArr,
       f: keepFeed
     };
-    if (r.timerTotalSec) { wire.tt = r.timerTotalSec; wire.tr = r.timerRemainingMs || 0; if (r.timerRunning) wire.tn = 1; }
+    if (r.timerTotalSec) { wire.tt = r.timerTotalSec; wire.tr = r.timerRemainingMs || 0; wire.te = r.timerEpoch || 1; if (r.timerRunning) wire.tn = 1; }
     if (r.status === 'ended' && r.endedAt) wire.en = r.endedAt;
     if (r.usedBonus && Object.keys(r.usedBonus).length) wire.ub = r.usedBonus;
     if (r.bonus) wire.b = r.bonus;
@@ -212,6 +213,7 @@ const Sync = (() => {
       timerTotalSec: raw.tt || 0,
       timerRemainingMs: raw.tr || 0,
       timerRunning: !!raw.tn,
+      timerEpoch: raw.te || 1,
       endedAt: raw.en || null,
       usedBonus: raw.ub || {},
       bonus: raw.b || null,
@@ -298,6 +300,7 @@ const Sync = (() => {
       timerTotalSec: primary.timerTotalSec || 0,
       timerRemainingMs: primary.timerRemainingMs || 0,
       timerRunning: !!primary.timerRunning,
+      timerEpoch: primary.timerEpoch || Math.max(a.timerEpoch || 1, b.timerEpoch || 1),
       endedAt: primary.status === 'ended' ? (primary.endedAt || a.endedAt || b.endedAt || null) : null,
       usedBonus: Object.assign({}, a.usedBonus || {}, b.usedBonus || {}),
       bonus: primary.bonus ? clean(primary.bonus) : null,
@@ -519,6 +522,19 @@ const Sync = (() => {
     publishState(r) {
       if (!this.client || !this.client.connected || !r) return;
       try {
+        // อัปเดตเวลาคงเหลือสดๆ จากนาฬิกา Host ทุกครั้งที่ Broadcast (กันเวลาบนมือถือเด็กดีดย้อนหลัง!)
+        if (isHostRole && liveTimerFn) {
+          const lt = liveTimerFn();
+          if (lt) {
+            if (r.timerTotalSec > 0 && typeof lt.timerRemainingMs === 'number') {
+              r.timerRemainingMs = lt.timerRemainingMs;
+              r.timerRunning = !!lt.timerRunning;
+            }
+            if (r.bonus && typeof lt.bonusRemainingSec === 'number') {
+              r.bonus.remainingSec = lt.bonusRemainingSec;
+            }
+          }
+        }
         const wire = encodeWireState(r);
         this.client.publish(this.topicState(r.code || code), JSON.stringify(wire), { qos: 0, retain: true });
       } catch (e) {}
@@ -1118,6 +1134,7 @@ const Sync = (() => {
     get room() { return last; },
     get code() { return code; },
     getBrokerIndex: () => (adapter && typeof adapter.activeBrokerIdx === 'number') ? adapter.activeBrokerIdx : pinnedBrokerIdx,
+    setLiveTimerGetter(fn) { liveTimerFn = typeof fn === 'function' ? fn : null; },
     setPlayerId(pid) {
       myPlayerId = pid || null;
       if (adapter && adapter.setPlayerId) adapter.setPlayerId(pid);

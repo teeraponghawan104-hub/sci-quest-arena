@@ -344,19 +344,19 @@ html, body {
 .item-btn.empty { opacity: 0.42; filter: saturate(0.35); }
 .item-badge {
   position: absolute;
-  top: -6px;
-  right: -4px;
-  min-width: 24px;
-  height: 24px;
+  top: -5px;
+  right: 2px;
+  min-width: 20px;
+  height: 20px;
   border-radius: 4px;
   background: #333333;
   color: #fff;
   font-weight: 900;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   display: grid;
   place-items: center;
   border: 2px solid #fff;
-  padding: 0 5px;
+  padding: 0 4px;
 }
 
 /* ---------- Overlay ---------- */

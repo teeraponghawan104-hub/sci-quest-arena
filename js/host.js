@@ -578,6 +578,7 @@
       room.timerTotalSec = totalSec;
       room.timerRemainingMs = totalSec * 1000;
       room.timerRunning = room.status === 'playing' && totalSec > 0;
+      room.timerEpoch = (room.timerEpoch || 1) + 1;
       room.hostUpdatedAt = Date.now();
       return room;
     });
@@ -977,6 +978,7 @@
       base.feed = {};
       base.timerRunning = false;
       base.timerRemainingMs = (base.timerTotalSec || 0) * 1000;
+      base.timerEpoch = (base.timerEpoch || 1) + 1;
       base.hostUpdatedAt = now;
       base.roundId = (base.roundId || 1) + 1;
       return base;
@@ -1136,6 +1138,11 @@
   }
 
   (async () => {
+    Sync.setLiveTimerGetter(() => ({
+      timerRemainingMs: Math.round(matchRemainingMs),
+      timerRunning: !!(Sync.room && Sync.room.status === 'playing' && (Sync.room.timerTotalSec || 0) > 0),
+      bonusRemainingSec: trackedBonusId ? Math.max(1, Math.ceil(bonusRemainingMs / 1000)) : null
+    }));
     await Sync.connect(roomCode, onRoomUpdate, {
       isHost: true,
       onConn: onConnStatus,

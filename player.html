@@ -82,17 +82,17 @@
 
   <!-- ===================== VIEW 2: KAHOOT! MOBILE CONTROLLER ===================== -->
   <div id="gameView" class="relative z-10 max-w-md mx-auto min-h-screen flex flex-col hidden pb-44">
-    <!-- แถบบนสีขาวสไตล์ kahoot.it -->
+    <!-- แถบบนสีขาวสไตล์ kahoot.it (จัดสัดส่วนไม่ซ้อนทับบนจอมือถือ 320px–430px) -->
     <header class="sticky top-0 z-30">
-      <div class="bg-white text-[#333333] px-3 py-2 border-b-4 border-black/20 flex items-center justify-between gap-2 shadow-md">
-        <div class="flex items-center gap-2 min-w-0">
-          <div id="hdrAvatar"></div>
-          <div class="min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span id="hdrName" class="font-display font-black text-base truncate text-[#333]"></span>
-              <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[3px] bg-neutral-200 hover:bg-neutral-300 text-[#333]">ออก</button>
+      <div class="bg-white text-[#333333] px-2.5 sm:px-3 py-2 border-b-4 border-black/20 flex items-center justify-between gap-2 shadow-md">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <div id="hdrAvatar" class="shrink-0"></div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span id="hdrName" class="font-display font-black text-sm sm:text-base truncate text-[#333]"></span>
+              <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[3px] bg-neutral-200 hover:bg-neutral-300 text-[#333] shrink-0">ออก</button>
             </div>
-            <div class="flex items-center gap-1.5 text-xs font-extrabold text-neutral-500">
+            <div class="flex items-center gap-1 text-[11px] sm:text-xs font-extrabold text-neutral-500 whitespace-nowrap">
               <span id="playerConnDot" class="conn-dot conn-ok" title="สถานะการเชื่อมต่อ"></span>
               <span>PIN: <b id="hdrRoom" class="text-[#333]"></b></span>
               <span>•</span>
@@ -102,18 +102,28 @@
         </div>
 
         <div class="flex items-center gap-1 shrink-0">
-          <div id="hdrTimer" class="hidden bg-[#46178f] text-white rounded-[4px] px-2 py-1 font-display font-black text-xs sm:text-sm tabular leading-tight">
-            00:00
-          </div>
           <div class="bg-[#333333] text-white rounded-[4px] px-2.5 py-1 text-right">
-            <div id="hdrScore" class="font-display font-black text-lg leading-tight tabular">0</div>
+            <div id="hdrScore" class="font-display font-black text-base sm:text-lg leading-tight tabular">0</div>
           </div>
-          <button id="gameBgmBtn" type="button" class="w-8 h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเพลงประกอบ">🎵</button>
-          <button id="gameVoiceBtn" type="button" class="w-8 h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเสียงพากย์กวนๆ">🎙️</button>
-          <button type="button" data-fullscreen-btn class="w-8 h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิดโหมดเต็มจอ">
+          <button id="gameBgmBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเพลงประกอบ">🎵</button>
+          <button id="gameVoiceBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเสียงพากย์กวนๆ">🎙️</button>
+          <button type="button" data-fullscreen-btn class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิดโหมดเต็มจอ">
             <span data-fs-icon>⛶</span>
           </button>
-          <button id="gameMuteBtn" class="w-8 h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs">🔊</button>
+          <button id="gameMuteBtn" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs">🔊</button>
+        </div>
+      </div>
+
+      <!-- แถบจับเวลาการแข่งขันแยกบรรทัดชัดเจน (ไม่บัง PIN / อันดับ บนหน้าจอมือถือทุกขนาด!) -->
+      <div id="hdrTimerBar" class="hidden bg-[#25076b] text-white px-3 py-1.5 border-b-4 border-black/25 flex items-center justify-between gap-2.5 shadow-md">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="text-[11px] font-extrabold text-[#ffa602] whitespace-nowrap shrink-0">⏱️ เวลาเกม</span>
+          <div class="flex-1 h-2 bg-white/15 rounded-full overflow-hidden">
+            <div id="hdrTimerFill" class="h-full bg-[#ffa602] transition-all duration-200" style="width:100%"></div>
+          </div>
+        </div>
+        <div id="hdrTimer" class="bg-[#ffa602] text-[#333333] rounded-[4px] px-2.5 py-0.5 font-display font-black text-sm tabular leading-tight shrink-0">
+          00:00
         </div>
       </div>
 

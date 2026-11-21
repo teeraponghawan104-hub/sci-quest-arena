@@ -21,6 +21,8 @@
     hdrName: $('hdrName'),
     hdrRank: $('hdrRank'),
     hdrRoom: $('hdrRoom'),
+    hdrTimerBar: $('hdrTimerBar'),
+    hdrTimerFill: $('hdrTimerFill'),
     hdrTimer: $('hdrTimer'),
     hdrScore: $('hdrScore'),
     playerConnDot: $('playerConnDot'),
@@ -175,6 +177,8 @@
   let playerMatchRemMs = 0;
   let playerMatchLastTickAt = 0;
   let playerMatchTotalSec = 0;
+  let playerTimerEpoch = 0;
+  let playerMatchSyncedOnce = false;
 
   let playerBonusDurMs = 20000;
   let playerBonusRemMs = 0;
@@ -291,7 +295,9 @@
     el.stateOverlay.classList.add('hidden');
     el.questionPanel.classList.add('hidden');
     el.scanPanel.classList.remove('hidden');
-    el.hdrTimer?.classList.add('hidden');
+    el.hdrTimerBar?.classList.add('hidden');
+    playerMatchSyncedOnce = false;
+    playerTimerEpoch = 0;
     showView('login');
     if (notice) toast(notice, 'info', 3200);
   }
@@ -1093,13 +1099,19 @@
   });
 
   function renderPlayerTimers() {
-    if (playerMatchTotalSec > 0 && el.hdrTimer) {
-      el.hdrTimer.classList.remove('hidden');
-      el.hdrTimer.textContent = `⏱️ ${formatClock(playerMatchRemMs)}`;
+    if (playerMatchTotalSec > 0 && el.hdrTimerBar && el.hdrTimer) {
+      el.hdrTimerBar.classList.remove('hidden');
+      el.hdrTimer.textContent = formatClock(playerMatchRemMs);
       const sec = Math.ceil(playerMatchRemMs / 1000);
-      el.hdrTimer.classList.toggle('timer-pill-urgent', sec <= 30 && Sync.room && Sync.room.status === 'playing');
-    } else if (el.hdrTimer) {
-      el.hdrTimer.classList.add('hidden');
+      const urgent = sec <= 30 && Sync.room && Sync.room.status === 'playing';
+      el.hdrTimer.classList.toggle('timer-pill-urgent', !!urgent);
+      if (el.hdrTimerFill) {
+        const pct = Math.max(0, Math.min(100, (playerMatchRemMs / Math.max(1000, playerMatchTotalSec * 1000)) * 100));
+        el.hdrTimerFill.style.width = `${pct}%`;
+        el.hdrTimerFill.style.background = urgent ? '#e21b3c' : '#ffa602';
+      }
+    } else if (el.hdrTimerBar) {
+      el.hdrTimerBar.classList.add('hidden');
     }
 
     if (activeBonusId && el.playerBonusRing && el.playerBonusBar) {
@@ -1193,14 +1205,22 @@
       savePlayerSession(room.code, myId, joinedRoundId, me);
     }
 
-    // อัปเดตเวลาเกมจาก Host
+    // อัปเดตเวลาเกมจาก Host แบบไม่ดีดย้อนหลัง (ยึด timerEpoch และดึงลงเฉพาะตอนเวลาล้าหลัง)
     playerMatchTotalSec = Number(room.timerTotalSec || 0);
     if (playerMatchTotalSec > 0) {
       const incomingRem = Number(room.timerRemainingMs || 0);
-      if (Math.abs(incomingRem - playerMatchRemMs) > 2500 || room.status !== 'playing') {
+      const incEpoch = Number(room.timerEpoch || 1);
+      const epochChanged = !playerMatchSyncedOnce || incEpoch !== playerTimerEpoch;
+      if (epochChanged || room.status !== 'playing') {
+        playerMatchRemMs = incomingRem;
+        playerTimerEpoch = incEpoch;
+        playerMatchSyncedOnce = true;
+      } else if (incomingRem < playerMatchRemMs - 1500 || incomingRem > playerMatchRemMs + 4500) {
         playerMatchRemMs = incomingRem;
       }
       playerMatchLastTickAt = Date.now();
+    } else {
+      playerMatchSyncedOnce = false;
     }
     renderPlayerTimers();
 
