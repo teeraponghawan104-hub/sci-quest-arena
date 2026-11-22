@@ -58,10 +58,10 @@ const Grader = (() => {
   }
 
   const TIERS = [
-    { min: 80, mult: 1, key: 'perfect', label: 'แม่นยำมาก! 🎯', color: '#16a34a' },
-    { min: 50, mult: .7, key: 'close', label: 'ใกล้เคียง! 👍', color: '#2563eb' },
-    { min: 25, mult: .4, key: 'partial', label: 'พอมีเค้าโครง 🙂', color: '#d97706' },
-    { min: 0, mult: 0, key: 'miss', label: 'ยังไม่ใช่ ลองใหม่นะ 💪', color: '#dc2626' }
+    { min: 80, mult: 1, key: 'perfect', label: 'แม่นยำมาก!', color: '#16a34a' },
+    { min: 50, mult: .7, key: 'close', label: 'ใกล้เคียง!', color: '#2563eb' },
+    { min: 25, mult: .4, key: 'partial', label: 'พอมีเค้าโครง', color: '#d97706' },
+    { min: 0, mult: 0, key: 'miss', label: 'ยังไม่ใช่ ลองใหม่นะ', color: '#dc2626' }
   ];
 
   function grade(answer, q) {

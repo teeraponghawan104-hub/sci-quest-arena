@@ -17,8 +17,9 @@
   <!-- แถบแจ้งเตือนเมื่อเปิดผ่าน LINE / In-App Browser (ช่วยให้กล้องทำงาน 100%) -->
   <div id="lineBanner" class="hidden relative z-[120] bg-[#ffa602] text-[#333333] px-3 py-2 border-b-4 border-[#9c7200]">
     <div class="max-w-md mx-auto flex items-center justify-between gap-2">
-      <div class="text-xs font-extrabold leading-snug">
-        📱 เปิดในแอป LINE อยู่ (กล้องสดอาจไม่ติด) — แนะนำเปิดใน Safari/Chrome
+      <div class="text-xs font-extrabold leading-snug inline-flex items-center gap-1.5">
+        <span data-art-ui="phone" data-art-size="14" class="sqa-ico"></span>
+        <span>เปิดในแอป LINE อยู่ (กล้องสดอาจไม่ติด) — แนะนำเปิดใน Safari/Chrome</span>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <a id="openExtBrowserBtn" href="#" class="btn-3d k-btn-dark px-2.5 py-1 text-[11px] whitespace-nowrap">เปิดเบราว์เซอร์ ↗</a>
@@ -34,18 +35,21 @@
         <i data-lucide="arrow-left" class="w-4 h-4"></i>
         <span>หน้าแรก</span>
       </a>
-      <span id="loginModeBadge" class="bg-[#25076b] px-2.5 py-1 rounded-[4px] text-[11px] font-extrabold uppercase"></span>
+      <span id="loginModeBadge" class="bg-[#25076b] border border-white/15 px-2.5 py-1 rounded-[5px] text-[11px] font-extrabold uppercase"></span>
       <div class="flex items-center gap-1.5">
-        <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm" title="เปิดโหมดเต็มจอ">
-          <span data-fs-icon>⛶</span>
+        <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark w-9 h-8 grid place-items-center" title="เปิดโหมดเต็มจอ">
+          <span data-fs-icon class="sqa-ico"></span>
         </button>
-        <button id="loginMuteBtn" class="btn-3d k-btn-dark px-2.5 py-1.5 text-sm">🔊</button>
+        <button id="loginMuteBtn" class="btn-3d k-btn-dark w-9 h-8 grid place-items-center" title="เปิด/ปิดเสียง"></button>
       </div>
     </div>
 
     <div class="my-auto py-4">
-      <div class="text-center mb-5 pop-in">
-        <h1 class="k-logo text-5xl sm:text-6xl leading-none">Sci-Quest!</h1>
+      <div class="text-center mb-4 pop-in">
+        <div class="inline-flex items-center justify-center gap-2.5">
+          <span data-art-hero="brandSpark" data-art-size="48" class="sqa-ico floaty drop-shadow-[0_4px_0_rgba(0,0,0,0.28)]"></span>
+          <h1 class="k-logo text-5xl sm:text-6xl leading-none">Sci-Quest!</h1>
+        </div>
       </div>
 
       <!-- กล่องขาวกรอก PIN + ชื่อ + อวตาร สไตล์ kahoot.it -->
@@ -65,8 +69,8 @@
 
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <label class="text-[11px] font-extrabold uppercase text-neutral-500">เลือกตัวละคร</label>
-            <span id="pickedAvPreview" class="text-xs font-extrabold text-[#333]"></span>
+            <label class="text-[11px] font-extrabold uppercase text-neutral-500">เลือกตัวละครมาสคอต</label>
+            <span id="pickedAvPreview" class="text-xs font-extrabold text-[#333] inline-flex items-center gap-1.5"></span>
           </div>
           <div id="avatarGrid" class="grid grid-cols-4 gap-2"></div>
         </div>
@@ -84,40 +88,45 @@
   <div id="gameView" class="relative z-10 max-w-md mx-auto min-h-screen flex flex-col hidden pb-44">
     <!-- แถบบนสีขาวสไตล์ kahoot.it (จัดสัดส่วนไม่ซ้อนทับบนจอมือถือ 320px–430px) -->
     <header class="sticky top-0 z-30">
-      <div class="bg-white text-[#333333] px-2.5 sm:px-3 py-2 border-b-4 border-black/20 flex items-center justify-between gap-2 shadow-md">
-        <div class="flex items-center gap-2 min-w-0 flex-1">
+      <div class="bg-white text-[#333333] px-2 sm:px-3 py-1.5 sm:py-2 border-b-4 border-black/20 flex items-center justify-between gap-1.5 shadow-md">
+        <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
           <div id="hdrAvatar" class="shrink-0"></div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span id="hdrName" class="font-display font-black text-sm sm:text-base truncate text-[#333]"></span>
-              <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[3px] bg-neutral-200 hover:bg-neutral-300 text-[#333] shrink-0">ออก</button>
+            <div class="flex items-center gap-1 min-w-0">
+              <span id="hdrName" class="font-display font-black text-xs sm:text-base truncate text-[#333]"></span>
+              <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-neutral-200 hover:bg-neutral-300 text-[#333] shrink-0">ออก</button>
             </div>
-            <div class="flex items-center gap-1 text-[11px] sm:text-xs font-extrabold text-neutral-500 whitespace-nowrap">
+            <div class="flex items-center gap-1 text-[10px] sm:text-xs font-extrabold text-neutral-500 whitespace-nowrap overflow-hidden">
               <span id="playerConnDot" class="conn-dot conn-ok" title="สถานะการเชื่อมต่อ"></span>
-              <span>PIN: <b id="hdrRoom" class="text-[#333]"></b></span>
-              <span>•</span>
-              <span id="hdrRank" class="text-[#1368ce]">อันดับ #1</span>
+              <span class="truncate">PIN: <b id="hdrRoom" class="text-[#333]"></b> • <span id="hdrRank" class="text-[#1368ce]">#1</span></span>
             </div>
           </div>
         </div>
 
         <div class="flex items-center gap-1 shrink-0">
-          <div class="bg-[#333333] text-white rounded-[4px] px-2.5 py-1 text-right">
-            <div id="hdrScore" class="font-display font-black text-base sm:text-lg leading-tight tabular">0</div>
+          <div class="bg-[#241f35] text-white rounded-[5px] px-2 py-1 text-right shadow-[0_2px_0_rgba(0,0,0,0.3)]">
+            <div id="hdrScore" class="font-display font-black text-sm sm:text-lg leading-tight tabular">0</div>
           </div>
-          <button id="gameBgmBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเพลงประกอบ">🎵</button>
-          <button id="gameVoiceBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิด/ปิดเสียงพากย์กวนๆ">🎙️</button>
-          <button type="button" data-fullscreen-btn class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs font-black" title="เปิดโหมดเต็มจอ">
-            <span data-fs-icon>⛶</span>
+          <button id="gameBgmBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเพลงประกอบ">
+            <span data-art-ui="music" data-art-size="14" class="sqa-ico"></span>
           </button>
-          <button id="gameMuteBtn" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] bg-neutral-200 grid place-items-center text-xs">🔊</button>
+          <button id="gameVoiceBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเสียงพากย์กวนๆ">
+            <span data-art-ui="mic" data-art-size="14" class="sqa-ico"></span>
+          </button>
+          <button type="button" data-fullscreen-btn class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิดโหมดเต็มจอ">
+            <span data-fs-icon class="sqa-ico"></span>
+          </button>
+          <button id="gameMuteBtn" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเสียง"></button>
         </div>
       </div>
 
       <!-- แถบจับเวลาการแข่งขันแยกบรรทัดชัดเจน (ไม่บัง PIN / อันดับ บนหน้าจอมือถือทุกขนาด!) -->
       <div id="hdrTimerBar" class="hidden bg-[#25076b] text-white px-3 py-1.5 border-b-4 border-black/25 flex items-center justify-between gap-2.5 shadow-md">
         <div class="flex items-center gap-2 flex-1 min-w-0">
-          <span class="text-[11px] font-extrabold text-[#ffa602] whitespace-nowrap shrink-0">⏱️ เวลาเกม</span>
+          <span class="text-[11px] font-extrabold text-[#ffa602] whitespace-nowrap shrink-0 inline-flex items-center gap-1">
+            <span data-art-ui="clock" data-art-size="13" class="sqa-ico"></span>
+            <span>เวลาเกม</span>
+          </span>
           <div class="flex-1 h-2 bg-white/15 rounded-full overflow-hidden">
             <div id="hdrTimerFill" class="h-full bg-[#ffa602] transition-all duration-200" style="width:100%"></div>
           </div>
@@ -139,16 +148,16 @@
         <div class="k-box p-4 space-y-3">
           <div class="flex items-center justify-between">
             <span class="font-display font-black text-sm text-[#333] uppercase">เลือกหรือสแกนการ์ดคำถาม</span>
-            <span id="progressText" class="px-2.5 py-0.5 rounded-[3px] bg-[#333] text-white text-xs font-extrabold">0 / 36</span>
+            <span id="progressText" class="px-2.5 py-0.5 rounded-[4px] bg-[#333] text-white text-xs font-extrabold">0 / 36</span>
           </div>
 
           <div class="grid grid-cols-1 gap-2">
             <button id="openScannerBtn" class="btn-3d k-btn-blue w-full py-3.5 px-4 text-base flex items-center justify-center gap-2">
-              <span class="font-black text-lg">◆</span>
+              <span data-art-ui="qr" data-art-size="19" class="sqa-ico"></span>
               <span>สแกน QR Code การ์ดคำถาม</span>
             </button>
             <label class="btn-3d k-btn-white border-2 border-neutral-300 w-full py-2.5 px-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer">
-              <span>📸</span>
+              <span data-art-ui="camera" data-art-size="16" class="sqa-ico text-[#46178f]"></span>
               <span>ถ่ายรูป QR การ์ด (ใช้ได้ใน LINE / กล้องสดไม่ติด)</span>
               <input id="qrFileInput" type="file" accept="image/*" capture="environment" class="hidden" />
             </label>
@@ -156,7 +165,7 @@
           <div id="qrFileDecoder" class="hidden"></div>
 
           <!-- กล้องสแกน QR -->
-          <div id="scannerBox" class="hidden space-y-2 bg-[#333] rounded-[4px] p-2.5 text-white">
+          <div id="scannerBox" class="hidden space-y-2 bg-[#333] rounded-[6px] p-2.5 text-white">
             <div id="reader" class="w-full rounded-[4px] overflow-hidden"></div>
             <button id="closeScannerBtn" class="btn-3d k-btn-red w-full py-2 text-sm">ปิดกล้องสแกน</button>
           </div>
@@ -170,7 +179,7 @@
         </div>
 
         <!-- บล็อกการ์ด 3 สี สไตล์ปุ่มรูปทรง Kahoot! -->
-        <div class="bg-[#25076b] p-3.5 rounded-[6px] space-y-2.5 shadow-[0_4px_0_rgba(0,0,0,0.28)]">
+        <div class="k-panel p-3.5 space-y-2.5">
           <div class="text-xs font-extrabold uppercase tracking-wider text-white/90">
             สุ่มหยิบการ์ดตามสี (■ เขียว • ● เหลือง • ▲ แดง)
           </div>
@@ -188,11 +197,14 @@
             <button data-pick-color="red" class="btn-3d k-btn-red py-3.5 px-2 text-center">
               <div class="text-2xl font-black leading-none mb-1">▲</div>
               <div class="text-xs font-extrabold">สีแดง (ยาก)</div>
-              <div class="text-[11px] font-black opacity-90">350 + 🎁</div>
+              <div class="text-[11px] font-black opacity-95 inline-flex items-center justify-center gap-0.5">
+                <span>350 +</span>
+                <span data-art-hero="giftBox" data-art-size="15" class="sqa-ico"></span>
+              </div>
             </button>
           </div>
 
-          <details class="bg-[#46178f] rounded-[4px] p-2.5">
+          <details class="bg-[#46178f] border border-white/10 rounded-[6px] p-2.5">
             <summary class="text-xs font-extrabold text-white cursor-pointer select-none">ดูรหัสการ์ดทั้งหมด 36 ใบ (คลิกเลือก)</summary>
             <div id="allCardsGrid" class="grid grid-cols-6 gap-1.5 mt-2.5"></div>
           </details>
@@ -209,28 +221,29 @@
               <span id="qLevelBadge" class="text-xs font-extrabold"></span>
             </div>
             <div class="flex items-center gap-2">
-              <span id="qPointsBadge" class="px-2.5 py-1 rounded-[4px] bg-white text-[#333] font-display font-black text-xs"></span>
+              <span id="qPointsBadge" class="px-2.5 py-1 rounded-[4px] bg-white text-[#333] font-display font-black text-xs inline-flex items-center gap-1"></span>
               <button id="backToScanBtn" class="w-8 h-8 rounded-[4px] bg-black/25 hover:bg-black/40 grid place-items-center text-sm font-black" title="เปลี่ยนการ์ด">✕</button>
             </div>
           </div>
 
           <div class="p-4 space-y-3.5">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-              <span id="qFilmBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] text-xs font-extrabold text-white"></span>
+              <span id="qFilmBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-xs font-extrabold text-white"></span>
               <span class="text-[11px] font-extrabold text-neutral-500">ไม่จับเวลา • พิมพ์อธิบายได้เต็มที่</span>
             </div>
 
             <!-- กล่องคำถามเด่นชัดสไตล์ Kahoot -->
-            <div class="bg-neutral-100 border-2 border-neutral-200 rounded-[4px] p-3.5">
+            <div class="bg-neutral-100 border-2 border-neutral-200 rounded-[6px] p-3.5">
               <h3 id="qText" class="font-display text-lg sm:text-xl font-extrabold text-[#333] leading-snug"></h3>
             </div>
 
             <!-- ปุ่มคำใบ้แนวคิด -->
             <div>
-              <button id="hintToggleBtn" type="button" class="text-xs font-extrabold text-[#1368ce] hover:underline flex items-center gap-1">
-                <span>💡 ดูคำใบ้จำนวนแนวคิดสำคัญ</span>
+              <button id="hintToggleBtn" type="button" class="text-xs font-extrabold text-[#1368ce] hover:underline inline-flex items-center gap-1.5">
+                <span data-art-ui="bulb" data-art-size="15" class="sqa-ico text-[#d89e00]"></span>
+                <span>ดูคำใบ้จำนวนแนวคิดสำคัญ</span>
               </button>
-              <div id="hintBox" class="hidden mt-1.5 p-2.5 rounded-[4px] bg-neutral-100 text-[#333] text-xs font-semibold leading-relaxed"></div>
+              <div id="hintBox" class="hidden mt-1.5 p-2.5 rounded-[5px] bg-neutral-100 text-[#333] text-xs font-semibold leading-relaxed"></div>
             </div>
 
             <!-- ช่องพิมพ์คำตอบ -->
@@ -245,7 +258,7 @@
             <!-- ผลการตรวจ Smart Thai Grading -->
             <div id="gradeResult" class="hidden pt-3 border-t-2 border-neutral-200 space-y-3 pop-in">
               <div class="flex items-center justify-between">
-                <span id="gradeTierLabel" class="font-display font-black text-lg"></span>
+                <span id="gradeTierLabel" class="font-display font-black text-lg inline-flex items-center gap-1.5"></span>
                 <span id="gradePctText" class="font-display font-black text-2xl tabular"></span>
               </div>
 
@@ -258,9 +271,9 @@
                 <div id="gradeKeywords" class="flex flex-wrap gap-1.5"></div>
               </div>
 
-              <div id="gradeOutcomeBox" class="rounded-[4px] p-3 text-sm"></div>
+              <div id="gradeOutcomeBox" class="rounded-[5px] p-3 text-sm"></div>
 
-              <div id="modelAnswerBox" class="hidden rounded-[4px] p-3 bg-neutral-100 border-l-4 border-[#1368ce] text-xs sm:text-sm text-[#333]">
+              <div id="modelAnswerBox" class="hidden rounded-[5px] p-3 bg-neutral-100 border-l-4 border-[#1368ce] text-xs sm:text-sm text-[#333]">
                 <div class="font-extrabold text-[#1368ce] mb-0.5">เฉลยต้นแบบ:</div>
                 <div id="modelAnswerText" class="font-medium"></div>
               </div>
@@ -274,10 +287,10 @@
       </section>
     </main>
 
-    <!-- BOTTOM 9-ITEM KAHOOT BLOCK DOCK (แถบไอเทม 9 ชนิด 3x3 กดง่ายเต็มตา) -->
+    <!-- BOTTOM 9-ITEM KAHOOT BLOCK DOCK (แถบไอเทม 9 ชนิด 3x3 พร้อมเวกเตอร์คมชัด!) -->
     <nav class="fixed bottom-0 left-0 right-0 z-40 px-2 pb-1.5 pt-1 pointer-events-none">
-      <div class="max-w-md mx-auto bg-[#25076b] rounded-[6px] p-1.5 shadow-[0_-4px_0_rgba(0,0,0,0.28)] pointer-events-auto">
-        <div id="itemDock" class="grid grid-cols-3 gap-1"></div>
+      <div class="max-w-md mx-auto bg-[#25076b] border-2 border-white/15 rounded-[8px] p-1.5 shadow-[0_-4px_0_rgba(0,0,0,0.28)] pointer-events-auto">
+        <div id="itemDock" class="grid grid-cols-3 gap-1.5"></div>
       </div>
     </nav>
   </div>
@@ -285,8 +298,9 @@
   <!-- ===================== OVERLAY: โดนสั่งถ่ายรูปหน้าตลกส่งให้ครูอนุมัติ! (Selfie Lock Overlay) ===================== -->
   <div id="selfieOverlay" class="overlay dim z-[192] hidden overflow-y-auto">
     <div class="k-box max-w-sm w-full p-4 sm:p-5 text-center pop-in border-t-8 border-[#c026d3] my-auto space-y-3">
-      <div class="inline-block px-3 py-1 rounded-[4px] bg-[#c026d3] text-white font-display font-black text-xs">
-        📸 โดน <span id="selfieByText">เพื่อน</span> สั่งแชะหน้าตลก!
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5px] bg-[#c026d3] text-white font-display font-black text-xs">
+        <span data-art-item="selfie" data-art-size="18" class="sqa-ico"></span>
+        <span>โดน <span id="selfieByText">เพื่อน</span> สั่งแชะหน้าตลก!</span>
       </div>
 
       <!-- ขั้นที่ 1: เปิดกล้องถ่ายรูปหน้าตลก -->
@@ -298,33 +312,34 @@
           ทำหน้าให้ฮาที่สุดแล้วกดถ่าย! ต้องรอครูกดอนุญาตบนจอใหญ่ถึงจะเล่นต่อได้
         </p>
 
-        <div id="selfieCamBox" class="relative w-64 h-64 mx-auto rounded-[6px] overflow-hidden border-4 border-[#333] bg-neutral-900 shadow-lg">
+        <div id="selfieCamBox" class="relative w-64 h-64 mx-auto rounded-[8px] overflow-hidden border-4 border-[#333] bg-neutral-900 shadow-lg">
           <video id="selfieVideo" autoplay playsinline muted class="w-full h-full object-cover scale-x-[-1]"></video>
           <img id="selfiePreviewImg" src="" alt="Preview" class="w-full h-full object-cover hidden" />
           <div id="selfieCamFallbackMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center p-4 text-white text-center bg-[#25076b]">
-            <div class="text-5xl mb-2">📸</div>
+            <div data-art-item="selfie" data-art-size="60" class="sqa-ico mb-2"></div>
             <div class="font-display font-black text-sm">กดปุ่ม "เปิดกล้องมือถือถ่ายรูป" ด้านล่างได้เลย!</div>
             <div class="text-[11px] text-white/75 mt-1">(ใช้ได้ทันทีแม้เปิดผ่าน LINE)</div>
           </div>
-          <div class="absolute top-2 left-2 px-2 py-0.5 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-[11px]">
-            🤪 FUNNY CAM
+          <div class="absolute top-2 left-2 px-2 py-0.5 rounded-[4px] bg-[#ffa602] text-[#333] font-display font-black text-[11px] inline-flex items-center gap-1">
+            <span data-art-hero="funnyFace" data-art-size="16" class="sqa-ico"></span>
+            <span>FUNNY CAM</span>
           </div>
         </div>
 
         <!-- ปุ่มก่อนถ่าย -->
         <div id="selfieSnapControls" class="space-y-2">
           <button id="snapSelfieBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base flex items-center justify-center gap-2">
-            <span>📸</span>
+            <span data-art-ui="camera" data-art-size="18" class="sqa-ico"></span>
             <span>กดถ่ายรูปหน้าตลก!</span>
           </button>
           <div class="grid grid-cols-2 gap-2">
-            <label id="selfieNativeCamBtn" class="btn-3d k-btn-blue py-2.5 px-2 text-xs flex items-center justify-center gap-1 cursor-pointer">
-              <span>📷</span>
+            <label id="selfieNativeCamBtn" class="btn-3d k-btn-blue py-2.5 px-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+              <span data-art-ui="camera" data-art-size="14" class="sqa-ico"></span>
               <span>เปิดกล้องมือถือถ่ายรูป</span>
               <input id="selfieFileInput" type="file" accept="image/*" capture="user" class="hidden" />
             </label>
-            <button id="mockSelfieBtn" type="button" class="btn-3d k-btn-dark py-2.5 px-2 text-xs flex items-center justify-center gap-1">
-              <span>🎭</span>
+            <button id="mockSelfieBtn" type="button" class="btn-3d k-btn-dark py-2.5 px-2 text-xs flex items-center justify-center gap-1.5">
+              <span data-art-hero="funnyFace" data-art-size="18" class="sqa-ico"></span>
               <span>สร้างหน้าตลกจำลอง</span>
             </button>
           </div>
@@ -332,25 +347,29 @@
 
         <!-- ปุ่มหลังถ่ายเสร็จ (ยืนยันส่งให้ครู) -->
         <div id="selfieSendControls" class="hidden grid grid-cols-2 gap-2">
-          <button id="retakeSelfieBtn" type="button" class="btn-3d k-btn-dark py-3 text-sm">
-            🔄 ถ่ายใหม่
+          <button id="retakeSelfieBtn" type="button" class="btn-3d k-btn-dark py-3 text-sm inline-flex items-center justify-center gap-1.5">
+            <span data-art-ui="refresh" data-art-size="15" class="sqa-ico"></span>
+            <span>ถ่ายใหม่</span>
           </button>
-          <button id="sendSelfieBtn" type="button" class="btn-3d k-btn-green py-3 text-sm">
-            🚀 ส่งให้ครูตรวจ!
+          <button id="sendSelfieBtn" type="button" class="btn-3d k-btn-green py-3 text-sm inline-flex items-center justify-center gap-1.5">
+            <span data-art-ui="send" data-art-size="15" class="sqa-ico"></span>
+            <span>ส่งให้ครูตรวจ!</span>
           </button>
         </div>
       </div>
 
       <!-- ขั้นที่ 2: ส่งรูปแล้ว รอครูกดอนุญาตบนจอใหญ่ -->
       <div id="selfieStepWaiting" class="hidden space-y-3 py-2">
-        <div class="w-56 h-56 mx-auto rounded-[6px] overflow-hidden border-4 border-[#c026d3] bg-neutral-900 shadow">
+        <div class="w-56 h-56 mx-auto rounded-[8px] overflow-hidden border-4 border-[#c026d3] bg-neutral-900 shadow">
           <img id="selfieWaitingImg" src="" alt="Submitted Funny Selfie" class="w-full h-full object-cover" />
         </div>
-        <div class="bg-[#ffa602] text-[#333] p-3 rounded-[4px] font-display font-black text-sm animate-pulse">
-          ⏳ ส่งรูปขึ้นจอใหญ่หน้าห้องแล้ว!<br/>รอครูกดปุ่ม "อนุญาตให้เล่นต่อ"...
+        <div class="bg-[#ffa602] text-[#333] p-3 rounded-[5px] font-display font-black text-sm animate-pulse flex items-center justify-center gap-2">
+          <span data-art-ui="hourglass" data-art-size="18" class="sqa-ico shrink-0"></span>
+          <span class="text-left leading-tight">ส่งรูปขึ้นจอใหญ่หน้าห้องแล้ว!<br/>รอครูกดปุ่ม "อนุญาตให้เล่นต่อ"...</span>
         </div>
-        <button id="changeSelfieBtn" type="button" class="btn-3d k-btn-dark w-full py-2.5 text-xs">
-          🔄 ถ่ายรูปใหม่ส่งแทน
+        <button id="changeSelfieBtn" type="button" class="btn-3d k-btn-dark w-full py-2.5 text-xs inline-flex items-center justify-center gap-1.5">
+          <span data-art-ui="refresh" data-art-size="14" class="sqa-ico"></span>
+          <span>ถ่ายรูปใหม่ส่งแทน</span>
         </button>
       </div>
     </div>
@@ -358,39 +377,44 @@
 
   <!-- ===================== แถบซ่อมหน้าจอตีลังกา 180° (Flip Virus Banner) ===================== -->
   <div id="flipOverlay" class="fixed top-16 left-1/2 -translate-x-1/2 z-[185] w-[min(94vw,410px)] hidden">
-    <div class="bg-[#e05a00] text-white p-3 rounded-[6px] shadow-[0_6px_0_#7c2d12] border-2 border-white flex items-center justify-between gap-2">
-      <div class="text-xs sm:text-sm font-extrabold leading-tight">
-        <div>🙃 โดน <span id="flippedByText">เพื่อน</span> เสกจอตีลังกา 180°!</div>
-        <div class="text-[11px] opacity-90">กดปุ่มซ่อมจออีก <b id="flipLeftText">4</b> ครั้งเพื่อตั้งจอตรง</div>
+    <div class="bg-[#e05a00] text-white p-3 rounded-[8px] shadow-[0_6px_0_#7c2d12] border-2 border-white flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 text-xs sm:text-sm font-extrabold leading-tight">
+        <span data-art-item="flip" data-art-size="28" class="sqa-ico"></span>
+        <div>
+          <div>โดน <span id="flippedByText">เพื่อน</span> เสกจอตีลังกา 180°!</div>
+          <div class="text-[11px] opacity-90">กดปุ่มซ่อมจออีก <b id="flipLeftText">4</b> ครั้งเพื่อตั้งจอตรง</div>
+        </div>
       </div>
-      <button id="repairFlipBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-2 text-xs sm:text-sm shrink-0">
-        🔧 ซ่อมจอ!
+      <button id="repairFlipBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-2 text-xs sm:text-sm shrink-0 inline-flex items-center gap-1.5">
+        <span data-art-ui="wrench" data-art-size="15" class="sqa-ico text-[#ffa602]"></span>
+        <span>ซ่อมจอ!</span>
       </button>
     </div>
   </div>
 
   <!-- ===================== OVERLAY: โดนระเบิดหมอกควันบังจอ! (Blind Smoke Overlay) ===================== -->
   <div id="blindOverlay" class="overlay smoke-overlay z-[188] hidden freeze-in flex-col text-center px-6 overflow-hidden">
-    <!-- กลุ่มก้อนหมอก 6 ก้อนที่จะจางหายทีละก้อนเมื่อกดเช็ด -->
-    <div id="smokeCloud1" class="smoke-cloud fixed top-10 left-6 text-8xl select-none pointer-events-none opacity-90">💨</div>
-    <div id="smokeCloud2" class="smoke-cloud fixed top-24 right-8 text-8xl select-none pointer-events-none opacity-90">🌫️</div>
-    <div id="smokeCloud3" class="smoke-cloud fixed bottom-24 left-10 text-8xl select-none pointer-events-none opacity-90">🟣</div>
-    <div id="smokeCloud4" class="smoke-cloud fixed bottom-16 right-10 text-8xl select-none pointer-events-none opacity-90">💨</div>
-    <div id="smokeCloud5" class="smoke-cloud fixed top-1/2 left-4 text-7xl select-none pointer-events-none opacity-90">🟢</div>
-    <div id="smokeCloud6" class="smoke-cloud fixed top-1/3 right-4 text-7xl select-none pointer-events-none opacity-90">🌫️</div>
+    <!-- กลุ่มก้อนหมอกเวกเตอร์ 6 ก้อนที่จะจางหายทีละก้อนเมื่อกดเช็ด -->
+    <div id="smokeCloud1" data-art-smoke="0" data-art-size="155" class="smoke-cloud fixed top-6 left-2 select-none pointer-events-none opacity-95"></div>
+    <div id="smokeCloud2" data-art-smoke="1" data-art-size="165" class="smoke-cloud fixed top-20 right-2 select-none pointer-events-none opacity-95"></div>
+    <div id="smokeCloud3" data-art-smoke="2" data-art-size="160" class="smoke-cloud fixed bottom-20 left-3 select-none pointer-events-none opacity-95"></div>
+    <div id="smokeCloud4" data-art-smoke="3" data-art-size="155" class="smoke-cloud fixed bottom-12 right-3 select-none pointer-events-none opacity-95"></div>
+    <div id="smokeCloud5" data-art-smoke="4" data-art-size="140" class="smoke-cloud fixed top-1/2 left-0 select-none pointer-events-none opacity-95"></div>
+    <div id="smokeCloud6" data-art-smoke="5" data-art-size="145" class="smoke-cloud fixed top-1/3 right-0 select-none pointer-events-none opacity-95"></div>
 
     <div class="relative z-10 max-w-sm space-y-5">
-      <div class="inline-block px-4 py-1.5 rounded-[4px] bg-white text-[#333] font-display font-black text-sm shadow">
-        💨 โดน <span id="blindedByText">เพื่อน</span> ปาระเบิดหมอกควัน!
+      <div class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] bg-white text-[#333] font-display font-black text-sm shadow">
+        <span data-art-item="blind" data-art-size="22" class="sqa-ico"></span>
+        <span>โดน <span id="blindedByText">เพื่อน</span> ปาระเบิดหมอกควัน!</span>
       </div>
-      <h2 class="font-display text-3xl sm:text-4xl font-black text-white">หมอกบังหน้าจอมืดตึ๊ดตื๋อ!</h2>
+      <h2 class="font-display text-3xl sm:text-4xl font-black text-white drop-shadow">หมอกบังหน้าจอมืดตึ๊ดตื๋อ!</h2>
       <p class="text-white font-bold">กดเช็ดหน้าจอรัว ๆ 6 ครั้งเพื่อไล่หมอกออก!</p>
 
       <button id="wipeBlindBtn" class="wipe-btn mx-auto grid place-items-center font-display font-black select-none">
-        🧽
+        <span data-art-hero="sponge" data-art-size="96" class="sqa-ico"></span>
       </button>
 
-      <div class="bg-[#333333] rounded-[4px] px-5 py-2 inline-block font-display text-xl font-black text-white">
+      <div class="bg-[#241f35] border-2 border-white/20 rounded-[6px] px-5 py-2 inline-block font-display text-xl font-black text-white">
         เช็ดอีก <span id="blindLeftText" class="text-[#ffa602]">6</span> ครั้ง!
       </div>
     </div>
@@ -400,13 +424,16 @@
   <div id="targetModal" class="overlay dim z-[140] hidden">
     <div class="k-box max-w-sm w-full p-4 pop-in max-h-[84vh] flex flex-col">
       <div class="flex items-center justify-between mb-2 pb-2 border-b-2 border-neutral-200">
-        <h3 id="targetModalTitle" class="font-display text-lg font-black text-[#333]"></h3>
+        <h3 id="targetModalTitle" class="font-display text-lg font-black text-[#333] inline-flex items-center gap-1.5"></h3>
         <button id="closeTargetModal" class="btn-3d k-btn-dark w-8 h-8 grid place-items-center text-xs">✕</button>
       </div>
       <p id="targetModalDesc" class="text-xs font-semibold text-neutral-500 mb-2"></p>
       <div class="flex gap-1.5 mb-2.5">
-        <input id="targetSearchInput" type="text" placeholder="🔍 ค้นหาชื่อเพื่อน..." class="input-big text-xs !py-2 flex-1" />
-        <button id="targetRandomBtn" type="button" class="btn-3d k-btn-yellow px-3 py-2 text-xs shrink-0">🎲 สุ่มเพื่อน</button>
+        <input id="targetSearchInput" type="text" placeholder="พิมพ์ค้นหาชื่อเพื่อน..." class="input-big text-xs !py-2 flex-1" />
+        <button id="targetRandomBtn" type="button" class="btn-3d k-btn-yellow px-3 py-2 text-xs shrink-0 inline-flex items-center gap-1">
+          <span data-art-ui="dice" data-art-size="14" class="sqa-ico"></span>
+          <span>สุ่มเพื่อน</span>
+        </button>
       </div>
       <div id="targetList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
     </div>
@@ -420,10 +447,13 @@
         <div class="flex items-center justify-between gap-2">
           <div class="space-y-1">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="px-2.5 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-xs uppercase">🎁 BONUS!</span>
-              <span id="bonusOverlayDurBadge" class="px-2 py-0.5 rounded-[3px] bg-[#333] text-white font-display font-black text-[11px]">⏱️ 20 วิ</span>
+              <span class="px-2.5 py-1 rounded-[4px] bg-[#ffa602] text-[#333] font-display font-black text-xs uppercase inline-flex items-center gap-1">
+                <span data-art-hero="giftBox" data-art-size="16" class="sqa-ico"></span>
+                <span>BONUS!</span>
+              </span>
+              <span id="bonusOverlayDurBadge" class="px-2 py-0.5 rounded-[4px] bg-[#333] text-white font-display font-black text-[11px] inline-flex items-center gap-1"></span>
             </div>
-            <div id="bonusOverlayFilm" class="text-xs font-extrabold text-[#333]"></div>
+            <div id="bonusOverlayFilm" class="text-xs font-extrabold text-[#333] inline-flex items-center gap-1"></div>
           </div>
           <div id="playerBonusRing" class="k-timer-ring text-2xl">20</div>
         </div>
@@ -434,8 +464,9 @@
         <p class="text-xs font-semibold text-neutral-500">ตอบให้แม่นยำอย่างน้อย <b id="bonusNeedPct">50</b>% ก่อนหมดเวลาเพื่อเปิดกล่องสุ่ม!</p>
         <form id="bonusForm" class="space-y-2.5">
           <textarea id="bonusInput" rows="3" placeholder="พิมพ์คำตอบโบนัสที่นี่..." class="input-big text-base resize-none"></textarea>
-          <button id="bonusSubmitBtn" type="submit" class="btn-3d k-btn-yellow w-full py-3.5 text-lg">
-            ส่งคำตอบโบนัส! 🎁
+          <button id="bonusSubmitBtn" type="submit" class="btn-3d k-btn-yellow w-full py-3.5 text-lg inline-flex items-center justify-center gap-2">
+            <span data-art-hero="giftBox" data-art-size="22" class="sqa-ico"></span>
+            <span>ส่งคำตอบโบนัส!</span>
           </button>
         </form>
         <div id="bonusGradeBox" class="hidden space-y-2 pt-2 border-t border-neutral-200">
@@ -453,15 +484,19 @@
       <!-- ขั้นที่ 2: เปิดกล่องสุ่มไอเทม -->
       <div id="bonusStepBox" class="hidden text-center py-4 space-y-4 relative overflow-hidden">
         <div class="relative z-10 space-y-4">
-          <div id="mysteryTitle" class="font-display text-2xl font-black text-[#333]">🎉 ยินดีด้วย! กดเปิดกล่องสุ่ม!</div>
-          <div id="mysteryBoxVisual" class="text-8xl select-none cursor-pointer box-shake inline-block my-2">🎁</div>
-          <div id="mysteryReward" class="hidden space-y-2 pop-in">
-            <div id="rewardEmoji" class="text-6xl"></div>
+          <div id="mysteryTitle" class="font-display text-2xl font-black text-[#333]">ยินดีด้วย! กดเปิดกล่องสุ่ม!</div>
+          <div id="mysteryBoxVisual" class="select-none cursor-pointer box-shake inline-flex items-center justify-center my-2"></div>
+          <div id="mysteryReward" class="hidden space-y-2 pop-in relative py-2">
+            <div class="relative inline-flex items-center justify-center">
+              <div class="sunburst-halo" style="width:190px;height:190px;"></div>
+              <div id="rewardEmoji" class="relative z-10 w-24 h-24 rounded-2xl bg-[#46178f] border-4 border-[#ffa602] grid place-items-center shadow-lg"></div>
+            </div>
             <div id="rewardName" class="font-display text-2xl font-black text-[#333]"></div>
             <div id="rewardDesc" class="text-sm font-semibold text-neutral-600"></div>
           </div>
-          <button id="openMysteryBtn" class="btn-3d k-btn-green w-full py-4 text-xl">
-            แตะเพื่อเปิดกล่อง! ✨
+          <button id="openMysteryBtn" class="btn-3d k-btn-green w-full py-4 text-xl inline-flex items-center justify-center gap-2">
+            <span data-art-ui="sparkles" data-art-size="20" class="sqa-ico text-[#fde047]"></span>
+            <span>แตะเพื่อเปิดกล่อง!</span>
           </button>
           <button id="closeMysteryBtn" class="hidden btn-3d k-btn-dark w-full py-3.5 text-base">
             เก็บไอเทมใส่กระเป๋า!
@@ -490,17 +525,18 @@
     </svg>
 
     <div class="relative z-10 max-w-sm space-y-5">
-      <div class="inline-block px-4 py-1.5 rounded-[4px] bg-white text-[#333] font-display font-black text-sm shadow">
-        ❄️ โดน <span id="frozenByText">เพื่อน</span> แช่แข็ง!
+      <div class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] bg-white text-[#333] font-display font-black text-sm shadow">
+        <span data-art-item="freeze" data-art-size="22" class="sqa-ico"></span>
+        <span>โดน <span id="frozenByText">เพื่อน</span> แช่แข็ง!</span>
       </div>
-      <h2 class="font-display text-3xl sm:text-4xl font-black text-white">หน้าจอถูกแช่แข็ง!</h2>
+      <h2 class="font-display text-3xl sm:text-4xl font-black text-white drop-shadow">หน้าจอถูกแช่แข็ง!</h2>
       <p class="text-white font-bold">กดทุบปุ่มด้านล่างรัว ๆ 5 ครั้งเพื่อละลายน้ำแข็ง!</p>
 
       <button id="smashIceBtn" class="smash-btn mx-auto grid place-items-center font-display font-black select-none">
-        🔨
+        <span data-art-hero="hammer" data-art-size="96" class="sqa-ico"></span>
       </button>
 
-      <div class="bg-[#333333] rounded-[4px] px-5 py-2 inline-block font-display text-xl font-black text-white">
+      <div class="bg-[#241f35] border-2 border-white/20 rounded-[6px] px-5 py-2 inline-block font-display text-xl font-black text-white">
         ทุบอีก <span id="iceLeftText" class="text-[#ffa602]">5</span> ครั้ง!
       </div>
     </div>
@@ -509,7 +545,7 @@
   <!-- ===================== OVERLAY: สถานะห้อง (สไตล์ You're in! ของ kahoot.it) ===================== -->
   <div id="stateOverlay" class="overlay dim z-[150] hidden">
     <div class="k-box max-w-sm w-full p-6 text-center space-y-3 pop-in">
-      <div id="stateIcon" class="text-6xl floaty"></div>
+      <div id="stateIcon" class="inline-flex items-center justify-center floaty mx-auto"></div>
       <h3 id="stateTitle" class="font-display text-2xl font-black text-[#333]"></h3>
       <p id="stateDesc" class="text-sm font-semibold text-neutral-600"></p>
       <div id="stateExtra" class="space-y-2 pt-1"></div>
@@ -517,6 +553,7 @@
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/questions.js"></script>

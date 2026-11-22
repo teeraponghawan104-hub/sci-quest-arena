@@ -166,7 +166,7 @@ const SFX = (() => {
     stopBgmNode();
   }
 
-  /* ---------------- 🎙️ เสียงพากย์ธรรมชาติ (Neural Thai Voice MP3) ---------------- */
+  /* ---------------- เสียงพากย์ธรรมชาติ (Neural Thai Voice MP3) ---------------- */
   function showMcBubble(text) {
     let box = document.getElementById('mcAnnouncerBox');
     if (!box) {
@@ -175,12 +175,14 @@ const SFX = (() => {
       box.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:240;max-width:min(90vw,390px);pointer-events:none;';
       document.body.appendChild(box);
     }
+    const cleanText = String(text || '').replace(/^[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F\u200D]+\s*/u, '');
+    const micSvg = window.SQA_ART ? SQA_ART.uiSvg('mic', 20) : 'MC';
     box.innerHTML = `
-      <div class="pop-in bg-[#333333] text-white px-4 py-2.5 rounded-[6px] shadow-[0_5px_0_#000] border-l-8 border-[#ffa602] flex items-center gap-2.5">
-        <span class="text-2xl leading-none wiggle">🎙️</span>
+      <div class="pop-in bg-[#241f35] text-white px-4 py-2.5 rounded-[8px] shadow-[0_6px_0_#000] border-2 border-white/15 border-l-8 border-l-[#ffa602] flex items-center gap-3">
+        <span class="w-9 h-9 rounded-full bg-[#ffa602] text-[#1e1b2e] grid place-items-center shrink-0 wiggle shadow">${micSvg}</span>
         <div class="text-xs sm:text-sm font-bold leading-snug">
-          <div class="text-[10px] font-black uppercase text-[#ffa602] tracking-wider">พิธีกรพากย์สนาม</div>
-          <div>${text}</div>
+          <div class="text-[10px] font-black uppercase text-[#ffa602] tracking-wider">LIVE COMMENTARY • พิธีกรพากย์สนาม</div>
+          <div>${cleanText}</div>
         </div>
       </div>`;
     clearTimeout(box._t);

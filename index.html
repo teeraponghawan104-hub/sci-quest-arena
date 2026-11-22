@@ -14,30 +14,36 @@
 <body class="bg-arena min-h-screen flex flex-col justify-between">
   <!-- TOP BAR -->
   <header class="relative z-10 w-full max-w-6xl mx-auto px-4 pt-4 flex items-center justify-between gap-2">
-    <span id="modeBadge" class="bg-[#25076b] px-3 py-1.5 rounded-[4px] text-xs font-extrabold tracking-wider uppercase"></span>
+    <span id="modeBadge" class="bg-[#25076b] border border-white/15 px-3 py-1.5 rounded-[6px] text-xs font-extrabold tracking-wider uppercase shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
     <div class="flex items-center gap-2">
       <a href="cards.html" onclick="SFX.click()" class="btn-3d k-btn-white px-3.5 py-2 text-xs sm:text-sm flex items-center gap-1.5">
-        <span>🃏</span>
+        <span data-art-ui="cards" data-art-size="16" class="sqa-ico text-[#46178f]"></span>
         <span>พิมพ์การ์ด QR (36 ใบ)</span>
       </a>
-      <button type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1" title="เปิดโหมดเต็มจอ">
-        <span data-fs-icon>⛶</span>
+      <button type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5" title="เปิดโหมดเต็มจอ">
+        <span data-fs-icon class="sqa-ico"></span>
         <span data-fs-text class="hidden sm:inline">เต็มจอ</span>
       </button>
-      <button id="muteBtn" class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1" title="เปิด/ปิดเสียง">
-        <span id="muteIcon">🔊</span>
+      <button id="muteBtn" class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5" title="เปิด/ปิดเสียง">
+        <span id="muteIcon" class="sqa-ico"></span>
         <span id="muteText" class="hidden sm:inline">เสียง</span>
       </button>
     </div>
   </header>
 
-  <!-- CENTER STAGE (สไตล์ kahoot.it แท้) -->
+  <!-- CENTER STAGE (สไตล์ kahoot.it แท้ + Custom Illustrated Vector Art) -->
   <main class="relative z-10 w-full max-w-4xl mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
-    <!-- โลโก้ Kahoot! style -->
+    <!-- โลโก้ Kahoot! style + Custom Brand Atom Emblem -->
     <div class="text-center mb-6 pop-in">
-      <h1 class="k-logo text-6xl sm:text-8xl leading-none mb-2">Sci-Quest!</h1>
-      <div class="inline-block bg-[#25076b] px-4 py-1 rounded-[4px] text-xs sm:text-sm font-bold tracking-wide">
-        เทศกาลภาพยนตร์วิทยาศาสตร์ 4 เรื่อง • บอร์ดเกมการ์ด QR 3 สี
+      <div class="inline-flex items-center justify-center gap-3 mb-2">
+        <span data-art-hero="brandSpark" data-art-size="68" class="sqa-ico floaty drop-shadow-[0_5px_0_rgba(0,0,0,0.28)]"></span>
+        <h1 class="k-logo text-5xl sm:text-8xl leading-none">Sci-Quest!</h1>
+      </div>
+      <div>
+        <div class="inline-flex items-center gap-2 bg-[#25076b] border border-white/15 px-4 py-1.5 rounded-[6px] text-xs sm:text-sm font-bold tracking-wide shadow-[0_3px_0_rgba(0,0,0,0.28)]">
+          <span data-art-ui="sparkles" data-art-size="15" class="sqa-ico text-[#ffa602]"></span>
+          <span>เทศกาลภาพยนตร์วิทยาศาสตร์ 4 เรื่อง • บอร์ดเกมการ์ด QR 3 สี</span>
+        </div>
       </div>
     </div>
 
@@ -46,15 +52,17 @@
       <!-- 1. ผู้เรียน (PLAYER) — ถอดแบบกล่อง PIN ของ kahoot.it -->
       <div class="k-box p-4 sm:p-5 flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-[4px] bg-[#e21b3c] text-white font-black grid place-items-center text-lg">▲</span>
+          <div class="flex items-center justify-between mb-3 pb-2.5 border-b-2 border-neutral-200">
+            <div class="flex items-center gap-2.5">
+              <span class="w-9 h-9 rounded-[6px] bg-[#e21b3c] text-white font-black grid place-items-center text-lg shadow-[0_3px_0_#9c1128]">▲</span>
               <div>
                 <h2 class="font-display text-lg font-extrabold text-[#333] leading-none">ผู้เรียน (PLAYER)</h2>
                 <span class="text-xs font-semibold text-neutral-500">สำหรับเปิดบนมือถือแนวตั้ง</span>
               </div>
             </div>
-            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[3px]">MOBILE</span>
+            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[4px] inline-flex items-center gap-1">
+              <span data-art-ui="phone" data-art-size="12" class="sqa-ico"></span>MOBILE
+            </span>
           </div>
         </div>
 
@@ -70,15 +78,15 @@
       <!-- 2. ครูผู้ควบคุมเกม (HOST) -->
       <div class="k-box p-4 sm:p-5 flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-[4px] bg-[#1368ce] text-white font-black grid place-items-center text-lg">◆</span>
+          <div class="flex items-center justify-between mb-3 pb-2.5 border-b-2 border-neutral-200">
+            <div class="flex items-center gap-2.5">
+              <span class="w-9 h-9 rounded-[6px] bg-[#1368ce] text-white font-black grid place-items-center text-lg shadow-[0_3px_0_#0c478f]">◆</span>
               <div>
                 <h2 class="font-display text-lg font-extrabold text-[#333] leading-none">ครูผู้ควบคุมเกม (HOST)</h2>
                 <span class="text-xs font-semibold text-neutral-500">สำหรับฉายขึ้นโปรเจกเตอร์หน้าห้อง</span>
               </div>
             </div>
-            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[3px]">BIG SCREEN</span>
+            <span class="bg-neutral-200 text-[#333] text-[11px] font-extrabold px-2 py-0.5 rounded-[4px]">BIG SCREEN</span>
           </div>
         </div>
 
@@ -94,23 +102,23 @@
 
     <!-- 4 บล็อกคำตอบสไตล์ Kahoot! แสดงเนื้อหาภาพยนตร์วิทยาศาสตร์ 4 เรื่อง -->
     <section class="mb-6">
-      <div class="text-xs font-extrabold uppercase tracking-wider text-white/80 mb-2 text-center">
+      <div class="text-xs font-extrabold uppercase tracking-wider text-white/85 mb-2.5 text-center">
         4 หัวข้อจากเทศกาลภาพยนตร์วิทยาศาสตร์
       </div>
       <div id="filmList" class="grid sm:grid-cols-2 gap-2.5"></div>
     </section>
 
-    <!-- แถบการ์ด 3 สี & ไอเทม 4 บล็อก -->
-    <section class="grid md:grid-cols-2 gap-3">
-      <div class="bg-[#25076b] p-3.5 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
-        <div class="text-xs font-extrabold uppercase tracking-wider mb-2 text-white/90">
+    <!-- แถบการ์ด 3 สี & ไอเทม 9 ชนิด -->
+    <section class="grid md:grid-cols-2 gap-3.5">
+      <div class="k-panel p-4">
+        <div class="text-xs font-extrabold uppercase tracking-wider mb-2.5 text-white/90">
           ระบบการ์ดคำถาม 3 สี (ไม่จับเวลา • ตรวจภาษาไทยอัตโนมัติ)
         </div>
         <div id="colorGrid" class="grid grid-cols-3 gap-2"></div>
       </div>
 
-      <div class="bg-[#25076b] p-3.5 rounded-[6px] shadow-[0_4px_0_rgba(0,0,0,0.28)]">
-        <div class="text-xs font-extrabold uppercase tracking-wider mb-2 text-white/90">
+      <div class="k-panel p-4">
+        <div class="text-xs font-extrabold uppercase tracking-wider mb-2.5 text-white/90">
           ไอเทมป่วนเพื่อน 9 ชนิด (จากโบนัส & การ์ดแดง)
         </div>
         <div id="itemGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
@@ -118,20 +126,21 @@
     </section>
   </main>
 
-  <footer class="relative z-10 text-center py-3 text-xs font-bold text-white/70">
+  <footer class="relative z-10 text-center py-3 text-xs font-bold text-white/75">
     Sci-Quest! Classroom Arena • แม่นยำ 80%+=100% | 50–79%=70% | 25–49%=40% | &lt;25%=ตอบใหม่ได้
   </footer>
 
   <script src="js/config.js"></script>
+  <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/questions.js"></script>
   <script>
-    document.getElementById('modeBadge').textContent = modeLabel();
+    document.getElementById('modeBadge').innerHTML = modeBadgeHtml();
 
     const muteBtn = document.getElementById('muteBtn');
     function syncMuteUI() {
-      document.getElementById('muteIcon').textContent = SFX.muted ? '🔇' : '🔊';
+      document.getElementById('muteIcon').innerHTML = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 16);
       document.getElementById('muteText').textContent = SFX.muted ? 'ปิดเสียง' : 'เสียง';
     }
     syncMuteUI();
@@ -155,9 +164,9 @@
 
     const FILM_SHADOWS = { f1: '#9c1128', f2: '#0c478f', f3: '#9c7200', f4: '#195c07' };
     document.getElementById('filmList').innerHTML = Object.entries(FILMS).map(([k, f]) => `
-      <div class="rounded-[4px] p-3 flex items-center gap-3 text-white"
-           style="background:${f.color};box-shadow:0 4px 0 ${FILM_SHADOWS[k]}">
-        <div class="w-10 h-10 rounded-[4px] bg-black/15 grid place-items-center text-2xl font-black shrink-0">${f.emoji}</div>
+      <div class="rounded-[6px] p-3 flex items-center gap-3 text-white"
+           style="background:${f.color};box-shadow:inset 0 2px 0 rgba(255,255,255,0.22), 0 4px 0 ${FILM_SHADOWS[k]}">
+        <div class="w-11 h-11 rounded-[6px] bg-black/20 grid place-items-center shrink-0">${filmIconHtml(k, 34)}</div>
         <div class="min-w-0">
           <div class="font-display font-extrabold text-sm leading-snug truncate">${esc(f.title)}</div>
           <div class="text-xs text-white/90 truncate">${esc(f.topic)}</div>
@@ -166,16 +175,16 @@
     `).join('');
 
     document.getElementById('colorGrid').innerHTML = Object.values(COLORS).map(c => `
-      <div class="rounded-[4px] p-2.5 text-center text-white" style="background:${c.bg};box-shadow:0 4px 0 ${c.dark}">
+      <div class="rounded-[6px] p-2.5 text-center text-white" style="background:${c.bg};box-shadow:inset 0 2px 0 rgba(255,255,255,0.22), 0 4px 0 ${c.dark}">
         <div class="font-black text-xl leading-none mb-1">${c.shape}</div>
         <div class="font-display font-extrabold text-xs">${c.name} (${c.level})</div>
-        <div class="text-xs font-black">${c.points} แต้ม${c.key === 'red' ? '+🎁' : ''}</div>
+        <div class="text-xs font-black inline-flex items-center justify-center gap-0.5 mt-0.5">${c.points} แต้ม${c.key === 'red' ? ` + ${heroIconHtml('giftBox', 16)}` : ''}</div>
       </div>
     `).join('');
 
     document.getElementById('itemGrid').innerHTML = Object.values(ITEMS).map(it => `
-      <div class="rounded-[4px] p-2 flex items-center gap-2 text-white" style="background:${it.color};box-shadow:0 4px 0 ${it.dark}">
-        <span class="w-8 h-8 rounded-[3px] bg-black/15 grid place-items-center text-lg shrink-0">${it.emoji}</span>
+      <div class="rounded-[6px] p-2 flex items-center gap-2 text-white" style="background:${it.color};box-shadow:inset 0 2px 0 rgba(255,255,255,0.22), 0 4px 0 ${it.dark}">
+        <span class="w-9 h-9 rounded-[5px] bg-black/20 grid place-items-center shrink-0">${itemIconHtml(it.key, 28)}</span>
         <div class="min-w-0">
           <div class="font-display font-extrabold text-xs leading-tight">${it.name}</div>
           <div class="text-[11px] text-white/90 truncate">${it.desc}</div>
@@ -183,6 +192,7 @@
       </div>
     `).join('');
 
+    hydrateStaticIcons();
     refreshIcons();
   </script>
 </body>

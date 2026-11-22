@@ -128,7 +128,7 @@
     stateExtra: $('stateExtra')
   };
 
-  el.loginModeBadge.textContent = modeLabel();
+  el.loginModeBadge.innerHTML = modeBadgeHtml();
   if (initRoom) el.joinRoomInput.value = initRoom;
 
   // แจ้งเตือนเมื่อเปิดผ่าน LINE / In-App Browser พร้อมปุ่มเปิดออก Safari/Chrome ใน 1 แตะ
@@ -139,9 +139,9 @@
   }
 
   function syncMute() {
-    const ic = SFX.muted ? '🔇' : '🔊';
-    el.loginMuteBtn.textContent = ic;
-    el.gameMuteBtn.textContent = ic;
+    const ic = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 16);
+    el.loginMuteBtn.innerHTML = ic;
+    el.gameMuteBtn.innerHTML = ic;
     const bBtn = $('gameBgmBtn');
     const vBtn = $('gameVoiceBtn');
     if (bBtn) bBtn.style.opacity = SFX.bgmOn && !SFX.muted ? '1' : '0.45';
@@ -154,9 +154,12 @@
 
   let selectedAv = rand(AVATARS.length);
   function renderAvatarPicker() {
-    el.pickedAvPreview.textContent = `เลือกแล้ว: ${AVATARS[selectedAv].e}`;
+    const cur = AVATARS[selectedAv] || AVATARS[0];
+    el.pickedAvPreview.innerHTML = `${avatarHtml(selectedAv, 22)}<span>${esc(cur.name)}</span>`;
     el.avatarGrid.innerHTML = AVATARS.map((a, i) => `
-      <button type="button" data-av="${i}" class="av-btn ${i === selectedAv ? 'selected' : ''}" style="background:${a.bg}">${a.e}</button>
+      <button type="button" data-av="${i}" title="${esc(a.name)}" class="av-btn ${i === selectedAv ? 'selected' : ''}" style="background:${a.bg}">
+        ${SQA_ART.avatarSvg(i, 54)}
+      </button>
     `).join('');
     el.avatarGrid.querySelectorAll('[data-av]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -432,15 +435,15 @@
     const c = COLORS[q.color];
     const f = FILMS[q.film];
     const isX2 = !!(me && me.x2Active);
-    const ptsShow = isX2 ? `${c.points * 2} แต้ม (⚡x2!)` : `${c.points} แต้ม`;
-
     el.qHeader.style.background = c.bg;
     el.qHeader.style.color = c.text;
     el.qCodeBadge.textContent = `${c.shape} ${prettyCode(q.id)}`;
     el.qLevelBadge.textContent = `${c.name} • ${c.level}`;
-    el.qPointsBadge.textContent = ptsShow;
+    el.qPointsBadge.innerHTML = isX2
+      ? `${itemIconHtml('x2', 15)}<span>${c.points * 2} แต้ม (x2!)</span>`
+      : `<span>${c.points} แต้ม</span>`;
     el.qFilmBadge.style.background = f.color;
-    el.qFilmBadge.textContent = `${f.emoji} ${f.short}`;
+    el.qFilmBadge.innerHTML = `${filmIconHtml(q.film, 16)}<span>${esc(f.short)}</span>`;
     el.qText.textContent = q.q;
 
     const needCount = q.need || (q.kw.length >= 4 ? q.kw.length - 1 : q.kw.length);
@@ -520,7 +523,7 @@
     }
     // หากเปิดใน LINE ที่บล็อกกล้องสด ให้เปิดกล้องมือถือถ่ายภาพ QR แทนทันที!
     if (isLineBrowser()) {
-      toast('📱 เปิดผ่าน LINE — ใช้กล้องมือถือถ่ายรูป QR การ์ดได้เลย!', 'info', 2800);
+      toast(`${uiIconHtml('phone', 16)}<span>เปิดผ่าน LINE — ใช้กล้องมือถือถ่ายรูป QR การ์ดได้เลย!</span>`, 'info', 2800);
       el.qrFileInput?.click();
       return;
     }
@@ -539,7 +542,7 @@
       );
     } catch (err) {
       await stopScanner();
-      toast('กล้องสดถูกบล็อก — กดปุ่ม "📸 ถ่ายรูป QR การ์ด" ด้านล่างแทนได้เลย!', 'warn', 3800);
+      toast(`${uiIconHtml('camera', 16)}<span>กล้องสดถูกบล็อก — กดปุ่ม "ถ่ายรูป QR การ์ด" ด้านล่างแทนได้เลย!</span>`, 'warn', 3800);
     }
   });
   $('closeScannerBtn').addEventListener('click', () => { SFX.click(); stopScanner(); });
@@ -553,7 +556,7 @@
       toast('กรุณาพิมพ์รหัสการ์ดแทน (เช่น G-01)', 'warn');
       return;
     }
-    toast('🔍 กำลังอ่าน QR Code จากรูปถ่าย...', 'info', 1800);
+    toast(`${uiIconHtml('search', 16)}<span>กำลังอ่าน QR Code จากรูปถ่าย...</span>`, 'info', 1800);
     try {
       const reader = new Html5Qrcode('qrFileDecoder');
       const decoded = await reader.scanFile(file, false);
@@ -641,7 +644,7 @@
     el.nextCardBtn.classList.remove('hidden');
 
     if (luckyItem) {
-      setTimeout(() => showMysteryBox(luckyItem, '🎁 โบนัสพิเศษจากการ์ดสีแดง!'), 650);
+      setTimeout(() => showMysteryBox(luckyItem, 'โบนัสพิเศษจากการ์ดสีแดง!'), 650);
     }
   });
 
@@ -650,9 +653,9 @@
     mysteryOpen = true;
     el.bonusStepQ.classList.add('hidden');
     el.bonusStepBox.classList.remove('hidden');
-    el.mysteryTitle.textContent = title || '🎉 ยินดีด้วย! กดเปิดกล่องสุ่ม!';
-    el.mysteryBoxVisual.textContent = '🎁';
-    el.mysteryBoxVisual.className = 'text-8xl select-none cursor-pointer box-shake inline-block my-2';
+    el.mysteryTitle.textContent = title || 'ยินดีด้วย! กดเปิดกล่องสุ่ม!';
+    el.mysteryBoxVisual.innerHTML = heroIconHtml('giftBox', 124);
+    el.mysteryBoxVisual.className = 'select-none cursor-pointer box-shake inline-flex items-center justify-center my-2';
     el.mysteryReward.classList.add('hidden');
     el.openMysteryBtn.classList.remove('hidden');
     el.closeMysteryBtn.classList.add('hidden');
@@ -662,13 +665,14 @@
   function openMysteryBoxNow() {
     if (!mysteryItemPending) return;
     const it = ITEMS[mysteryItemPending];
-    el.mysteryBoxVisual.className = 'text-8xl select-none inline-block my-2 box-open';
+    el.mysteryBoxVisual.className = 'select-none inline-flex items-center justify-center my-2 box-open';
     el.openMysteryBtn.classList.add('hidden');
     SFX.item();
     confetti(2000, 90);
     setTimeout(() => {
       el.mysteryBoxVisual.classList.add('hidden');
-      el.rewardEmoji.textContent = it.emoji;
+      el.rewardEmoji.style.background = it.color;
+      el.rewardEmoji.innerHTML = itemIconHtml(it.key, 66);
       el.rewardName.textContent = `ได้รับ "${it.name}"!`;
       el.rewardDesc.textContent = it.desc;
       el.mysteryReward.classList.remove('hidden');
@@ -689,7 +693,7 @@
     e.preventDefault();
     if (bonusExpiredLocal) {
       SFX.wrong();
-      toast('⏱️ หมดเวลาคำถามโบนัสแล้ว!', 'error');
+      toast(`${uiIconHtml('clock', 16)}<span>หมดเวลาคำถามโบนัสแล้ว!</span>`, 'error');
       return;
     }
     const room = Sync.room;
@@ -727,7 +731,7 @@
     });
     if (ok) {
       SFX.correct();
-      showMysteryBox(reward, '★ ตอบโบนัสผ่าน! เปิดกล่องสุ่มเลย!');
+      showMysteryBox(reward, 'ตอบโบนัสผ่าน! เปิดกล่องสุ่มเลย!');
     } else {
       el.bonusOverlay.classList.add('hidden');
       toast('คุณรับรางวัลโบนัสรอบนี้ไปแล้ว', 'info');
@@ -740,10 +744,10 @@
       const count = (me.items && me.items[k]) || 0;
       const isX2On = k === 'x2' && me.x2Active;
       return `
-        <button data-item="${k}" class="item-btn relative py-1.5 px-1.5 flex items-center justify-center gap-1 text-white ${count === 0 && !isX2On ? 'empty' : 'item-owned'}"
-          style="background:${it.color};box-shadow:0 3px 0 ${it.dark}">
+        <button data-item="${k}" class="item-btn relative py-1.5 px-1.5 flex items-center justify-center gap-1.5 text-white ${count === 0 && !isX2On ? 'empty' : 'item-owned'}"
+          style="background:${it.color};box-shadow:inset 0 2px 0 rgba(255,255,255,0.22), 0 3px 0 ${it.dark}">
           ${count > 0 ? `<span class="item-badge">${count}</span>` : ''}
-          <span class="text-base leading-none shrink-0">${it.emoji}</span>
+          <span class="w-6 h-6 rounded-[4px] bg-black/20 grid place-items-center shrink-0">${itemIconHtml(k, 20)}</span>
           <span class="text-[11px] font-display font-extrabold leading-tight truncate">${isX2On ? 'x2 เปิดอยู่!' : it.name}</span>
         </button>`;
     }).join('');
@@ -761,7 +765,7 @@
 
     if (kind === 'shield') {
       SFX.click();
-      toast(count > 0 ? `🛡️ มีโล่ ${count} อัน — ป้องกันการโจมตีทุกชนิดอัตโนมัติ!` : 'ยังไม่มีโล่ป้องกัน (หาได้จากโบนัสหรือการ์ดแดง)', 'info');
+      toast(count > 0 ? `${itemIconHtml('shield', 18)}<span>มีโล่ ${count} อัน — ป้องกันการโจมตีทุกชนิดอัตโนมัติ!</span>` : 'ยังไม่มีโล่ป้องกัน (หาได้จากโบนัสหรือการ์ดแดง)', 'info');
       return;
     }
     if (count <= 0) {
@@ -771,13 +775,13 @@
     }
 
     if (kind === 'x2') {
-      if (me.x2Active) { toast('⚡ คูณสองเปิดใช้งานอยู่แล้ว! ตอบข้อต่อไปได้เลย', 'info'); return; }
+      if (me.x2Active) { toast(`${itemIconHtml('x2', 18)}<span>คูณสองเปิดใช้งานอยู่แล้ว! ตอบข้อต่อไปได้เลย</span>`, 'info'); return; }
       await Sync.transact(r => { Game.useX2(r, myId); return r; });
       SFX.item();
-      toast('⚡ เปิดใช้งานคูณสอง! การ์ดใบถัดไปได้ 2 เท่า', 'success');
+      toast(`${itemIconHtml('x2', 18)}<span>เปิดใช้งานคูณสอง! การ์ดใบถัดไปได้ 2 เท่า</span>`, 'success');
       if (currentQ && !el.questionPanel.classList.contains('hidden')) {
         const c = COLORS[currentQ.color];
-        el.qPointsBadge.textContent = `${c.points * 2} แต้ม (⚡x2!)`;
+        el.qPointsBadge.innerHTML = `${itemIconHtml('x2', 15)}<span>${c.points * 2} แต้ม (x2!)</span>`;
       }
       return;
     }
@@ -791,10 +795,10 @@
       if (currentQ && !el.questionPanel.classList.contains('hidden')) {
         const kwHints = currentQ.kw.slice(0, 2).map(g => `"${g[0]}"`).join(', ');
         el.hintBox.classList.remove('hidden');
-        el.hintBox.innerHTML = `🧪 <b>น้ำยาวิทย์ส่องพบคำสำคัญฟรี:</b> ลองใส่คำว่า <b>${esc(kwHints)}</b> ในคำตอบของคุณได้เลย!`;
-        toast(`🧪 ดื่มน้ำยาวิทย์! รับ +${res.pts} แต้ม & เปิดคำใบ้แล้ว!`, 'success', 3200);
+        el.hintBox.innerHTML = `<span class="inline-flex items-center gap-1 font-bold text-[#198038]">${itemIconHtml('boost', 16)}<span>น้ำยาวิทย์ส่องพบคำสำคัญฟรี:</span></span> ลองใส่คำว่า <b>${esc(kwHints)}</b> ในคำตอบของคุณได้เลย!`;
+        toast(`${itemIconHtml('boost', 18)}<span>ดื่มน้ำยาวิทย์! รับ +${res.pts} แต้ม & เปิดคำใบ้แล้ว!</span>`, 'success', 3200);
       } else {
-        toast(`🧪 ดื่มน้ำยาวิทย์! รับฟรี +${res.pts} แต้มทันที!`, 'success');
+        toast(`${itemIconHtml('boost', 18)}<span>ดื่มน้ำยาวิทย์! รับฟรี +${res.pts} แต้มทันที!</span>`, 'success');
       }
       return;
     }
@@ -807,7 +811,7 @@
     }
     SFX.pop();
     activeAttackKind = kind;
-    el.targetModalTitle.textContent = `${ITEMS[kind].emoji} เลือกเพื่อนที่จะใช้ "${ITEMS[kind].name}"`;
+    el.targetModalTitle.innerHTML = `${itemIconHtml(kind, 24)}<span>เลือกเพื่อนที่จะใช้ "${ITEMS[kind].name}"</span>`;
     el.targetModalDesc.textContent = `${ITEMS[kind].desc} (แสดง Top 25 หรือพิมพ์ค้นหาชื่อจาก ${others.length} คน)`;
     if (el.targetSearchInput) el.targetSearchInput.value = '';
 
@@ -821,31 +825,31 @@
       if (res.result === 'blocked') {
         SFX.block();
         SFX.announce('block', { a: me.name, b: targetName });
-        toast('🛡️ เพื่อนมีโล่ป้องกัน! การโจมตีถูกสกัดไว้ได้', 'warn');
+        toast(`${itemIconHtml('shield', 18)}<span>เพื่อนมีโล่ป้องกัน! การโจมตีถูกสกัดไว้ได้</span>`, 'warn');
       } else if (res.result === 'steal') {
         SFX.whoosh();
         SFX.announce('steal', { a: me.name, b: targetName, pts: res.amt });
-        toast(`💰 ขโมยมาได้ +${res.amt} แต้ม!`, 'success');
+        toast(`${itemIconHtml('steal', 18)}<span>ขโมยมาได้ +${res.amt} แต้ม!</span>`, 'success');
       } else if (res.result === 'zap') {
         SFX.zap();
         SFX.announce('zap', { a: me.name, b: targetName, pts: res.amt });
-        toast(`🌩️ สายฟ้าฟาด! ลดแต้มเพื่อน -${res.amt} และเราได้ +${res.bonus} แต้ม!`, 'success');
+        toast(`${itemIconHtml('zap', 18)}<span>สายฟ้าฟาด! ลดแต้มเพื่อน -${res.amt} และเราได้ +${res.bonus} แต้ม!</span>`, 'success');
       } else if (res.result === 'blind') {
         SFX.splat();
         SFX.announce('blind', { a: me.name, b: targetName });
-        toast(`💨 ปาระเบิดหมอกควันบังจอ ${targetName} แล้ว!`, 'info');
+        toast(`${itemIconHtml('blind', 18)}<span>ปาระเบิดหมอกควันบังจอ ${esc(targetName)} แล้ว!</span>`, 'info');
       } else if (res.result === 'flip') {
         SFX.dizzy();
         SFX.announce('flip', { a: me.name, b: targetName });
-        toast(`🙃 ส่งไวรัสจอตีลังกา 180° ใส่ ${targetName} แล้ว!`, 'warn');
+        toast(`${itemIconHtml('flip', 18)}<span>ส่งไวรัสจอตีลังกา 180° ใส่ ${esc(targetName)} แล้ว!</span>`, 'warn');
       } else if (res.result === 'selfie') {
         SFX.shutter();
         SFX.announce('selfie', { a: me.name, b: targetName });
-        toast(`📸 สั่งให้ ${targetName} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครูแล้ว!`, 'info', 3200);
+        toast(`${itemIconHtml('selfie', 18)}<span>สั่งให้ ${esc(targetName)} ถ่ายรูปหน้าตลกส่งขึ้นจอใหญ่ครูแล้ว!</span>`, 'info', 3200);
       } else {
         SFX.whoosh();
         SFX.announce('freeze', { a: me.name, b: targetName });
-        toast(`❄️ ส่งพายุน้ำแข็งแช่แข็งหน้าจอ ${targetName} แล้ว!`, 'ice');
+        toast(`${itemIconHtml('freeze', 18)}<span>ส่งพายุน้ำแข็งแช่แข็งหน้าจอ ${esc(targetName)} แล้ว!</span>`, 'ice');
       }
     };
 
@@ -854,12 +858,12 @@
       const filtered = q ? others.filter(t => (t.name || '').toLowerCase().includes(q)) : others;
       const shown = filtered.slice(0, 25);
       el.targetList.innerHTML = shown.map((t, idx) => `
-        <button data-target="${t.id}" class="w-full p-2.5 rounded-[4px] bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 hover:border-[#333] transition flex items-center justify-between gap-2 text-left">
+        <button data-target="${t.id}" class="w-full p-2.5 rounded-[6px] bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-300 hover:border-[#333] transition flex items-center justify-between gap-2 text-left">
           <div class="flex items-center gap-2.5 min-w-0">
             ${avatarHtml(t.avatar, 38)}
             <div class="min-w-0">
-              <div class="font-display font-extrabold text-[#333] truncate">${!q && idx === 0 ? '👑 ' : ''}${esc(t.name)}</div>
-              <div class="text-xs font-bold text-neutral-500">${t.score.toLocaleString()} แต้ม ${t.frozen ? '• ❄️' : ''} ${t.blinded ? '• 💨' : ''} ${t.flipped ? '• 🙃' : ''}</div>
+              <div class="font-display font-extrabold text-[#333] truncate inline-flex items-center gap-1">${!q && idx === 0 ? uiIconHtml('crownMini', 14, 'text-[#d89e00]') : ''}<span>${esc(t.name)}</span></div>
+              <div class="text-xs font-bold text-neutral-500 inline-flex items-center gap-1">${t.score.toLocaleString()} แต้ม ${t.frozen ? itemIconHtml('freeze', 14) : ''} ${t.blinded ? itemIconHtml('blind', 14) : ''} ${t.flipped ? itemIconHtml('flip', 14) : ''}</div>
             </div>
           </div>
           <span class="btn-3d k-btn-red px-3 py-1.5 text-xs shrink-0">โจมตี!</span>
@@ -943,7 +947,7 @@
       wasFlipped = false;
       el.gameView.classList.remove('flipped-screen');
       el.flipOverlay.classList.add('hidden');
-      toast('🔧 ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!', 'success');
+      toast(`${uiIconHtml('wrench', 16)}<span>ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!</span>`, 'success');
     }
   });
 
@@ -1037,7 +1041,7 @@
     c.font = 'bold 22px Kanit, sans-serif';
     c.textAlign = 'center';
     const me = Sync.room && Sync.room.players[myId];
-    c.fillText(`🤪 หน้าตลกของ ${me ? me.name : ''}!`, 180, 343);
+    c.fillText(`หน้าตลกของ ${me ? me.name : ''}!`, 180, 343);
     showSelfiePreview(cv.toDataURL('image/jpeg', 0.65));
   });
 
@@ -1095,7 +1099,7 @@
     el.selfieStepCamera.classList.add('hidden');
     el.selfieStepWaiting.classList.remove('hidden');
     el.selfieWaitingImg.src = photo;
-    toast('📸 ส่งรูปหน้าตลกขึ้นจอใหญ่ครูแล้ว! รอครูกดอนุญาตนะ', 'info', 3200);
+    toast(`${itemIconHtml('selfie', 18)}<span>ส่งรูปหน้าตลกขึ้นจอใหญ่ครูแล้ว! รอครูกดอนุญาตนะ</span>`, 'info', 3200);
   });
 
   function renderPlayerTimers() {
@@ -1127,7 +1131,7 @@
         bonusExpiredLocal = true;
         if (el.bonusSubmitBtn) {
           el.bonusSubmitBtn.disabled = true;
-          el.bonusSubmitBtn.textContent = '⏱️ หมดเวลาแล้ว!';
+          el.bonusSubmitBtn.innerHTML = `${uiIconHtml('clock', 18)}<span>หมดเวลาแล้ว!</span>`;
         }
       }
     }
@@ -1175,7 +1179,7 @@
     if (!me) {
       // เฉพาะกรณีที่ครูสั่งล้างห้อง/เริ่มรอบใหม่จริง (roundId สูงขึ้น) เท่านั้นจึงกลับหน้าล็อกอิน!
       if ((room.roundId || 1) > joinedRoundId) {
-        leaveRoomToLogin('🔄 ครูเริ่มเกมรอบใหม่แล้ว! กรุณาใส่ชื่อเข้าร่วมอีกครั้ง');
+        leaveRoomToLogin(`${uiIconHtml('refresh', 16)}<span>ครูเริ่มเกมรอบใหม่แล้ว! กรุณาใส่ชื่อเข้าร่วมอีกครั้ง</span>`);
         return;
       }
       // หากอยู่รอบเดียวกันแต่แพ็กเก็ตชั่วคราวไม่มีชื่อเรา -> ซ่อมตัวเองอัตโนมัติ (ไม่เด้งออก!)
@@ -1229,7 +1233,7 @@
 
     if (el.hdrAvatar.dataset.avIdx !== String(me.avatar)) {
       el.hdrAvatar.dataset.avIdx = String(me.avatar);
-      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 38);
+      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 36);
     }
     el.hdrName.textContent = me.name;
     el.hdrRoom.textContent = room.code;
@@ -1240,20 +1244,20 @@
       bump(el.hdrScore);
       if (me.score < prevScore) {
         SFX.stolen();
-        toast(`😱 โดนเพื่อนขโมยไป ${prevScore - me.score} แต้ม!`, 'error', 3200);
+        toast(`${itemIconHtml('steal', 18)}<span>โดนเพื่อนลดแต้มไป ${prevScore - me.score} แต้ม!</span>`, 'error', 3200);
       }
     }
     const curShields = me.items?.shield || 0;
     if (prevShields !== null && curShields < prevShields) {
       SFX.block();
-      toast('🛡️ โล่ป้องกันช่วยสกัดการโจมตีของเพื่อนไว้ได้!', 'info', 3200);
+      toast(`${itemIconHtml('shield', 18)}<span>โล่ป้องกันช่วยสกัดการโจมตีของเพื่อนไว้ได้!</span>`, 'info', 3200);
     }
     prevScore = me.score;
     prevShields = curShields;
 
     const pills = [];
-    if (me.x2Active) pills.push('<span class="px-2.5 py-1 rounded-[4px] bg-[#d89e00] text-white font-extrabold text-xs">⚡ คูณสองพร้อมทำงาน (ข้อถัดไป x2)</span>');
-    if (curShields > 0) pills.push(`<span class="px-2.5 py-1 rounded-[4px] bg-[#1368ce] text-white font-extrabold text-xs">🛡️ โล่ป้องกัน x${curShields}</span>`);
+    if (me.x2Active) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#d89e00] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${itemIconHtml('x2', 15)}<span>คูณสองพร้อมทำงาน (ข้อถัดไป x2)</span></span>`);
+    if (curShields > 0) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#1368ce] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${itemIconHtml('shield', 15)}<span>โล่ป้องกัน x${curShields}</span></span>`);
     el.buffPills.innerHTML = pills.join('');
     el.buffPills.classList.toggle('hidden', pills.length === 0);
 
@@ -1355,7 +1359,7 @@
           if (preview) el.selfieWaitingImg.src = preview;
         } else if (me.selfieStatus === 'waiting_photo' && prevSelfieStatus === 'pending_review') {
           SFX.wrong();
-          toast('🤪 ครูบอกว่ายังไม่ตลกพอ! ทำหน้าให้ฮากว่านี้แล้วถ่ายส่งใหม่!', 'error', 3600);
+          toast(`${heroIconHtml('funnyFace', 18)}<span>ครูบอกว่ายังไม่ตลกพอ! ทำหน้าให้ฮากว่านี้แล้วถ่ายส่งใหม่!</span>`, 'error', 3600);
           startSelfieCamera();
         }
         prevSelfieStatus = me.selfieStatus;
@@ -1368,7 +1372,7 @@
       if (room.status === 'playing') {
         SFX.correct();
         SFX.announce('selfieApproved', { a: me.name });
-        toast('✅ ครูอนุญาตแล้ว! ลุยตอบคำถามต่อได้เลย!', 'success', 3200);
+        toast(`${uiIconHtml('check', 16)}<span>ครูอนุญาตแล้ว! ลุยตอบคำถามต่อได้เลย!</span>`, 'success', 3200);
       }
     }
 
@@ -1383,33 +1387,35 @@
     prevZappedAt = me.zappedAt || Date.now();
 
     if (room.status === 'lobby') {
-      el.stateIcon.textContent = '🎉';
+      el.stateIcon.innerHTML = heroIconHtml('party', 80);
       el.stateTitle.textContent = "You're in! เข้าห้องแล้ว!";
       el.stateDesc.textContent = `เห็นชื่อของคุณบนหน้าจอครูไหม? รอครูกดเริ่มเกมสักครู่ (${ranked.length} คนในห้อง)`;
-      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-[4px] bg-[#333] text-white font-black text-base">${AVATARS[me.avatar].e} ${esc(me.name)}</div>`;
+      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36)}<span>${esc(me.name)}</span></div>`;
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'paused') {
-      el.stateIcon.textContent = '⏸️';
+      el.stateIcon.innerHTML = heroIconHtml('pauseIcon', 76);
       el.stateTitle.textContent = 'เกมหยุดชั่วคราว';
       el.stateDesc.textContent = 'เงยหน้าดูหน้าจอครูสักครู่นะ เดี๋ยวกลับมาลุยต่อ!';
       el.stateExtra.innerHTML = '';
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'ended') {
       clearPlayerSession(roomCode);
-      el.stateIcon.textContent = rankIdx === 0 ? '🥇' : (rankIdx === 1 ? '🥈' : (rankIdx === 2 ? '🥉' : '🏁'));
+      const endHero = rankIdx === 0 ? 'medal1' : (rankIdx === 1 ? 'medal2' : (rankIdx === 2 ? 'medal3' : 'finishFlag'));
+      el.stateIcon.innerHTML = heroIconHtml(endHero, 86);
       el.stateTitle.textContent = `ได้อันดับ #${rankIdx + 1}`;
       el.stateDesc.textContent = `คะแนนรวมของคุณคือ ${me.score.toLocaleString()} แต้ม`;
+      const topMedals = ['medal1', 'medal2', 'medal3'];
       el.stateExtra.innerHTML = `
-        <div class="bg-neutral-100 rounded-[4px] p-3 text-left space-y-1.5 mb-3">
+        <div class="bg-neutral-100 rounded-[6px] p-3 text-left space-y-1.5 mb-3">
           <div class="text-xs font-extrabold uppercase text-neutral-500">Podium Top 3</div>
           ${ranked.slice(0, 3).map((p, i) => `
             <div class="flex items-center justify-between text-sm font-extrabold text-[#333]">
-              <span>${['🥇 #1', '🥈 #2', '🥉 #3'][i]} ${esc(p.name)}</span>
+              <span class="inline-flex items-center gap-1.5">${heroIconHtml(topMedals[i], 22)}<span>#${i + 1} ${esc(p.name)}</span></span>
               <span class="tabular">${p.score.toLocaleString()}</span>
             </div>`).join('')}
         </div>
-        <button id="endLeaveBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base">
-          🔄 ออกจากห้อง / เล่นรอบใหม่
+        <button id="endLeaveBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base inline-flex items-center justify-center gap-2">
+          ${uiIconHtml('refresh', 17)}<span>ออกจากห้อง / เล่นรอบใหม่</span>
         </button>`;
       const endBtn = $('endLeaveBtn');
       if (endBtn) endBtn.addEventListener('click', () => { SFX.click(); leaveRoomToLogin(); });
@@ -1447,14 +1453,14 @@
           bonusExpiredLocal = false;
 
           const f = FILMS[bq.film];
-          el.bonusOverlayDurBadge.textContent = `⏱️ ${durSec} วินาที`;
-          el.bonusOverlayFilm.textContent = `${f.emoji} ${f.short}`;
+          el.bonusOverlayDurBadge.innerHTML = `${uiIconHtml('clock', 12)}<span>${durSec} วินาที</span>`;
+          el.bonusOverlayFilm.innerHTML = `${filmIconHtml(bq.film, 16)}<span>${esc(f.short)}</span>`;
           el.bonusOverlayQ.textContent = bq.q;
           el.bonusNeedPct.textContent = String(Game.cfg.bonusPassThreshold);
           el.bonusInput.value = '';
           if (el.bonusSubmitBtn) {
             el.bonusSubmitBtn.disabled = false;
-            el.bonusSubmitBtn.textContent = 'ส่งคำตอบโบนัส! 🎁';
+            el.bonusSubmitBtn.innerHTML = `${heroIconHtml('giftBox', 22)}<span>ส่งคำตอบโบนัส!</span>`;
           }
           el.bonusGradeBox.classList.add('hidden');
           el.bonusStepBox.classList.add('hidden');

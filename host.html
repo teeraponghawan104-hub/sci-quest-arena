@@ -37,7 +37,7 @@
             <button id="copyLinkBtn" class="btn-3d k-btn-dark px-3 py-1.5 text-xs whitespace-nowrap shrink-0" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
           </div>
           <div class="flex items-center gap-2 mt-1 text-[11px] xl:text-xs font-bold text-neutral-500 flex-wrap">
-            <span id="hostConnBadge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] bg-neutral-100 text-[#333]">
+            <span id="hostConnBadge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-neutral-100 text-[#333]">
               <span id="hostConnDot" class="conn-dot conn-wait"></span>
               <span id="hostConnText">กำลังเชื่อมต่อ...</span>
             </span>
@@ -61,47 +61,52 @@
 
       <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวเต็มตาบนจอใหญ่) -->
       <div class="flex items-center justify-between xl:justify-end gap-2 flex-wrap xl:flex-nowrap shrink-0">
-        <div class="k-logo text-3xl sm:text-4xl xl:text-5xl px-2 whitespace-nowrap">Sci-Quest!</div>
+        <div class="flex items-center gap-2 px-1 shrink-0">
+          <span data-art-hero="brandSpark" data-art-size="40" class="sqa-ico drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
+          <div class="k-logo text-3xl sm:text-4xl xl:text-5xl whitespace-nowrap">Sci-Quest!</div>
+        </div>
         <button id="fsBtn" type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิดโหมดเต็มจอ (กดปุ่ม F)">
-          <span data-fs-icon class="text-base leading-none">⛶</span>
+          <span data-fs-icon class="sqa-ico"></span>
           <span data-fs-text>เต็มจอ</span>
         </button>
-        <button id="newPinBtn" class="btn-3d k-btn-blue px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="สุ่มรหัสห้อง PIN ใหม่">
-          <span>🎲</span>
+        <button id="newPinBtn" class="btn-3d k-btn-blue px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="สุ่มรหัสห้อง PIN ใหม่">
+          <span data-art-ui="dice" data-art-size="16" class="sqa-ico"></span>
           <span>ห้องใหม่</span>
         </button>
-        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="ล้างข้อมูลผู้เล่นและคะแนนในห้องนี้">
+        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="ล้างข้อมูลผู้เล่นและคะแนนในห้องนี้">
           <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
           <span>ล้างห้อง</span>
         </button>
-        <button id="bgmBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="เปิด/ปิดเพลงประกอบ">🎵 เพลง</button>
-        <button id="voiceBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงพากย์กวนๆ">🎙️ พากย์</button>
-        <button id="muteBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-base whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงทั้งหมด">🔊</button>
+        <button id="bgmBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเพลงประกอบ"></button>
+        <button id="voiceBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงพากย์กวนๆ"></button>
+        <button id="muteBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-base flex items-center justify-center whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงทั้งหมด"></button>
       </div>
     </header>
 
     <!-- ===================== KAHOOT! CONTROL BAR ===================== -->
-    <section class="flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5 bg-[#25076b] px-3.5 py-3 rounded-[6px] shadow-[0_5px_0_rgba(0,0,0,0.3)]">
+    <section class="k-panel flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5 px-3.5 py-3">
       <!-- จำนวนผู้เล่น + สถานะ + ระบบกำหนดเวลาเกม -->
       <div class="flex flex-wrap items-center gap-2 shrink-0">
-        <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[4px] font-display font-extrabold text-sm sm:text-base whitespace-nowrap">
-          👤 0 คน
+        <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[6px] font-display font-extrabold text-sm sm:text-base whitespace-nowrap inline-flex items-center gap-1.5 shadow-[0_3px_0_#141414]">
+          <span data-art-ui="users" data-art-size="16" class="sqa-ico text-[#ffa602]"></span>
+          <span>0 คน</span>
         </div>
-        <span id="statusBadge" class="px-3 py-2 rounded-[4px] text-xs sm:text-sm font-extrabold uppercase whitespace-nowrap">รอเริ่มเกม</span>
+        <span id="statusBadge" class="px-3 py-2 rounded-[6px] text-xs sm:text-sm font-extrabold uppercase whitespace-nowrap">รอเริ่มเกม</span>
 
         <!-- ระบบกำหนดเวลาเกม (หมดเวลาสรุปผลโพเดียมอัตโนมัติ) -->
-        <div class="flex items-center gap-1.5 bg-[#33106d] p-1 rounded-[4px] border border-white/15">
-          <select id="matchTimeSelect" class="bg-white text-[#333] font-display font-extrabold text-xs sm:text-sm rounded-[3px] px-2.5 py-1.5 cursor-pointer outline-none" title="ตั้งเวลาการแข่งขัน (หมดเวลาสรุปผลอัตโนมัติ)">
-            <option value="0">⏱️ ไม่จำกัดเวลา</option>
-            <option value="180">⏱️ 3 นาที</option>
-            <option value="300">⏱️ 5 นาที</option>
-            <option value="600">⏱️ 10 นาที</option>
-            <option value="900">⏱️ 15 นาที</option>
-            <option value="1200">⏱️ 20 นาที</option>
-            <option value="1800">⏱️ 30 นาที</option>
-            <option value="custom">⏱️ กำหนดเอง...</option>
+        <div class="flex items-center gap-1.5 bg-[#33106d] pl-2 pr-1 py-1 rounded-[6px] border border-white/15">
+          <span data-art-ui="clock" data-art-size="16" class="sqa-ico text-[#ffa602]"></span>
+          <select id="matchTimeSelect" class="bg-white text-[#333] font-display font-extrabold text-xs sm:text-sm rounded-[4px] px-2.5 py-1.5 cursor-pointer outline-none" title="ตั้งเวลาการแข่งขัน (หมดเวลาสรุปผลอัตโนมัติ)">
+            <option value="0">ไม่จำกัดเวลา</option>
+            <option value="180">3 นาที</option>
+            <option value="300">5 นาที</option>
+            <option value="600">10 นาที</option>
+            <option value="900">15 นาที</option>
+            <option value="1200">20 นาที</option>
+            <option value="1800">30 นาที</option>
+            <option value="custom">กำหนดเอง...</option>
           </select>
-          <div id="matchTimerPill" class="hidden px-3 py-1 rounded-[3px] bg-[#ffa602] text-[#333] font-display font-black text-base sm:text-lg tabular leading-tight whitespace-nowrap">
+          <div id="matchTimerPill" class="hidden px-3 py-1 rounded-[4px] bg-[#ffa602] text-[#333] font-display font-black text-base sm:text-lg tabular leading-tight whitespace-nowrap inline-flex items-center gap-1.5">
             00:00
           </div>
         </div>
@@ -119,13 +124,13 @@
           <span>ปล่อยคำถามโบนัส</span>
         </button>
 
-        <button id="giftAllBtn" class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap" title="สุ่มแจกไอเทมให้ผู้เล่นทุกคนคนละ 1 ชิ้นทันที">
-          <span>🎁</span>
+        <button id="giftAllBtn" class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap" title="สุ่มแจกไอเทมให้ผู้เล่นทุกคนคนละ 1 ชิ้นทันที">
+          <span data-art-hero="giftBox" data-art-size="20" class="sqa-ico"></span>
           <span>แจกไอเทมทุกคน</span>
         </button>
 
         <button id="podiumBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm sm:text-base flex items-center gap-1.5 whitespace-nowrap">
-          <span>▲</span>
+          <span data-art-ui="trophyMini" data-art-size="16" class="sqa-ico"></span>
           <span>โพเดียม 1-2-3</span>
         </button>
 
@@ -134,29 +139,32 @@
           <span>+ บอท 4 คน</span>
         </button>
 
-        <button id="simToggleBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap">
-          <span>▶</span>
+        <button id="simToggleBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
+          <span data-art-ui="play" data-art-size="14" class="sqa-ico text-[#4ade80]"></span>
           <span>จำลองเล่นอัตโนมัติ</span>
         </button>
       </div>
     </section>
 
     <!-- แถบคำถามโบนัสที่กำลังปล่อยอยู่ (พร้อมเวลานับถอยหลังทรงกลมสไตล์ Kahoot!) -->
-    <section id="activeBonusBar" class="hidden bonus-glow rounded-[6px] p-4 space-y-2.5">
+    <section id="activeBonusBar" class="hidden bonus-glow rounded-[8px] p-4 space-y-2.5">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3.5 min-w-0">
           <div id="hostBonusRing" class="k-timer-ring text-3xl">20</div>
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2 py-0.5 rounded-[3px] text-xs font-extrabold bg-[#333333] text-white uppercase">BONUS LIVE!</span>
-              <span id="bonusDurTag" class="px-2 py-0.5 rounded-[3px] text-xs font-black bg-white text-[#333]"></span>
-              <span id="bonusFilmTag" class="text-xs font-extrabold text-[#333333]"></span>
+              <span class="px-2 py-0.5 rounded-[4px] text-xs font-extrabold bg-[#333333] text-white uppercase inline-flex items-center gap-1">
+                <span data-art-hero="giftBox" data-art-size="16" class="sqa-ico"></span>
+                <span>BONUS LIVE!</span>
+              </span>
+              <span id="bonusDurTag" class="px-2 py-0.5 rounded-[4px] text-xs font-black bg-white text-[#333] inline-flex items-center gap-1"></span>
+              <span id="bonusFilmTag" class="text-xs font-extrabold text-[#333333] inline-flex items-center gap-1"></span>
             </div>
             <div id="bonusQuestionText" class="font-display text-lg sm:text-xl font-extrabold text-[#333333] mt-0.5"></div>
           </div>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-          <div class="text-center bg-[#333333] text-white rounded-[4px] px-4 py-1.5">
+          <div class="text-center bg-[#333333] text-white rounded-[6px] px-4 py-1.5">
             <div id="bonusWinCount" class="font-display text-2xl font-black text-[#ffa602] tabular">0</div>
             <div class="text-[11px] font-bold">คนตอบผ่านแล้ว</div>
           </div>
@@ -171,10 +179,12 @@
     <!-- ===================== MAIN STAGE: SCOREBOARD + LIVE FEED (ยืดเต็มจอทุกความละเอียด!) ===================== -->
     <main class="grid lg:grid-cols-12 gap-4 flex-1 items-stretch min-h-0">
       <!-- Kahoot! Scoreboard (8 cols) -->
-      <section class="lg:col-span-8 bg-[#25076b] rounded-[6px] p-4 sm:p-5 flex flex-col shadow-[0_5px_0_rgba(0,0,0,0.3)] min-h-0">
-        <div class="flex items-center justify-between mb-4 pb-2 border-b-2 border-white/15">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-[4px] bg-[#ffa602] text-[#333] font-black grid place-items-center">★</span>
+      <section class="lg:col-span-8 k-panel p-4 sm:p-5 flex flex-col min-h-0">
+        <div class="flex items-center justify-between mb-4 pb-2.5 border-b-2 border-white/15">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-[6px] bg-[#ffa602] text-[#1e1b2e] grid place-items-center shadow-[0_3px_0_#9c7200]">
+              <span data-art-ui="trophyMini" data-art-size="18" class="sqa-ico"></span>
+            </span>
             <h2 class="font-display text-xl sm:text-2xl xl:text-3xl font-black tracking-wide">Scoreboard (กระดานคะแนนสด)</h2>
           </div>
           <span class="text-xs sm:text-sm font-bold text-white/75 hidden sm:inline">สลับอันดับอัตโนมัติแบบ Real-time</span>
@@ -182,14 +192,17 @@
 
         <!-- Waiting for players... สไตล์ Kahoot Lobby -->
         <div id="lbEmpty" class="flex-1 flex flex-col items-center justify-center text-center py-12 px-4">
-          <div class="bg-[#46178f] px-8 py-4 rounded-[6px] shadow-[0_5px_0_rgba(0,0,0,0.3)] font-display text-2xl sm:text-3xl font-black mb-4 floaty">
+          <div class="bg-[#46178f] border-2 border-white/15 px-8 py-4 rounded-[8px] shadow-[0_6px_0_rgba(0,0,0,0.3)] font-display text-2xl sm:text-3xl font-black mb-4 floaty">
             กำลังรอผู้เล่นเข้าร่วม...
           </div>
           <p class="text-white/85 text-sm font-semibold max-w-md mb-5">
             ให้นักเรียนเข้าหน้าผู้เล่นแล้วกรอก Game PIN <span id="emptyPin" class="font-display font-black text-[#ffa602] text-lg"></span> หรือสแกน QR Code ด้านบน
           </p>
           <div class="flex flex-wrap gap-2.5 justify-center">
-            <button onclick="document.getElementById('openQrBtn').click()" class="btn-3d k-btn-white px-5 py-2.5 text-sm">🔍 ขยาย QR Code</button>
+            <button onclick="document.getElementById('openQrBtn').click()" class="btn-3d k-btn-white px-5 py-2.5 text-sm inline-flex items-center gap-1.5">
+              <span data-art-ui="qr" data-art-size="16" class="sqa-ico text-[#46178f]"></span>
+              <span>ขยาย QR Code</span>
+            </button>
             <button onclick="document.getElementById('addBotsBtn').click()" class="btn-3d k-btn-blue px-5 py-2.5 text-sm">◆ เพิ่มบอททดสอบ 4 คน</button>
           </div>
         </div>
@@ -198,16 +211,17 @@
 
         <!-- แถบแสดงเมื่อผู้เล่นเกิน 15 คน (รองรับ 200+ คนลื่นๆ 60 FPS) -->
         <div id="lbOverflowBar" class="hidden mt-3 pt-3 border-t-2 border-white/15 flex flex-wrap items-center justify-between gap-2">
-          <span id="lbOverflowText" class="text-xs sm:text-sm font-extrabold text-white/85"></span>
-          <button id="openAllRanksBtn" type="button" class="btn-3d k-btn-white px-4 py-1.5 text-xs sm:text-sm">
-            🔍 ดูอันดับทั้งหมด / ค้นหาชื่อ
+          <span id="lbOverflowText" class="text-xs sm:text-sm font-extrabold text-white/85 inline-flex items-center gap-1.5"></span>
+          <button id="openAllRanksBtn" type="button" class="btn-3d k-btn-white px-4 py-1.5 text-xs sm:text-sm inline-flex items-center gap-1.5">
+            <span data-art-ui="search" data-art-size="14" class="sqa-ico"></span>
+            <span>ดูอันดับทั้งหมด / ค้นหาชื่อ</span>
           </button>
         </div>
       </section>
 
       <!-- Live Feed (4 cols — ยืดเต็มความสูงเท่ากับ Scoreboard ไร้ช่องว่างด้านล่าง!) -->
-      <aside class="lg:col-span-4 bg-[#25076b] rounded-[6px] p-4 sm:p-5 flex flex-col shadow-[0_5px_0_rgba(0,0,0,0.3)] min-h-[360px] lg:max-h-[calc(100vh-220px)] lg:sticky lg:top-4">
-        <div class="flex items-center justify-between mb-4 pb-2 border-b-2 border-white/15 shrink-0">
+      <aside class="lg:col-span-4 k-panel p-4 sm:p-5 flex flex-col min-h-[360px] lg:max-h-[calc(100vh-220px)] lg:sticky lg:top-4">
+        <div class="flex items-center justify-between mb-4 pb-2.5 border-b-2 border-white/15 shrink-0">
           <div class="flex items-center gap-2">
             <span class="live-dot"></span>
             <h2 class="font-display text-lg sm:text-xl xl:text-2xl font-black">Live Feed</h2>
@@ -226,13 +240,16 @@
   <div id="allRanksModal" class="overlay dim z-[185] hidden">
     <div class="k-box max-w-2xl w-full p-5 pop-in max-h-[88vh] flex flex-col">
       <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b-2 border-neutral-200">
-        <div>
-          <h3 class="font-display text-xl font-black text-[#333]">🏅 อันดับผู้เข้าแข่งขันทั้งหมด</h3>
-          <p id="allRanksCount" class="text-xs font-bold text-neutral-500"></p>
+        <div class="flex items-center gap-2.5">
+          <span data-art-hero="trophy" data-art-size="34" class="sqa-ico"></span>
+          <div>
+            <h3 class="font-display text-xl font-black text-[#333]">อันดับผู้เข้าแข่งขันทั้งหมด</h3>
+            <p id="allRanksCount" class="text-xs font-bold text-neutral-500"></p>
+          </div>
         </div>
         <button id="closeAllRanksModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
       </div>
-      <input id="allRanksSearch" type="text" placeholder="🔍 พิมพ์ค้นหาชื่อนักเรียน..." class="input-big text-sm !py-2 mb-3" />
+      <input id="allRanksSearch" type="text" placeholder="พิมพ์ค้นหาชื่อนักเรียน..." class="input-big text-sm !py-2 mb-3" />
       <div id="allRanksList" class="overflow-y-auto space-y-1.5 flex-1 pr-1"></div>
     </div>
   </div>
@@ -244,7 +261,10 @@
       <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN</div>
       <div id="qrModalPin" class="font-display text-6xl font-black text-[#333] tracking-widest mb-3 tabular">----</div>
       <div id="qrModalBox" class="w-72 h-72 mx-auto bg-white p-4 rounded-[8px] shadow-[0_0_0_2px_#e5e7eb] grid place-items-center mb-3"></div>
-      <div class="text-xs font-extrabold text-[#26890c] mb-2">📱 สแกนผ่านกล้องมือถือหรือ LINE ได้เลย (เปิดออก Safari/Chrome อัตโนมัติ)</div>
+      <div class="text-xs font-extrabold text-[#26890c] mb-2 inline-flex items-center justify-center gap-1.5">
+        <span data-art-ui="phone" data-art-size="14" class="sqa-ico"></span>
+        <span>สแกนผ่านกล้องมือถือหรือ LINE ได้เลย (เปิดออก Safari/Chrome อัตโนมัติ)</span>
+      </div>
       <div id="qrModalUrl" class="text-xs font-bold text-neutral-600 break-all bg-neutral-100 rounded-[4px] p-2 mb-3"></div>
       <button id="qrModalCopy" class="btn-3d k-btn-blue w-full py-3 text-base">คัดลอกลิงก์เข้าเล่น</button>
     </div>
@@ -254,23 +274,34 @@
   <div id="bonusModal" class="overlay dim z-[180] hidden">
     <div class="k-box max-w-2xl w-full p-5 sm:p-6 pop-in max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between mb-3 pb-2 border-b-2 border-neutral-200">
-        <div>
-          <h3 class="font-display text-2xl font-black text-[#333]">🎁 ปล่อยคำถามโบนัสพิเศษ</h3>
-          <p class="text-xs sm:text-sm font-semibold text-neutral-500">เลือกเวลาตอบ (10 / 20 / 30 วินาที) เด้งพร้อมกันบนจอนักเรียนทุกคน!</p>
+        <div class="flex items-center gap-2.5">
+          <span data-art-hero="giftBox" data-art-size="38" class="sqa-ico"></span>
+          <div>
+            <h3 class="font-display text-2xl font-black text-[#333]">ปล่อยคำถามโบนัสพิเศษ</h3>
+            <p class="text-xs sm:text-sm font-semibold text-neutral-500">เลือกเวลาตอบ (10 / 20 / 30 วินาที) เด้งพร้อมกันบนจอนักเรียนทุกคน!</p>
+          </div>
         </div>
         <button id="closeBonusModal" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
       </div>
 
       <!-- เลือกเวลาคำถามโบนัส: ตามระดับข้อ / 10 วิ / 20 วิ (ง่าย) / 30 วิ (ยาก) -->
       <div class="grid grid-cols-4 gap-1.5 mb-3 bg-neutral-100 p-1.5 rounded-[6px]">
-        <button type="button" data-bonus-sec="auto" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white">🎯 ตามระดับข้อ</button>
-        <button type="button" data-bonus-sec="10" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">⚡ 10 วินาที</button>
-        <button type="button" data-bonus-sec="20" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">🟢 20 วิ (ง่าย)</button>
-        <button type="button" data-bonus-sec="30" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">🔴 30 วิ (ยาก)</button>
+        <button type="button" data-bonus-sec="auto" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white inline-flex items-center justify-center gap-1">
+          <span data-art-ui="target" data-art-size="14" class="sqa-ico"></span><span>ตามระดับข้อ</span>
+        </button>
+        <button type="button" data-bonus-sec="10" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200 inline-flex items-center justify-center gap-1">
+          <span data-art-ui="bolt" data-art-size="14" class="sqa-ico text-[#d89e00]"></span><span>10 วินาที</span>
+        </button>
+        <button type="button" data-bonus-sec="20" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200 inline-flex items-center justify-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#26890c] inline-block"></span><span>20 วิ (ง่าย)</span>
+        </button>
+        <button type="button" data-bonus-sec="30" class="bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200 inline-flex items-center justify-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#e21b3c] inline-block"></span><span>30 วิ (ยาก)</span>
+        </button>
       </div>
 
       <button id="randomBonusBtn" class="btn-3d k-btn-yellow w-full py-3.5 mb-3 text-base flex items-center justify-center gap-2">
-        <span>🎲</span>
+        <span data-art-ui="dice" data-art-size="18" class="sqa-ico"></span>
         <span>สุ่มคำถามโบนัสอัตโนมัติ</span>
       </button>
 
@@ -282,10 +313,11 @@
   <div id="selfieReviewModal" class="overlay dim z-[195] hidden overflow-y-auto">
     <div class="k-box max-w-xl w-full p-5 sm:p-7 text-center pop-in border-t-8 border-[#c026d3] my-auto">
       <div class="flex items-center justify-between gap-2 mb-3">
-        <span class="px-3 py-1 rounded-[4px] bg-[#c026d3] text-white font-display font-black text-xs sm:text-sm uppercase">
-          📸 ปาปารัสซี่ท้าหน้าตลก!
+        <span class="px-3 py-1 rounded-[5px] bg-[#c026d3] text-white font-display font-black text-xs sm:text-sm uppercase inline-flex items-center gap-1.5">
+          <span data-art-item="selfie" data-art-size="20" class="sqa-ico"></span>
+          <span>ปาปารัสซี่ท้าหน้าตลก!</span>
         </span>
-        <span id="selfieQueueBadge" class="px-3 py-1 rounded-[4px] bg-[#333333] text-[#ffa602] font-display font-black text-xs">
+        <span id="selfieQueueBadge" class="px-3 py-1 rounded-[5px] bg-[#333333] text-[#ffa602] font-display font-black text-xs">
           รอตรวจ 1 / 1
         </span>
       </div>
@@ -299,10 +331,11 @@
       </div>
 
       <!-- กรอบรูปหน้าตลกขนาดใหญ่สำหรับฉายโปรเจกเตอร์หน้าห้อง -->
-      <div class="relative w-72 h-72 sm:w-[420px] sm:h-[420px] mx-auto mb-5 rounded-[8px] overflow-hidden border-8 border-[#333333] bg-neutral-900 shadow-2xl">
+      <div class="relative w-72 h-72 sm:w-[420px] sm:h-[420px] mx-auto mb-5 rounded-[10px] overflow-hidden border-8 border-[#333333] bg-neutral-900 shadow-2xl">
         <img id="selfieReviewImg" src="" alt="Funny Selfie" class="w-full h-full object-cover" />
-        <div class="absolute top-2 left-2 px-2.5 py-1 rounded-[4px] bg-[#ffa602] text-[#333] font-display font-black text-xs shadow">
-          🤪 หน้าตลกท้าจอใหญ่!
+        <div class="absolute top-2 left-2 px-2.5 py-1 rounded-[5px] bg-[#ffa602] text-[#333] font-display font-black text-xs shadow inline-flex items-center gap-1.5">
+          <span data-art-hero="funnyFace" data-art-size="18" class="sqa-ico"></span>
+          <span>หน้าตลกท้าจอใหญ่!</span>
         </div>
       </div>
 
@@ -312,11 +345,11 @@
 
       <div class="grid sm:grid-cols-2 gap-3">
         <button id="rejectSelfieBtn" type="button" class="btn-3d k-btn-red py-4 px-5 text-base sm:text-lg flex items-center justify-center gap-2">
-          <span>🤪</span>
+          <span data-art-hero="funnyFace" data-art-size="22" class="sqa-ico"></span>
           <span>ยังไม่ตลก! สั่งถ่ายใหม่</span>
         </button>
         <button id="approveSelfieBtn" type="button" class="btn-3d k-btn-green py-4 px-5 text-base sm:text-lg flex items-center justify-center gap-2">
-          <span>✅</span>
+          <span data-art-ui="check" data-art-size="20" class="sqa-ico"></span>
           <span>ผ่าน! อนุญาตให้เล่นต่อ</span>
         </button>
       </div>
@@ -326,26 +359,39 @@
   <!-- OVERLAY: โพเดียมประกาศผู้ชนะ 1-2-3 สไตล์ Kahoot! -->
   <div id="podiumOverlay" class="overlay dim z-[200] hidden overflow-y-auto">
     <div class="max-w-5xl w-full text-center py-6 px-4">
-      <div class="k-logo text-4xl sm:text-6xl mb-2 pop-in">Sci-Quest! Podium</div>
-      <div class="inline-block px-4 py-1 rounded-[4px] bg-[#25076b] text-[#ffa602] font-display font-extrabold text-sm mb-8">
-        🏆 ผลการแข่งขันอย่างเป็นทางการ
+      <div class="inline-flex items-center justify-center gap-3 mb-2 pop-in">
+        <span data-art-hero="trophy" data-art-size="52" class="sqa-ico crown-float"></span>
+        <div class="k-logo text-4xl sm:text-6xl">Sci-Quest! Podium</div>
+      </div>
+      <div>
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-[6px] bg-[#25076b] border border-white/15 text-[#ffa602] font-display font-extrabold text-sm mb-8 shadow-[0_3px_0_rgba(0,0,0,0.3)]">
+          <span data-art-ui="sparkles" data-art-size="15" class="sqa-ico"></span>
+          <span>ผลการแข่งขันอย่างเป็นทางการ</span>
+        </div>
       </div>
 
       <!-- แท่นโพเดียม 2 - 1 - 3 -->
-      <div id="podiumStage" class="grid grid-cols-3 items-end gap-3 sm:gap-5 max-w-2xl mx-auto mb-6 pt-6"></div>
+      <div id="podiumStage" class="grid grid-cols-3 items-end gap-3 sm:gap-5 max-w-2xl mx-auto mb-6 pt-10"></div>
 
       <!-- อันดับอื่นๆ -->
-      <div id="podiumRest" class="bg-[#25076b] rounded-[6px] max-w-xl mx-auto p-4 mb-6 hidden text-left"></div>
+      <div id="podiumRest" class="k-panel max-w-xl mx-auto p-4 mb-6 hidden text-left"></div>
 
       <div class="flex flex-wrap justify-center gap-3">
-        <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3 text-base">🔄 เริ่มเกมใหม่ (ล้างข้อมูลเดิม)</button>
-        <button id="podiumNewPinBtn" class="btn-3d k-btn-blue px-6 py-3 text-base">🎲 สร้างรหัสห้อง PIN ใหม่</button>
+        <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3 text-base inline-flex items-center gap-2">
+          <span data-art-ui="refresh" data-art-size="18" class="sqa-ico"></span>
+          <span>เริ่มเกมใหม่ (ล้างข้อมูลเดิม)</span>
+        </button>
+        <button id="podiumNewPinBtn" class="btn-3d k-btn-blue px-6 py-3 text-base inline-flex items-center gap-2">
+          <span data-art-ui="dice" data-art-size="18" class="sqa-ico"></span>
+          <span>สร้างรหัสห้อง PIN ใหม่</span>
+        </button>
         <button id="resumeFromPodiumBtn" class="btn-3d k-btn-white px-5 py-3 text-sm">ดูตารางคะแนน</button>
       </div>
     </div>
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/questions.js"></script>

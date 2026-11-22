@@ -31,9 +31,13 @@ html, body {
 }
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* ---------- พื้นหลัง Kahoot! (#46178f + รูปทรงเรขาคณิตยักษ์) ---------- */
+/* ---------- พื้นหลัง Kahoot! (#46178f + Studio Spotlight + Dot Texture + รูปทรงเรขาคณิตยักษ์) ---------- */
 .bg-arena {
   background-color: var(--k-purple);
+  background-image:
+    radial-gradient(circle at 50% -10%, rgba(124, 58, 237, 0.42) 0%, rgba(70, 23, 143, 0) 58%),
+    radial-gradient(rgba(255, 255, 255, 0.065) 1.4px, transparent 1.4px);
+  background-size: 100% 100%, 24px 24px;
   color: #ffffff;
   position: relative;
   overflow-x: hidden;
@@ -115,55 +119,71 @@ html, body {
   font-style: italic;
   letter-spacing: -0.03em;
   color: #ffffff;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
+  text-shadow: 0 4px 0 #25076b, 0 7px 0 rgba(0, 0, 0, 0.24);
   user-select: none;
+}
+
+/* ---------- Custom Vector Icon Helpers ---------- */
+.sqa-svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.sqa-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 /* ---------- กล่องสีขาวและกล่องสีทึบสไตล์ Kahoot! ---------- */
 .card-3d, .k-box {
   background: #ffffff;
   color: #333333;
-  border-radius: 6px;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 2px solid rgba(30, 27, 46, 0.08);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.24), 0 12px 24px rgba(0, 0, 0, 0.14);
 }
 .glass, .k-panel {
   background: var(--k-purple-dark);
-  border: 0;
-  border-radius: 6px;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.28);
 }
 .glass-strong, .k-panel-strong {
   background: #25076b;
-  border: 0;
-  border-radius: 6px;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.32);
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32);
 }
 
-/* ---------- ปุ่มบล็อก Kahoot! (ขอบล่างทึบ กดยุบจริง) ---------- */
+/* ---------- ปุ่มบล็อก Kahoot! (ขอบล่างทึบ + Specular Bevel กดยุบจริง) ---------- */
 .btn-3d {
   position: relative;
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: 'Montserrat', 'Kanit', sans-serif;
   font-weight: 800;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.32);
-  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.1s;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.22), 0 5px 0 rgba(0, 0, 0, 0.32);
+  transition: transform 0.07s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.07s ease, filter 0.12s;
   user-select: none;
   cursor: pointer;
 }
 .btn-3d:hover { filter: brightness(1.06); }
 .btn-3d:active {
   transform: translateY(4px);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), 0 1px 0 rgba(0, 0, 0, 0.32);
 }
 .btn-3d:disabled { opacity: 0.45; pointer-events: none; }
 
 /* สีบล็อกมาตรฐาน 4 สีของ Kahoot + ปุ่มดำ */
-.k-btn-dark   { background: #333333; color: #ffffff; box-shadow: 0 5px 0 #141414; }
-.k-btn-red    { background: var(--k-red); color: #ffffff; box-shadow: 0 5px 0 var(--k-red-dark); }
-.k-btn-blue   { background: var(--k-blue); color: #ffffff; box-shadow: 0 5px 0 var(--k-blue-dark); }
-.k-btn-yellow { background: var(--k-yellow); color: #ffffff; box-shadow: 0 5px 0 var(--k-yellow-dark); }
-.k-btn-green  { background: var(--k-green); color: #ffffff; box-shadow: 0 5px 0 var(--k-green-dark); }
-.k-btn-white  { background: #ffffff; color: #333333; box-shadow: 0 5px 0 #b5b5b5; }
+.k-btn-dark   { background: #333333; color: #ffffff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.14), 0 5px 0 #141414; }
+.k-btn-red    { background: var(--k-red); color: #ffffff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.22), 0 5px 0 var(--k-red-dark); }
+.k-btn-blue   { background: var(--k-blue); color: #ffffff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.22), 0 5px 0 var(--k-blue-dark); }
+.k-btn-yellow { background: var(--k-yellow); color: #ffffff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.26), 0 5px 0 var(--k-yellow-dark); }
+.k-btn-green  { background: var(--k-green); color: #ffffff; box-shadow: inset 0 2px 0 rgba(255,255,255,0.22), 0 5px 0 var(--k-green-dark); }
+.k-btn-white  { background: #ffffff; color: #333333; box-shadow: inset 0 2px 0 #ffffff, 0 5px 0 #b5b5b5; }
 
 /* ---------- ช่องกรอกข้อมูลสไตล์ kahoot.it ---------- */
 .input-big {
@@ -194,30 +214,59 @@ html, body {
   font-weight: 900;
 }
 
-/* ---------- อวตาร ---------- */
+/* ---------- อวตาร (Custom Illustrated Mascot Tiles) ---------- */
 .avatar {
-  border-radius: 6px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.30), 0 3px 0 rgba(0, 0, 0, 0.26);
   line-height: 1;
+  overflow: hidden;
+  padding: 2px;
+}
+.avatar svg {
+  width: 90%;
+  height: 90%;
+  display: block;
 }
 .av-btn {
+  position: relative;
   aspect-ratio: 1;
-  border-radius: 6px;
-  font-size: 2rem;
+  border-radius: 10px;
+  padding: 6px;
   display: grid;
   place-items: center;
-  border: 3px solid transparent;
-  transition: transform 0.1s;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.12s, border-color 0.12s;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28), 0 4px 0 rgba(0, 0, 0, 0.24);
+  cursor: pointer;
 }
+.av-btn svg {
+  width: 88%;
+  height: 88%;
+  display: block;
+  transition: transform 0.14s ease;
+}
+.av-btn:hover { transform: translateY(-2px); }
+.av-btn:hover svg { transform: scale(1.06); }
 .av-btn:active { transform: translateY(3px); }
 .av-btn.selected {
-  border-color: #333333;
+  border-color: #1e1b2e;
   outline: 3px solid #ffa602;
   transform: scale(1.06);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 6px 0 rgba(0, 0, 0, 0.28);
+}
+.av-btn.selected::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffa602 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231e1b2e' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.5 8.5 6.8 11.5 12.8 4.8'/%3E%3C/svg%3E") center/12px no-repeat;
+  border: 2px solid #1e1b2e;
 }
 
 /* ---------- แอนิเมชันกระชับสไตล์เกมโชว์ ---------- */
@@ -335,28 +384,31 @@ html, body {
 .bar-fill { transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
 .kw-chip { padding: 0.25rem 0.65rem; border-radius: 4px; font-weight: 700; font-size: 0.82rem; }
 
-/* ---------- แถบไอเทม 4 สีสไตล์ปุ่มกด Kahoot ---------- */
+/* ---------- แถบไอเทม 9 ชนิด สไตล์ปุ่มกด Kahoot ---------- */
 .item-btn {
-  border-radius: 4px;
-  transition: transform 0.08s;
+  border-radius: 6px;
+  transition: transform 0.08s, filter 0.12s;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.22);
 }
+.item-btn:hover { filter: brightness(1.07); }
 .item-btn:active { transform: translateY(3px); }
-.item-btn.empty { opacity: 0.42; filter: saturate(0.35); }
+.item-btn.empty { opacity: 0.44; filter: saturate(0.32); }
 .item-badge {
   position: absolute;
   top: -5px;
   right: 2px;
   min-width: 20px;
   height: 20px;
-  border-radius: 4px;
-  background: #333333;
-  color: #fff;
+  border-radius: 5px;
+  background: #1e1b2e;
+  color: #fde047;
   font-weight: 900;
   font-size: 0.72rem;
   display: grid;
   place-items: center;
   border: 2px solid #fff;
   padding: 0 4px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* ---------- Overlay ---------- */
@@ -369,22 +421,19 @@ html, body {
   padding: 1rem;
 }
 .overlay.hidden { display: none; }
-.dim { background: rgba(37, 7, 107, 0.92); }
+.dim { background: rgba(30, 8, 84, 0.93); }
 
-/* ---------- น้ำแข็ง ---------- */
+/* ---------- น้ำแข็ง (Crisp Vector Frost Pattern) ---------- */
 .ice-overlay {
-  background: #006b8f;
+  background: radial-gradient(circle at 50% 35%, #0ea5e9 0%, #0369a1 58%, #0c4a6e 100%);
+  box-shadow: inset 0 0 80px rgba(224, 242, 254, 0.35);
 }
 .ice-overlay::before {
-  content: '❄ ❅ ❆ ❄ ❅ ❆ ❄ ❅';
+  content: '';
   position: absolute;
   inset: 0;
-  font-size: 3rem;
-  color: rgba(255, 255, 255, 0.18);
-  word-spacing: 2rem;
-  line-height: 5rem;
-  padding: 1rem;
-  overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 64 64'%3E%3Cg stroke='%23e0f2fe' stroke-width='2.2' stroke-linecap='round' opacity='0.22' fill='none'%3E%3Cpath d='M32 8V56M11 20L53 44M53 20L11 44'/%3E%3Cpath d='M27 13L32 18L37 13M27 51L32 46L37 51'/%3E%3Cpolygon points='32,24 39,28 39,36 32,40 25,36 25,28'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 96px 96px;
   pointer-events: none;
 }
 .crack { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.12s; }
@@ -394,18 +443,37 @@ html, body {
 @keyframes shatterOut { to { transform: scale(1.2); opacity: 0; } }
 .shatter-out { animation: shatterOut 0.3s ease-in forwards; }
 .smash-btn {
-  width: 180px;
-  height: 180px;
-  border-radius: 12px;
-  font-size: 4.5rem;
+  width: 176px;
+  height: 176px;
+  border-radius: 18px;
   background: #ffffff;
   color: #006b8f;
-  box-shadow: 0 10px 0 #003f54;
+  border: 4px solid #bae6fd;
+  box-shadow: inset 0 4px 0 #ffffff, 0 10px 0 #003f54, 0 18px 28px rgba(0, 0, 0, 0.3);
   transition: transform 0.05s;
 }
 .smash-btn:active { transform: translateY(7px); box-shadow: 0 3px 0 #003f54; }
 
-/* ---------- กล่องสุ่ม ---------- */
+/* ---------- กล่องสุ่ม + แสง Sunburst เกมโชว์ ---------- */
+@keyframes sunburstSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.sunburst-halo {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 9999px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(250, 204, 21, 0.32) 0deg 15deg,
+    rgba(250, 204, 21, 0) 15deg 30deg
+  );
+  animation: sunburstSpin 14s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.crown-float {
+  animation: floaty 2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.3));
+}
 @keyframes boxShake {
   0%, 100% { transform: rotate(0) scale(1); }
   25% { transform: rotate(-7deg) scale(1.05); }
@@ -424,7 +492,7 @@ html, body {
 .podium-col {
   transform-origin: bottom;
   animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px 8px 0 0;
   box-shadow: 0 -4px 0 rgba(255, 255, 255, 0.2), inset 0 8px 0 rgba(255, 255, 255, 0.18);
 }
 @keyframes dropIn {
@@ -437,24 +505,25 @@ html, body {
 .bonus-glow {
   background: #ffa602 !important;
   color: #333333 !important;
-  box-shadow: 0 6px 0 #b57400 !important;
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.35), 0 6px 0 #b57400 !important;
 }
 
 /* ---------- ระเบิดหมอกควัน (Blind Smoke Overlay) ---------- */
 .smoke-overlay {
-  background: radial-gradient(circle at 30% 30%, #4c1d95, #1e1b4b 70%);
+  background: radial-gradient(circle at 30% 30%, #4c1d95, #1e1b4b 72%);
 }
 .smoke-cloud {
-  transition: opacity 0.2s ease, transform 0.25s ease;
+  transition: opacity 0.22s ease, transform 0.28s ease;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35));
 }
 .wipe-btn {
   width: 170px;
   height: 170px;
-  border-radius: 12px;
-  font-size: 4.2rem;
+  border-radius: 18px;
   background: #ffffff;
   color: #46178f;
-  box-shadow: 0 10px 0 #25076b;
+  border: 4px solid #e9d5ff;
+  box-shadow: inset 0 4px 0 #ffffff, 0 10px 0 #25076b, 0 18px 28px rgba(0, 0, 0, 0.35);
   transition: transform 0.05s;
 }
 .wipe-btn:active { transform: translateY(7px); box-shadow: 0 3px 0 #25076b; }

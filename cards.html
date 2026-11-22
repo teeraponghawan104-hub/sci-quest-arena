@@ -16,14 +16,14 @@
     .cut-card {
       background: #ffffff;
       border: 2px dashed #666666;
-      border-radius: 6px;
+      border-radius: 8px;
       break-inside: avoid;
       page-break-inside: avoid;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+      box-shadow: 0 5px 0 rgba(0,0,0,0.25);
     }
     .qr-box svg { width: 100%; height: 100%; display: block; }
     @media print {
@@ -43,14 +43,17 @@
 </head>
 <body class="min-h-screen">
   <!-- แถบควบคุมสไตล์ Kahoot! (ซ่อนตอนสั่งพิมพ์) -->
-  <header class="no-print sticky top-0 z-40 bg-[#25076b] text-white shadow-[0_4px_0_rgba(0,0,0,0.3)]">
+  <header class="no-print sticky top-0 z-40 bg-[#25076b] text-white shadow-[0_4px_0_rgba(0,0,0,0.3)] border-b-2 border-white/10">
     <div class="max-w-7xl mx-auto px-4 py-3.5 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
           <a href="index.html" class="btn-3d k-btn-dark px-3 py-2 flex items-center justify-center" title="กลับหน้าแรก">
             <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </a>
-          <div class="k-logo text-2xl sm:text-3xl">Sci-Quest!</div>
+          <div class="flex items-center gap-2">
+            <span data-art-hero="brandSpark" data-art-size="34" class="sqa-ico"></span>
+            <div class="k-logo text-2xl sm:text-3xl">Sci-Quest!</div>
+          </div>
           <div class="hidden sm:block border-l-2 border-white/20 pl-3">
             <h1 class="font-display text-base font-extrabold leading-tight">ชุดการ์ดคำถาม QR Code 3 สี (36 ใบ พร้อมพิมพ์ A4)</h1>
             <p class="text-xs text-white/75">■ เขียว 12 • ● เหลือง 12 • ▲ แดง 12 • ตัดตามเส้นประวางบนบอร์ดเกม</p>
@@ -65,34 +68,34 @@
 
       <!-- ตัวกรองและตั้งค่า QR -->
       <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-        <div class="flex items-center gap-1 bg-[#46178f] rounded-[4px] p-1">
-          <button data-col="all" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold bg-white text-[#333]">ทั้งหมด (36)</button>
-          <button data-col="green" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">■ เขียว (12)</button>
-          <button data-col="yellow" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">● เหลือง (12)</button>
-          <button data-col="red" class="col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15">▲ แดง (12)</button>
+        <div class="flex items-center gap-1 bg-[#46178f] rounded-[6px] p-1">
+          <button data-col="all" class="col-btn px-3 py-1.5 rounded-[4px] font-extrabold bg-white text-[#333]">ทั้งหมด (36)</button>
+          <button data-col="green" class="col-btn px-3 py-1.5 rounded-[4px] font-extrabold hover:bg-white/15">■ เขียว (12)</button>
+          <button data-col="yellow" class="col-btn px-3 py-1.5 rounded-[4px] font-extrabold hover:bg-white/15">● เหลือง (12)</button>
+          <button data-col="red" class="col-btn px-3 py-1.5 rounded-[4px] font-extrabold hover:bg-white/15">▲ แดง (12)</button>
         </div>
 
-        <select id="filmFilter" class="bg-white text-[#333] font-extrabold rounded-[4px] px-3 py-2 text-xs">
+        <select id="filmFilter" class="bg-white text-[#333] font-extrabold rounded-[6px] px-3 py-2 text-xs">
           <option value="all">ภาพยนตร์ทั้ง 4 เรื่อง</option>
         </select>
 
-        <div class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-1.5">
+        <div class="flex items-center gap-1.5 bg-[#46178f] rounded-[6px] px-3 py-1.5">
           <label for="qrRoomInput" class="text-xs font-bold text-white whitespace-nowrap">PIN ห้อง:</label>
           <input id="qrRoomInput" type="text" maxlength="6" placeholder="เว้นได้"
-            class="w-20 bg-white text-[#333] font-display font-black text-center rounded-[3px] px-2 py-1 text-xs uppercase" />
+            class="w-20 bg-white text-[#333] font-display font-black text-center rounded-[4px] px-2 py-1 text-xs uppercase" />
         </div>
 
-        <select id="qrFormat" class="bg-white text-[#333] font-extrabold rounded-[4px] px-3 py-2 text-xs">
+        <select id="qrFormat" class="bg-white text-[#333] font-extrabold rounded-[6px] px-3 py-2 text-xs">
           <option value="code">QR รหัสการ์ด (สแกนในแอป — ใช้ได้ทุกห้อง)</option>
           <option value="url">QR ลิงก์เต็ม (เปิดเว็บตรง)</option>
         </select>
 
-        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
+        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[6px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
           <input id="showAnswerToggle" type="checkbox" class="accent-[#ffa602]" />
           <span>แสดงเฉลยบนการ์ด</span>
         </label>
 
-        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[4px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
+        <label class="flex items-center gap-1.5 bg-[#46178f] rounded-[6px] px-3 py-2 text-xs font-bold cursor-pointer select-none">
           <input id="showRulesToggle" type="checkbox" checked class="accent-[#ffa602]" />
           <span>พิมพ์ใบกติกาประจำโต๊ะ</span>
         </label>
@@ -104,34 +107,41 @@
     <!-- ใบกติกาบนโต๊ะ -->
     <section id="rulesSheet" class="cut-card p-5 !border-[#333] bg-white">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-neutral-200 pb-3 mb-3">
-        <div>
-          <h2 class="font-display text-xl font-black text-[#333]">Sci-Quest! — กติกาการเล่นประจำโต๊ะ</h2>
-          <p class="text-xs font-semibold text-neutral-500">หยิบการ์ดคำถาม 3 สี แล้วใช้มือถือสแกน QR Code (หรือพิมพ์รหัสการ์ด) เพื่อพิมพ์อธิบายคำตอบ</p>
+        <div class="flex items-center gap-2.5">
+          <span data-art-hero="brandSpark" data-art-size="36" class="sqa-ico"></span>
+          <div>
+            <h2 class="font-display text-xl font-black text-[#333]">Sci-Quest! — กติกาการเล่นประจำโต๊ะ</h2>
+            <p class="text-xs font-semibold text-neutral-500">หยิบการ์ดคำถาม 3 สี แล้วใช้มือถือสแกน QR Code (หรือพิมพ์รหัสการ์ด) เพื่อพิมพ์อธิบายคำตอบ</p>
+          </div>
         </div>
-        <span class="px-3 py-1 rounded-[4px] bg-[#333] text-white font-display font-black text-xs">ไม่จับเวลา! อธิบายด้วยภาษาของตัวเอง</span>
+        <span class="px-3 py-1 rounded-[5px] bg-[#333] text-white font-display font-black text-xs">ไม่จับเวลา! อธิบายด้วยภาษาของตัวเอง</span>
       </div>
 
       <div class="grid sm:grid-cols-3 gap-2.5 text-xs text-white">
-        <div class="rounded-[4px] p-3 bg-[#26890c]">
+        <div class="rounded-[6px] p-3 bg-[#26890c]">
           <div class="font-display font-black text-sm mb-0.5">■ การ์ดสีเขียว (ง่าย) • 100 แต้ม</div>
           <p class="opacity-95">คำถามพื้นฐานความเข้าใจ เก็บแต้มชัวร์</p>
         </div>
-        <div class="rounded-[4px] p-3 bg-[#d89e00]">
+        <div class="rounded-[6px] p-3 bg-[#d89e00]">
           <div class="font-display font-black text-sm mb-0.5">● การ์ดสีเหลือง (กลาง) • 200 แต้ม</div>
           <p class="opacity-95">คำถามวิเคราะห์เหตุผล เชื่อมโยงสถานการณ์จริง</p>
         </div>
-        <div class="rounded-[4px] p-3 bg-[#e21b3c]">
-          <div class="font-display font-black text-sm mb-0.5">▲ การ์ดสีแดง (ยาก) • 350 แต้ม + 🎁</div>
+        <div class="rounded-[6px] p-3 bg-[#e21b3c]">
+          <div class="font-display font-black text-sm mb-0.5 flex items-center gap-1">
+            <span>▲ การ์ดสีแดง (ยาก) • 350 แต้ม +</span>
+            <span data-art-hero="giftBox" data-art-size="18" class="sqa-ico"></span>
+          </div>
           <p class="opacity-95">คำถามท้าทายระดับลึก + ลุ้นรับไอเทมพิเศษ!</p>
         </div>
       </div>
 
       <div class="grid sm:grid-cols-2 gap-2.5 mt-2.5 text-xs text-[#333]">
-        <div class="rounded-[4px] p-2.5 bg-neutral-100 border border-neutral-300">
+        <div class="rounded-[6px] p-2.5 bg-neutral-100 border border-neutral-300">
           <b>เกณฑ์ตรวจคำตอบภาษาไทย:</b> แม่นยำ <b>80%+</b> ได้เต็ม 100% • <b>50–79%</b> ได้ 70% • <b>25–49%</b> ได้ 40% • <b>&lt;25%</b> ตอบใหม่ได้
         </div>
-        <div class="rounded-[4px] p-2.5 bg-neutral-100 border border-neutral-300">
-          <b>ไอเทมป่วนเพื่อน 9 ชนิด:</b> ⚡ คูณสอง • 🛡️ โล่ป้องกัน • 💰 ขโมยแต้ม • ❄️ แช่แข็ง • 💨 ระเบิดหมอก • 🙃 จอตีลังกา • 🌩️ สายฟ้าฟาด • 🧪 น้ำยาวิทย์ • 📸 แชะหน้าตลก
+        <div class="rounded-[6px] p-2.5 bg-neutral-100 border border-neutral-300">
+          <div class="font-bold mb-1">ไอเทมป่วนเพื่อน 9 ชนิด:</div>
+          <div id="rulesItemLegend" class="flex flex-wrap gap-1.5"></div>
         </div>
       </div>
     </section>
@@ -141,6 +151,7 @@
   </main>
 
   <script src="js/config.js"></script>
+  <script src="js/art.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/questions.js"></script>
   <script>
@@ -160,10 +171,14 @@
       qrFormat.value = 'url';
     }
 
+    document.getElementById('rulesItemLegend').innerHTML = Object.values(ITEMS).map(it =>
+      `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] text-[11px] font-extrabold text-white" style="background:${it.color}">${itemIconHtml(it.key, 14)}<span>${it.name}</span></span>`
+    ).join('');
+
     Object.entries(FILMS).forEach(([k, f]) => {
       const opt = document.createElement('option');
       opt.value = k;
-      opt.textContent = `${f.emoji} ${f.title}`;
+      opt.textContent = `${f.title}`;
       filmFilter.appendChild(opt);
     });
 
@@ -208,21 +223,21 @@
           <article class="cut-card">
             <div class="px-3.5 py-2.5 flex items-center justify-between gap-2" style="background:${c.bg};color:${c.text}">
               <div class="flex items-center gap-2 font-display font-black text-sm">
-                <span class="w-6 h-6 rounded-[3px] bg-black/20 grid place-items-center text-base">${c.shape}</span>
+                <span class="w-6 h-6 rounded-[4px] bg-black/20 grid place-items-center text-base">${c.shape}</span>
                 <span>การ์ด${c.name} (${c.level})</span>
               </div>
-              <span class="px-2 py-0.5 rounded-[3px] bg-black/25 font-display font-black text-xs">
-                ${c.points} แต้ม${q.color === 'red' ? '+🎁' : ''}
+              <span class="px-2 py-0.5 rounded-[4px] bg-black/25 font-display font-black text-xs inline-flex items-center gap-1">
+                <span>${c.points} แต้ม</span>${q.color === 'red' ? `<span>+</span>${heroIconHtml('giftBox', 14)}` : ''}
               </span>
             </div>
 
             <div class="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1.5">
-                  <span class="px-2 py-0.5 rounded-[3px] text-[10px] font-extrabold text-white truncate" style="background:${f.color}">
-                    ${f.emoji} ${esc(f.short)}
+                  <span class="px-2 py-0.5 rounded-[4px] text-[10px] font-extrabold text-white truncate inline-flex items-center gap-1" style="background:${f.color}">
+                    ${filmIconHtml(q.film, 14)}<span>${esc(f.short)}</span>
                   </span>
-                  <span class="font-display font-black text-xs text-neutral-400 shrink-0">✂ ${prettyCode(q.id)}</span>
+                  <span class="font-display font-black text-xs text-neutral-400 shrink-0">${prettyCode(q.id)}</span>
                 </div>
                 <p class="font-display font-extrabold text-sm text-[#333] leading-snug">${esc(q.q)}</p>
               </div>
@@ -249,8 +264,8 @@
         activeColor = btn.dataset.col;
         document.querySelectorAll('.col-btn').forEach(b => {
           b.className = b === btn
-            ? 'col-btn px-3 py-1.5 rounded-[3px] font-extrabold bg-white text-[#333]'
-            : 'col-btn px-3 py-1.5 rounded-[3px] font-extrabold hover:bg-white/15';
+            ? 'col-btn px-3 py-1.5 rounded-[4px] font-extrabold bg-white text-[#333]'
+            : 'col-btn px-3 py-1.5 rounded-[4px] font-extrabold hover:bg-white/15';
         });
         renderCards();
       });
@@ -266,6 +281,7 @@
     });
 
     renderCards();
+    hydrateStaticIcons();
     refreshIcons();
   </script>
 </body>

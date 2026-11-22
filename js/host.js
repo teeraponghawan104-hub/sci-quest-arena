@@ -56,7 +56,7 @@
     muteBtn: $('muteBtn')
   };
 
-  el.modeBadge.textContent = modeLabel();
+  el.modeBadge.innerHTML = modeBadgeHtml();
   el.roomPinText.textContent = roomCode;
   el.emptyPin.textContent = roomCode;
   el.qrModalPin.textContent = roomCode;
@@ -90,15 +90,15 @@
   refreshJoinLinks(0);
 
   function syncMute() {
-    el.muteBtn.textContent = SFX.muted ? '🔇' : '🔊';
+    el.muteBtn.innerHTML = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 18);
     const bgmBtn = $('bgmBtn');
     const voiceBtn = $('voiceBtn');
     if (bgmBtn) {
-      bgmBtn.textContent = SFX.bgmOn && !SFX.muted ? '🎵 เพลง: เปิด' : '🎵 เพลง: ปิด';
+      bgmBtn.innerHTML = `${uiIconHtml('music', 15)}<span>${SFX.bgmOn && !SFX.muted ? 'เพลง: เปิด' : 'เพลง: ปิด'}</span>`;
       bgmBtn.style.opacity = SFX.bgmOn && !SFX.muted ? '1' : '0.55';
     }
     if (voiceBtn) {
-      voiceBtn.textContent = SFX.voiceOn && !SFX.muted ? '🎙️ พากย์: เปิด' : '🎙️ พากย์: ปิด';
+      voiceBtn.innerHTML = `${uiIconHtml('mic', 15)}<span>${SFX.voiceOn && !SFX.muted ? 'พากย์: เปิด' : 'พากย์: ปิด'}</span>`;
       voiceBtn.style.opacity = SFX.voiceOn && !SFX.muted ? '1' : '0.55';
     }
   }
@@ -170,7 +170,7 @@
             ${avatarHtml(p.avatar, 32)}
             <div class="min-w-0">
               <div class="font-display font-extrabold text-[#333] truncate">${esc(p.name)} ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}</div>
-              <div class="text-[11px] font-bold text-neutral-500">🃏 ${ansCnt}/${QUESTIONS.length}</div>
+              <div class="text-[11px] font-bold text-neutral-500 inline-flex items-center gap-1">${uiIconHtml('cards', 12)}<span>${ansCnt}/${QUESTIONS.length}</span></div>
             </div>
           </div>
           <span class="font-display font-black text-lg text-[#46178f] tabular shrink-0">${p.score.toLocaleString()}</span>
@@ -197,7 +197,7 @@
 
   function renderLeaderboard(room) {
     const allPlayers = Game.ranking(room);
-    el.playerCountBadge.textContent = `👤 ${allPlayers.length} คน`;
+    el.playerCountBadge.innerHTML = `${uiIconHtml('users', 16, 'text-[#ffa602]')}<span>${allPlayers.length} คน</span>`;
 
     if (!allPlayers.length) {
       el.lbEmpty.classList.remove('hidden');
@@ -220,7 +220,7 @@
     if (overflowBar) {
       if (allPlayers.length > MAX_VISIBLE_ROWS) {
         overflowBar.classList.remove('hidden');
-        $('lbOverflowText').textContent = `🏆 แสดง Top ${MAX_VISIBLE_ROWS} จากผู้เข้าแข่งขันทั้งหมด ${allPlayers.length} คน`;
+        $('lbOverflowText').innerHTML = `${uiIconHtml('trophyMini', 15, 'text-[#ffa602]')}<span>แสดง Top ${MAX_VISIBLE_ROWS} จากผู้เข้าแข่งขันทั้งหมด ${allPlayers.length} คน</span>`;
       } else {
         overflowBar.classList.add('hidden');
       }
@@ -294,16 +294,16 @@
       row.querySelector('[data-bot]').classList.toggle('hidden', !p.isBot);
 
       const answeredCount = p.answeredCount ?? Object.keys(p.answered || {}).length;
-      const pills = [`<span class="px-2 py-0.5 rounded-[3px] bg-neutral-200 text-[#333]">🃏 ${answeredCount}/${QUESTIONS.length}</span>`];
-      if (p.x2Active) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#d89e00] text-white">⚡ x2</span>');
-      if ((p.items?.shield || 0) > 0) pills.push(`<span class="px-2 py-0.5 rounded-[3px] bg-[#1368ce] text-white">🛡️ x${p.items.shield}</span>`);
-      if (p.frozen) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e21b3c] text-white animate-pulse">❄️ แช่แข็ง!</span>');
-      if (p.blinded) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#864cbf] text-white animate-pulse">💨 โดนหมอกบัง!</span>');
-      if (p.flipped) pills.push('<span class="px-2 py-0.5 rounded-[3px] bg-[#e05a00] text-white animate-pulse">🙃 จอตีลังกา!</span>');
+      const pills = [`<span class="px-2 py-0.5 rounded-[4px] bg-neutral-200 text-[#333] inline-flex items-center gap-1">${uiIconHtml('cards', 12)}<span>${answeredCount}/${QUESTIONS.length}</span></span>`];
+      if (p.x2Active) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#d89e00] text-white inline-flex items-center gap-1">${itemIconHtml('x2', 14)}<span>x2</span></span>`);
+      if ((p.items?.shield || 0) > 0) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#1368ce] text-white inline-flex items-center gap-1">${itemIconHtml('shield', 14)}<span>x${p.items.shield}</span></span>`);
+      if (p.frozen) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#e21b3c] text-white animate-pulse inline-flex items-center gap-1">${itemIconHtml('freeze', 14)}<span>แช่แข็ง!</span></span>`);
+      if (p.blinded) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#864cbf] text-white animate-pulse inline-flex items-center gap-1">${itemIconHtml('blind', 14)}<span>โดนหมอกบัง!</span></span>`);
+      if (p.flipped) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#e05a00] text-white animate-pulse inline-flex items-center gap-1">${itemIconHtml('flip', 14)}<span>จอตีลังกา!</span></span>`);
       if (p.selfieLocked) {
         pills.push(p.selfieStatus === 'pending_review'
-          ? '<span class="px-2 py-0.5 rounded-[3px] bg-[#ffa602] text-[#333] animate-bounce">📸 รอครูอนุมัติรูป!</span>'
-          : '<span class="px-2 py-0.5 rounded-[3px] bg-[#c026d3] text-white animate-pulse">📸 กำลังถ่ายหน้าตลก...</span>');
+          ? `<span class="px-2 py-0.5 rounded-[4px] bg-[#ffa602] text-[#333] animate-bounce inline-flex items-center gap-1">${itemIconHtml('selfie', 14)}<span>รอครูอนุมัติรูป!</span></span>`
+          : `<span class="px-2 py-0.5 rounded-[4px] bg-[#c026d3] text-white animate-pulse inline-flex items-center gap-1">${itemIconHtml('selfie', 14)}<span>กำลังถ่ายหน้าตลก...</span></span>`);
       }
       row.querySelector('[data-badges]').innerHTML = pills.join('');
 
@@ -352,19 +352,19 @@
         if (e.type === 'join') { SFX.join(); SFX.announce('join', e); }
         else if (e.type === 'score') { SFX.coin(); SFX.announce('score', e); }
         else if (e.type === 'item' || e.type === 'bonusWin') { SFX.item(); }
-        else if (e.type === 'steal') { SFX.stolen(); showBattleBanner(`<span>💰</span><span>${v.html}</span>`, TONES.emerald); SFX.announce('steal', e); }
-        else if (e.type === 'freeze') { SFX.freeze(); showBattleBanner(`<span>❄️</span><span>${v.html}</span>`, TONES.red); SFX.announce('freeze', e); }
-        else if (e.type === 'blind') { SFX.splat(); showBattleBanner(`<span>💨</span><span>${v.html}</span>`, '#864cbf'); SFX.announce('blind', e); }
-        else if (e.type === 'flip') { SFX.dizzy(); showBattleBanner(`<span>🙃</span><span>${v.html}</span>`, '#e05a00'); SFX.announce('flip', e); }
-        else if (e.type === 'zap') { SFX.zap(); showBattleBanner(`<span>🌩️</span><span>${v.html}</span>`, '#008299'); SFX.announce('zap', e); }
-        else if (e.type === 'boost') { SFX.potion(); showBattleBanner(`<span>🧪</span><span>${v.html}</span>`, '#198038'); SFX.announce('boost', e); }
-        else if (e.type === 'selfie') { SFX.shutter(); showBattleBanner(`<span>📸</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfie', e); }
-        else if (e.type === 'selfieSent') { SFX.shutter(); showBattleBanner(`<span>🤪</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfieSent', e); }
+        else if (e.type === 'steal') { SFX.stolen(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('steal', 30)}</span><span>${v.html}</span>`, TONES.emerald); SFX.announce('steal', e); }
+        else if (e.type === 'freeze') { SFX.freeze(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('freeze', 30)}</span><span>${v.html}</span>`, TONES.red); SFX.announce('freeze', e); }
+        else if (e.type === 'blind') { SFX.splat(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('blind', 30)}</span><span>${v.html}</span>`, '#864cbf'); SFX.announce('blind', e); }
+        else if (e.type === 'flip') { SFX.dizzy(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('flip', 30)}</span><span>${v.html}</span>`, '#e05a00'); SFX.announce('flip', e); }
+        else if (e.type === 'zap') { SFX.zap(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('zap', 30)}</span><span>${v.html}</span>`, '#008299'); SFX.announce('zap', e); }
+        else if (e.type === 'boost') { SFX.potion(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('boost', 30)}</span><span>${v.html}</span>`, '#198038'); SFX.announce('boost', e); }
+        else if (e.type === 'selfie') { SFX.shutter(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('selfie', 30)}</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfie', e); }
+        else if (e.type === 'selfieSent') { SFX.shutter(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('funnyFace', 30)}</span><span>${v.html}</span>`, '#c026d3'); SFX.announce('selfieSent', e); }
         else if (e.type === 'selfieApproved') { SFX.correct(); SFX.announce('selfieApproved', e); }
         else if (e.type === 'selfieRejected') { SFX.wrong(); SFX.announce('selfieRejected', e); }
-        else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
-        else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span>🛡️</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
-        else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span>🎁</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
+        else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
+        else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('shield', 30)}</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
+        else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
       });
     }
 
@@ -405,7 +405,7 @@
       return;
     }
     el.matchTimerPill.classList.remove('hidden');
-    el.matchTimerPill.textContent = `⏱️ ${formatClock(matchRemainingMs)}`;
+    el.matchTimerPill.innerHTML = `${uiIconHtml('clock', 16)}<span>${formatClock(matchRemainingMs)}</span>`;
     const secLeft = Math.ceil(matchRemainingMs / 1000);
     el.matchTimerPill.classList.toggle('timer-pill-urgent', secLeft <= 30 && room && room.status === 'playing');
   }
@@ -443,8 +443,8 @@
       bonusClosing = false;
     }
     el.activeBonusBar.classList.remove('hidden');
-    el.bonusDurTag.textContent = `⏱️ ${durSec} วินาที`;
-    el.bonusFilmTag.textContent = `${film.emoji} ${film.short}`;
+    el.bonusDurTag.innerHTML = `${uiIconHtml('clock', 13)}<span>${durSec} วินาที</span>`;
+    el.bonusFilmTag.innerHTML = `${filmIconHtml(bq.film, 18)}<span>${esc(film.short)}</span>`;
     el.bonusQuestionText.textContent = bq.q;
     el.bonusWinCount.textContent = String(Object.keys(room.bonus.answered || {}).length);
     renderBonusTimerUI();
@@ -480,10 +480,10 @@
           r.timerRunning = false;
           r.bonus = null;
           r.hostUpdatedAt = Date.now();
-          Sync.pushFeed(r, { type: 'info', text: '⏰ หมดเวลาการแข่งขัน! สรุปผลโพเดียม 1–2–3!' });
+          Sync.pushFeed(r, { type: 'info', text: 'หมดเวลาการแข่งขัน! สรุปผลโพเดียม 1–2–3!' });
           return r;
         });
-        toast('⏰ หมดเวลาการแข่งขันแล้ว! สรุปผลผู้ชนะทันที 🏆', 'info', 4000);
+        toast(`${uiIconHtml('trophyMini', 16)}<span>หมดเวลาการแข่งขันแล้ว! สรุปผลผู้ชนะทันที</span>`, 'info', 4000);
         return;
       }
 
@@ -523,10 +523,10 @@
           if (!r || !r.bonus || r.bonus.id !== trackedBonusId) return;
           r.bonus = null;
           r.hostUpdatedAt = Date.now();
-          Sync.pushFeed(r, { type: 'info', text: `⏱️ หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน` });
+          Sync.pushFeed(r, { type: 'info', text: `หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน` });
           return r;
         });
-        toast(`⏱️ หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน 🎁`, 'warn', 3200);
+        toast(`${uiIconHtml('clock', 16)}<span>หมดเวลาคำถามโบนัส! มีผู้ตอบผ่าน ${winCnt} คน</span>`, 'warn', 3200);
       } else if (now - bonusLastSyncAt >= 5000) {
         bonusLastSyncAt = now;
         await Sync.transact(r => {
@@ -561,7 +561,7 @@
         el.matchTimeSelect.insertBefore(opt, el.matchTimeSelect.lastElementChild);
       }
       opt.value = String(totalSec);
-      opt.textContent = `⏱️ ${mins} นาที`;
+      opt.textContent = `${mins} นาที`;
       el.matchTimeSelect.value = String(totalSec);
     } else {
       totalSec = Number(val) || 0;
@@ -583,7 +583,7 @@
       return room;
     });
     renderMatchTimerUI(Sync.room);
-    toast(totalSec > 0 ? `⏱️ ตั้งเวลาเกมเป็น ${formatClock(totalSec * 1000)} (หมดเวลาสรุปผลอัตโนมัติ)` : '⏱️ เปลี่ยนเป็นไม่จำกัดเวลา', 'info');
+    toast(totalSec > 0 ? `${uiIconHtml('clock', 16)}<span>ตั้งเวลาเกมเป็น ${formatClock(totalSec * 1000)} (หมดเวลาสรุปผลอัตโนมัติ)</span>` : `${uiIconHtml('clock', 16)}<span>เปลี่ยนเป็นไม่จำกัดเวลา</span>`, 'info');
   });
 
   let lastRenderedStatus = '';
@@ -613,8 +613,8 @@
     const order = [1, 0, 2]; // ซ้าย #2, กลาง #1, ขวา #3
     const heights = ['h-40', 'h-56', 'h-32'];
     const nums = ['2', '1', '3'];
+    const medals = ['medal2', 'medal1', 'medal3'];
     const blockColors = ['#1368ce', '#d89e00', '#26890c'];
-    const medalColors = ['#cbd5e1', '#ffa602', '#ea580c'];
     const delays = ['.2s', '.45s', '.05s'];
 
     el.podiumStage.innerHTML = order.map((rankIdx, colIdx) => {
@@ -622,19 +622,21 @@
       if (!p) {
         return `<div class="flex flex-col items-center opacity-40">
           <div class="text-sm font-bold text-white mb-2">-</div>
-          <div class="w-full ${heights[colIdx]} rounded-t-[6px] bg-[#25076b] grid place-items-center font-display font-black text-3xl">${nums[colIdx]}</div>
+          <div class="w-full ${heights[colIdx]} rounded-t-[8px] bg-[#25076b] grid place-items-center font-display font-black text-3xl">${nums[colIdx]}</div>
         </div>`;
       }
+      const isChamp = rankIdx === 0;
       return `
         <div class="flex flex-col items-center">
-          <div class="drop-in flex flex-col items-center mb-3" style="animation-delay:${delays[colIdx]}">
-            ${avatarHtml(p.avatar, rankIdx === 0 ? 80 : 64, 'border-4 border-white')}
-            <div class="bg-white text-[#333] px-3 py-1 rounded-[4px] font-display font-black text-base sm:text-lg mt-2 shadow">${esc(p.name)}</div>
+          <div class="drop-in relative flex flex-col items-center mb-3" style="animation-delay:${delays[colIdx]}">
+            ${isChamp ? `<div class="sunburst-halo" style="top:-62px;left:50%;margin-left:-120px;"></div>` : ''}
+            ${isChamp ? `<div class="relative z-10 -mb-2.5 crown-float">${heroIconHtml('crown', 48)}</div>` : ''}
+            <div class="relative z-10">${avatarHtml(p.avatar, isChamp ? 84 : 64, 'border-4 border-white')}</div>
+            <div class="relative z-10 bg-white text-[#333] px-3 py-1 rounded-[6px] font-display font-black text-base sm:text-lg mt-2 shadow">${esc(p.name)}</div>
           </div>
-          <div class="podium-col w-full ${heights[colIdx]} flex flex-col items-center justify-start pt-4 px-2 text-white"
+          <div class="podium-col w-full ${heights[colIdx]} flex flex-col items-center justify-start pt-3 px-2 text-white"
                style="background:${blockColors[colIdx]};animation-delay:${delays[colIdx]}">
-            <div class="w-12 h-12 rounded-full grid place-items-center font-display font-black text-2xl text-[#333] shadow-md mb-2"
-                 style="background:${medalColors[colIdx]}">${nums[colIdx]}</div>
+            <div class="mb-1 drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]">${heroIconHtml(medals[colIdx], isChamp ? 58 : 48)}</div>
             <div class="font-display font-black text-lg sm:text-xl tabular">${p.score.toLocaleString()}</div>
             <div class="text-[11px] font-bold uppercase opacity-85">คะแนน</div>
           </div>
@@ -645,7 +647,7 @@
     if (rest.length) {
       el.podiumRest.classList.remove('hidden');
       const moreBtn = ranked.length > 33
-        ? `<button id="podiumAllRanksBtn" type="button" class="btn-3d k-btn-white w-full mt-2 py-2 text-xs">🔍 ดูอันดับทั้งหมดครบ ${ranked.length} คน</button>`
+        ? `<button id="podiumAllRanksBtn" type="button" class="btn-3d k-btn-white w-full mt-2 py-2 text-xs inline-flex items-center justify-center gap-1.5">${uiIconHtml('search', 14)}<span>ดูอันดับทั้งหมดครบ ${ranked.length} คน</span></button>`
         : '';
       el.podiumRest.innerHTML = `<div class="font-display font-black text-sm text-[#ffa602] mb-2 uppercase">Runner-ups (อันดับ 4–${Math.min(33, ranked.length)} จาก ${ranked.length} คน)</div>
         <div class="space-y-1.5 max-h-40 overflow-y-auto">` +
@@ -751,7 +753,7 @@
       return room;
     });
     if (updatedPlayer) Sync.sendDirectPlayer(pid, updatedPlayer);
-    toast('✅ อนุญาตให้ผู้เล่นกลับเข้าเล่นต่อแล้ว!', 'success');
+    toast(`${uiIconHtml('check', 16)}<span>อนุญาตให้ผู้เล่นกลับเข้าเล่นต่อแล้ว!</span>`, 'success');
   });
 
   $('rejectSelfieBtn')?.addEventListener('click', async () => {
@@ -767,7 +769,7 @@
       return room;
     });
     if (updatedPlayer) Sync.sendDirectPlayer(pid, updatedPlayer);
-    toast('🤪 สั่งให้ผู้เล่นถ่ายรูปหน้าตลกส่งมาใหม่แล้ว!', 'warn');
+    toast(`${heroIconHtml('funnyFace', 18)}<span>สั่งให้ผู้เล่นถ่ายรูปหน้าตลกส่งมาใหม่แล้ว!</span>`, 'warn');
   });
 
   let rafRenderId = 0;
@@ -849,14 +851,14 @@
       return room;
     });
     if (!count) toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
-    else toast(`🎁 สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!`, 'success');
+    else toast(`${heroIconHtml('giftBox', 18)}<span>สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!</span>`, 'success');
   });
 
   function renderBonusModalChoices() {
     const used = (Sync.room && Sync.room.usedBonus) || {};
     const timeStyle = sec => sec <= 10
-      ? { bg: '#d89e00', txt: `⚡ 10 วิ` }
-      : (sec <= 20 ? { bg: '#26890c', txt: `🟢 20 วิ (ง่าย)` } : { bg: '#e21b3c', txt: `🔴 30 วิ (ยาก)` });
+      ? { bg: '#d89e00', txt: `${uiIconHtml('bolt', 12)}<span>10 วิ</span>` }
+      : (sec <= 20 ? { bg: '#26890c', txt: `${uiIconHtml('clock', 12)}<span>20 วิ (ง่าย)</span>` } : { bg: '#e21b3c', txt: `${uiIconHtml('clock', 12)}<span>30 วิ (ยาก)</span>` });
 
     el.bonusChoices.innerHTML = BONUS_QUESTIONS.map(bq => {
       const f = FILMS[bq.film];
@@ -867,8 +869,8 @@
         <button data-bid="${bq.id}" class="w-full text-left p-3 rounded-[6px] border-2 transition flex items-center justify-between gap-3 ${isUsed ? 'bg-neutral-100 border-neutral-300 opacity-60' : 'bg-white border-neutral-300 hover:border-[#46178f]'}">
           <div>
             <div class="flex items-center gap-1.5 flex-wrap mb-1">
-              <span class="px-2 py-0.5 rounded-[3px] text-[11px] font-black text-white" style="background:${ts.bg}">${ts.txt}</span>
-              <span class="px-2 py-0.5 rounded-[3px] text-[11px] font-extrabold text-white" style="background:${f.color}">${f.emoji} ${f.short}</span>
+              <span class="px-2 py-0.5 rounded-[4px] text-[11px] font-black text-white inline-flex items-center gap-1" style="background:${ts.bg}">${ts.txt}</span>
+              <span class="px-2 py-0.5 rounded-[4px] text-[11px] font-extrabold text-white inline-flex items-center gap-1" style="background:${f.color}">${filmIconHtml(bq.film, 14)}<span>${esc(f.short)}</span></span>
               ${isUsed ? '<span class="text-[11px] font-extrabold text-neutral-500">ปล่อยไปแล้ว</span>' : ''}
             </div>
             <div class="font-bold text-[#333] text-sm sm:text-base">${esc(bq.q)}</div>
@@ -887,8 +889,8 @@
       selectedBonusSec = btn.dataset.bonusSec === 'auto' ? 'auto' : Number(btn.dataset.bonusSec);
       document.querySelectorAll('.bonus-sec-btn').forEach(b => {
         b.className = b === btn
-          ? 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white'
-          : 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200';
+          ? 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white inline-flex items-center justify-center gap-1'
+          : 'bonus-sec-btn py-2 px-2 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200 inline-flex items-center justify-center gap-1';
       });
       renderBonusModalChoices();
     });
@@ -988,7 +990,7 @@
     selfiePhotoCache.clear();
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
-    if (!silent) toast('เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว 🔄', 'success');
+    if (!silent) toast(`${uiIconHtml('refresh', 16)}<span>เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว</span>`, 'success');
   }
 
   function createNewPinRoom() {
@@ -1049,8 +1051,8 @@
     if (!simTimer) return;
     clearInterval(simTimer);
     simTimer = null;
-    el.simToggleBtn.className = 'btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1';
-    el.simToggleBtn.innerHTML = '<span>▶</span><span>จำลองเล่นอัตโนมัติ</span>';
+    el.simToggleBtn.className = 'btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap';
+    el.simToggleBtn.innerHTML = `${uiIconHtml('play', 14, 'text-[#4ade80]')}<span>จำลองเล่นอัตโนมัติ</span>`;
   }
 
   async function runBotTick() {
@@ -1117,8 +1119,8 @@
         return room;
       });
     }
-    el.simToggleBtn.className = 'btn-3d k-btn-red px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1';
-    el.simToggleBtn.innerHTML = '<span>⏹</span><span>หยุดจำลองอัตโนมัติ</span>';
+    el.simToggleBtn.className = 'btn-3d k-btn-red px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap';
+    el.simToggleBtn.innerHTML = `${uiIconHtml('stop', 14)}<span>หยุดจำลองอัตโนมัติ</span>`;
     simTimer = setInterval(runBotTick, 2100);
     runBotTick();
   });
@@ -1148,7 +1150,7 @@
       onConn: onConnStatus,
       onBrokerChange: idx => {
         refreshJoinLinks(idx);
-        toast('🔄 สลับเซิร์ฟเวอร์สำรองอัตโนมัติ (อัปเดต QR Code แล้ว)', 'info', 3000);
+        toast(`${uiIconHtml('refresh', 16)}<span>สลับเซิร์ฟเวอร์สำรองอัตโนมัติ (อัปเดต QR Code แล้ว)</span>`, 'info', 3000);
       },
       onSelfie: (pid, photo) => {
         selfiePhotoCache.set(pid, photo);
