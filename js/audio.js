@@ -30,7 +30,22 @@ const SFX = (() => {
   let voiceVolume = readStoredVol('sqa_vol_voice', 0.95);
   let isDucked = false;
 
-  let bgmMode = 'none'; // 'none' | 'play' | 'bonus' | 'podium'
+  const BGM_TRACKS = [
+    { id: 'bgm_play',     name: 'Kahoot! Groove',  tag: 'สนุกคลาสสิก', bpm: '125 BPM', color: '#46178f' },
+    { id: 'bgm_arcade',   name: '8-Bit Arcade',    tag: 'เกมย้อนยุค',  bpm: '136 BPM', color: '#e21b3c' },
+    { id: 'bgm_synth',    name: 'Cyber Synthwave', tag: 'ไซเบอร์เท่ๆ', bpm: '126 BPM', color: '#7c3aed' },
+    { id: 'bgm_tropical', name: 'Tropical Pop',    tag: 'สดใสชิลๆ',   bpm: '116 BPM', color: '#0284c7' },
+    { id: 'bgm_lofi',     name: 'Lo-Fi Study',     tag: 'โฟกัสสบายๆ',  bpm: '92 BPM',  color: '#26890c' },
+    { id: 'bgm_esports',  name: 'Esports Boss',    tag: 'มันส์สุดขีด', bpm: '144 BPM', color: '#d89e00' }
+  ];
+
+  let bgmTrackId = (() => {
+    const saved = localStorage.getItem('sqa_bgm_track') || 'bgm_play';
+    return BGM_TRACKS.some(t => t.id === saved) ? saved : 'bgm_play';
+  })();
+
+  let bgmMode = 'none'; // 'none' | 'play' | 'bonus' | 'fever' | 'podium'
+  let bgmPlayingFile = '';
   let bgmSource = null;
   let bgmAudioEl = null;
   let bgmReqId = 0;
@@ -123,7 +138,7 @@ const SFX = (() => {
   function preloadAllSfx() {
     if (typeof fetch === 'undefined') return;
     SFX_LIST.forEach(name => loadBuffer(`audio/sfx/${name}.mp3`));
-    ['bgm_play', 'bgm_bonus', 'bgm_podium'].forEach(name => loadBuffer(`audio/sfx/${name}.mp3`));
+    [bgmTrackId, 'bgm_bonus', 'bgm_podium'].forEach(name => loadBuffer(`audio/sfx/${name}.mp3`));
   }
 
   function playSfx(name, vol = 0.85, rate = 1.0) {
@@ -170,6 +185,7 @@ const SFX = (() => {
   /* ---------------- Studio Stereo BGM Loops (Instant Auto-Start + Autoplay Fallback) ---------------- */
   function stopBgmNode() {
     bgmReqId++;
+    bgmPlayingFile = '';
     if (bgmSource) {
       try { bgmSource.stop(); bgmSource.disconnect(); } catch (e) {}
       bgmSource = null;
@@ -180,9 +196,17 @@ const SFX = (() => {
     }
   }
 
+  function resolveTrackFile(mode) {
+    if (mode === 'bonus') return 'bgm_bonus';
+    if (mode === 'podium') return 'bgm_podium';
+    if (mode === 'fever') return 'bgm_esports';
+    return bgmTrackId || 'bgm_play';
+  }
+
   async function startBgm(mode = 'play', fromGesture = false) {
+    const track = resolveTrackFile(mode);
     const isPlayingNow = !!(bgmSource || (bgmAudioEl && !bgmAudioEl.paused));
-    if (bgmMode === mode && isPlayingNow) return;
+    if (bgmMode === mode && bgmPlayingFile === track && isPlayingNow) return;
     bgmMode = mode;
     stopBgmNode();
     if (mode === 'none' || !bgmOn || muted || volume <= 0 || bgmVolume <= 0) {
@@ -191,7 +215,6 @@ const SFX = (() => {
     }
 
     const reqId = ++bgmReqId;
-    const track = { play: 'bgm_play', bonus: 'bgm_bonus', podium: 'bgm_podium' }[mode] || 'bgm_play';
     const url = `audio/sfx/${track}.mp3`;
 
     // ถ้า AudioContext พร้อมทำงานแล้ว (หรือปลดล็อกจากการแตะหน้าจอ) -> เล่นผ่าน Web Audio Loop ไร้รอยต่อ
@@ -213,6 +236,7 @@ const SFX = (() => {
             applyGains();
             src.start(0);
             bgmSource = src;
+            bgmPlayingFile = track;
             hideUnlockHint();
             return;
           } catch (e) {}
@@ -235,6 +259,7 @@ const SFX = (() => {
             }
             stopBgmNode();
             bgmAudioEl = a;
+            bgmPlayingFile = track;
             applyGains();
             hideUnlockHint();
           }).catch(() => {
@@ -245,6 +270,7 @@ const SFX = (() => {
           });
         } else {
           bgmAudioEl = a;
+          bgmPlayingFile = track;
           hideUnlockHint();
         }
       } catch (e) {
@@ -570,6 +596,38 @@ const SFX = (() => {
     get volume() { return volume; },
     get volumePct() { return muted ? 0 : Math.round(volume * 100); },
     get autoplayBlocked() { return autoplayBlocked; },
+    get tracks() { return BGM_TRACKS; },
+    get bgmTrackId() { return bgmTrackId; },
+    get bgmTrack() { return BGM_TRACKS.find(t => t.id === bgmTrackId) || BGM_TRACKS[0]; },
+
+    setBgmTrack(id) {
+      const found = BGM_TRACKS.find(t => t.id === id);
+      if (!found) return this.bgmTrack;
+      bgmTrackId = found.id;
+      localStorage.setItem('sqa_bgm_track', bgmTrackId);
+      if (!bgmOn || bgmVolume <= 0) {
+        bgmOn = true;
+        if (bgmVolume <= 0) { bgmVolume = 0.70; localStorage.setItem('sqa_vol_bgm', String(bgmVolume)); }
+        localStorage.setItem('sqa_bgm', '1');
+      }
+      if (muted || volume <= 0) {
+        muted = false;
+        if (volume <= 0) { volume = 0.75; localStorage.setItem('sqa_volume', String(volume)); }
+        localStorage.setItem('sqa_muted', '0');
+      }
+      applyGains();
+      this.click();
+      const targetMode = (bgmMode === 'none') ? 'play' : bgmMode;
+      bgmPlayingFile = '';
+      startBgm(targetMode === 'play' ? 'play' : targetMode, true);
+      notifyChange();
+      return found;
+    },
+    nextBgmTrack() {
+      const idx = BGM_TRACKS.findIndex(t => t.id === bgmTrackId);
+      const next = BGM_TRACKS[(idx + 1) % BGM_TRACKS.length];
+      return this.setBgmTrack(next.id);
+    },
 
     getChannelVolume(ch = 'master') {
       if (ch === 'bgm') return bgmVolume;

@@ -296,6 +296,7 @@
 
       const answeredCount = p.answeredCount ?? Object.keys(p.answered || {}).length;
       const pills = [`<span class="px-2 py-0.5 rounded-[4px] bg-neutral-200 text-[#333] inline-flex items-center gap-1">${uiIconHtml('cards', 12)}<span>${answeredCount}/${QUESTIONS.length}</span></span>`];
+      if ((p.streak || 0) >= 2) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#f97316] text-white inline-flex items-center gap-1 font-black">${uiIconHtml('flameMini', 13, 'text-[#fde047]')}<span>${p.streak}× คอมโบ</span></span>`);
       if (p.x2Active) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#d89e00] text-white inline-flex items-center gap-1">${itemIconHtml('x2', 14)}<span>x2</span></span>`);
       if ((p.items?.shield || 0) > 0) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#1368ce] text-white inline-flex items-center gap-1">${itemIconHtml('shield', 14)}<span>x${p.items.shield}</span></span>`);
       if (p.frozen) pills.push(`<span class="px-2 py-0.5 rounded-[4px] bg-[#e21b3c] text-white animate-pulse inline-flex items-center gap-1">${itemIconHtml('freeze', 14)}<span>แช่แข็ง!</span></span>`);
@@ -364,6 +365,9 @@
         else if (e.type === 'selfieApproved') { SFX.correct(); SFX.announce('selfieApproved', e); }
         else if (e.type === 'selfieRejected') { SFX.wrong(); SFX.announce('selfieRejected', e); }
         else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
+        else if (e.type === 'fever') { SFX.fanfare(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('feverBolt', 32)}</span><span>${v.html}</span>`, TONES.red); }
+        else if (e.type === 'underdog') { SFX.item(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('rocketBoost', 32)}</span><span>${v.html}</span>`, TONES.green); }
+        else if (e.type === 'freezeTop') { SFX.freeze(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('freeze', 32)}</span><span>${v.html}</span>`, TONES.cyan); }
         else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('shield', 30)}</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
         else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
       });
@@ -397,6 +401,34 @@
   let bonusLastSyncAt = 0;
   let lastBonusBeepSec = -1;
   let bonusClosing = false;
+
+  let trackedFeverId = '';
+  let feverRemainingMs = 0;
+  let feverLastTickAt = 0;
+  let feverLastSyncAt = 0;
+  let feverEnding = false;
+
+  function renderFeverBar(room) {
+    const bar = $('activeFeverBar');
+    const txt = $('hostFeverTimer');
+    if (!bar || !txt) return;
+    if (!room || !room.feverId || (room.feverRemainingSec || 0) <= 0 || room.status === 'ended') {
+      bar.classList.add('hidden');
+      trackedFeverId = '';
+      feverRemainingMs = 0;
+      feverEnding = false;
+      return;
+    }
+    if (trackedFeverId !== room.feverId) {
+      trackedFeverId = room.feverId;
+      feverRemainingMs = Number(room.feverRemainingSec || 60) * 1000;
+      feverLastTickAt = Date.now();
+      feverLastSyncAt = Date.now();
+      feverEnding = false;
+    }
+    bar.classList.remove('hidden');
+    txt.textContent = formatClock(feverRemainingMs);
+  }
 
   function renderMatchTimerUI(room) {
     const totalSec = (room && room.timerTotalSec) || 0;
@@ -539,6 +571,37 @@
       }
     } else {
       bonusLastTickAt = now;
+    }
+
+    // 3) นับเวลาถอยหลังของ FEVER TIME x2 ทั้งห้อง
+    if (room.status === 'playing' && trackedFeverId && room.feverId === trackedFeverId) {
+      const dt = feverLastTickAt ? Math.min(1000, now - feverLastTickAt) : 0;
+      feverLastTickAt = now;
+      feverRemainingMs = Math.max(0, feverRemainingMs - dt);
+      const txt = $('hostFeverTimer');
+      if (txt) txt.textContent = formatClock(feverRemainingMs);
+      if (feverRemainingMs <= 0 && !feverEnding) {
+        feverEnding = true;
+        await Sync.transact(r => {
+          if (!r || r.feverId !== trackedFeverId) return;
+          r.feverId = '';
+          r.feverRemainingSec = 0;
+          r.hostUpdatedAt = Date.now();
+          Sync.pushFeed(r, { type: 'info', text: 'จบช่วง FEVER TIME x2 แล้ว! กลับสู่คะแนนปกติ' });
+          return r;
+        });
+        toast(`${heroIconHtml('feverBolt', 18)}<span>จบช่วง FEVER TIME x2 แล้ว!</span>`, 'info', 2500);
+      } else if (now - feverLastSyncAt >= 6000) {
+        feverLastSyncAt = now;
+        await Sync.transact(r => {
+          if (!r || r.feverId !== trackedFeverId) return;
+          r.feverRemainingSec = Math.max(1, Math.ceil(feverRemainingMs / 1000));
+          r.hostUpdatedAt = Date.now();
+          return r;
+        }, { deferBroadcast: true });
+      }
+    } else {
+      feverLastTickAt = now;
     }
   }, 200);
 
@@ -803,6 +866,7 @@
     renderLeaderboard(room);
     renderFeed(room);
     renderBonusBar(room);
+    renderFeverBar(room);
     renderSelfieReview(room);
     if (room.status === 'ended') {
       stopSim();
@@ -814,6 +878,8 @@
         SFX.stopBgm();
       } else if (room.bonus) {
         SFX.startBgm('bonus');
+      } else if (room.feverId && (room.feverRemainingSec || 0) > 0) {
+        SFX.startBgm('fever');
       } else {
         SFX.startBgm('play');
       }
@@ -854,6 +920,87 @@
     if (!count) toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
     else toast(`${heroIconHtml('giftBox', 18)}<span>สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!</span>`, 'success');
   });
+
+  // ===================== อีเวนต์ป่วนห้อง (Chaos Events!) =====================
+  const chaosModal = $('chaosModal');
+  $('chaosBtn')?.addEventListener('click', () => { SFX.pop(); chaosModal?.classList.remove('hidden'); });
+  $('closeChaosModal')?.addEventListener('click', () => { SFX.click(); chaosModal?.classList.add('hidden'); });
+  chaosModal?.addEventListener('click', e => { if (e.target === chaosModal) chaosModal.classList.add('hidden'); });
+
+  $('evFeverBtn')?.addEventListener('click', async () => {
+    chaosModal?.classList.add('hidden');
+    SFX.fanfare();
+    confetti(2200, 110);
+    await Sync.transact(room => {
+      if (!room) return;
+      Game.triggerFever(room, 60);
+      return room;
+    });
+    toast(`${heroIconHtml('feverBolt', 18)}<span>เปิดโหมด FEVER TIME x2 ทั้งห้อง 60 วินาที!</span>`, 'error', 3500);
+  });
+
+  $('stopFeverBtn')?.addEventListener('click', async () => {
+    SFX.click();
+    await Sync.transact(room => {
+      if (!room) return;
+      room.feverId = '';
+      room.feverRemainingSec = 0;
+      room.hostUpdatedAt = Date.now();
+      return room;
+    });
+  });
+
+  $('evUnderdogBtn')?.addEventListener('click', async () => {
+    chaosModal?.classList.add('hidden');
+    SFX.item();
+    let cnt = 0;
+    await Sync.transact(room => {
+      if (!room) return;
+      cnt = Game.triggerUnderdogBoost(room);
+      return room;
+    });
+    if (!cnt) toast('ต้องมีผู้เล่นอย่างน้อย 2 คนในห้องก่อนนะ', 'warn');
+    else toast(`${heroIconHtml('rocketBoost', 18)}<span>ปล่อยพลังฮึดท้ายตารางให้ ${cnt} คนเรียบร้อย!</span>`, 'success', 3200);
+  });
+
+  $('evFreezeTopBtn')?.addEventListener('click', async () => {
+    chaosModal?.classList.add('hidden');
+    SFX.freeze();
+    let cnt = 0;
+    await Sync.transact(room => {
+      if (!room) return;
+      cnt = Game.triggerFreezeTop(room);
+      return room;
+    });
+    if (!cnt) toast('ยังไม่มีผู้เล่นในห้องให้แช่แข็ง', 'warn');
+    else toast(`${itemIconHtml('freeze', 18)}<span>ปล่อยพายุแช่แข็งจ่าฝูง Top ${cnt} แล้ว!</span>`, 'ice', 3200);
+  });
+
+  $('evGiftRainBtn')?.addEventListener('click', () => {
+    chaosModal?.classList.add('hidden');
+    $('giftAllBtn')?.click();
+  });
+
+  // ===================== Classroom Live Reactions (สติกเกอร์เชียร์ลอยขึ้นจอครู!) =====================
+  let activeReactCount = 0;
+  const REACT_HERO_MAP = { fire: 'reactFire', laugh: 'reactLaugh', clap: 'reactClap', shock: 'reactShock' };
+  function spawnReactionBubble(kind, senderName) {
+    const heroName = REACT_HERO_MAP[kind];
+    if (!heroName || activeReactCount >= 12) return;
+    activeReactCount++;
+    const div = document.createElement('div');
+    div.className = 'react-bubble flex flex-col items-center';
+    const rightPct = 4 + Math.random() * 28;
+    div.style.right = `${rightPct.toFixed(1)}%`;
+    div.innerHTML = `
+      <div class="drop-shadow-[0_4px_0_rgba(0,0,0,0.3)]">${heroIconHtml(heroName, 54)}</div>
+      ${senderName ? `<span class="mt-0.5 px-2 py-0.5 rounded-full bg-[#241f35]/90 text-white font-display font-extrabold text-[11px] border border-white/25 whitespace-nowrap shadow">${esc(senderName)}</span>` : ''}`;
+    document.body.appendChild(div);
+    setTimeout(() => {
+      div.remove();
+      activeReactCount = Math.max(0, activeReactCount - 1);
+    }, 2650);
+  }
 
   function renderBonusModalChoices() {
     const used = (Sync.room && Sync.room.usedBonus) || {};
@@ -975,6 +1122,8 @@
       const base = room || Sync.defaultRoom(roomCode);
       base.status = 'lobby';
       base.bonus = null;
+      base.feverId = '';
+      base.feverRemainingSec = 0;
       base.endedAt = null;
       base.usedBonus = {};
       base.players = {};
@@ -1144,7 +1293,8 @@
     Sync.setLiveTimerGetter(() => ({
       timerRemainingMs: Math.round(matchRemainingMs),
       timerRunning: !!(Sync.room && Sync.room.status === 'playing' && (Sync.room.timerTotalSec || 0) > 0),
-      bonusRemainingSec: trackedBonusId ? Math.max(1, Math.ceil(bonusRemainingMs / 1000)) : null
+      bonusRemainingSec: trackedBonusId ? Math.max(1, Math.ceil(bonusRemainingMs / 1000)) : null,
+      feverRemainingSec: trackedFeverId ? Math.max(0, Math.ceil(feverRemainingMs / 1000)) : 0
     }));
     await Sync.connect(roomCode, onRoomUpdate, {
       isHost: true,
@@ -1152,6 +1302,9 @@
       onBrokerChange: idx => {
         refreshJoinLinks(idx);
         toast(`${uiIconHtml('refresh', 16)}<span>สลับเซิร์ฟเวอร์สำรองอัตโนมัติ (อัปเดต QR Code แล้ว)</span>`, 'info', 3000);
+      },
+      onReaction: (kind, senderName) => {
+        spawnReactionBubble(kind, senderName);
       },
       onSelfie: (pid, photo) => {
         selfiePhotoCache.set(pid, photo);

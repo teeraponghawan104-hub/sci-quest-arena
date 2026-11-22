@@ -550,6 +550,74 @@ const SQA_ART = (() => {
       <rect x="16" y="28" width="9" height="8" fill="#1e1b2e" stroke="none"/>
       <rect x="34" y="28" width="9" height="8" fill="#1e1b2e" stroke="none"/>
       <rect x="16" y="12" width="36" height="24" rx="3" fill="none"/>
+    </g>`,
+
+    flame: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M34 8 C38 18 49 23 49 36 C49 48 41 56 32 56 C22 56 15 48 15 37 C15 29 20 23 24 20 C23 26 26 29 28 28 C27 20 30 13 34 8 Z" fill="#f97316"/>
+      <path d="M33 26 C37 32 41 36 41 42 C41 49 37 53 32 53 C26 53 23 48 23 42 C23 37 27 33 33 26 Z" fill="#fde047" stroke="none"/>
+      <ellipse cx="32" cy="46" rx="4.5" ry="5.5" fill="#ffffff" stroke="none" opacity="0.85"/>
+    </g>`,
+
+    feverBolt: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <circle cx="32" cy="32" r="24" fill="#facc15"/>
+      <circle cx="32" cy="32" r="19" fill="#fef08a" stroke="none"/>
+      <polygon points="36,11 18,34 31,34 26,53 46,29 33,29" fill="#e21b3c"/>
+    </g>`,
+
+    rocketBoost: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M16 48 C11 53 9 57 9 57 C9 57 14 55 19 50 Z" fill="#facc15"/>
+      <path d="M18 46 L10 42 L20 31 Z" fill="#f97316"/>
+      <path d="M19 47 L23 55 L34 45 Z" fill="#f97316"/>
+      <path d="M53 11 C43 11 31 18 20 31 L17 47 L33 44 C46 33 53 21 53 11 Z" fill="#ffffff"/>
+      <path d="M53 11 C46 11 41 13 36 17 L47 28 C51 23 53 18 53 11 Z" fill="#26890c"/>
+      <circle cx="34" cy="30" r="6.5" fill="#38bdf8"/>
+      <circle cx="32.5" cy="28.3" r="2.2" fill="#e0f2fe" stroke="none"/>
+    </g>`,
+
+    chaosWheel: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <circle cx="32" cy="32" r="23" fill="#864cbf"/>
+      <path d="M32 9 A23 23 0 0 1 55 32 L32 32 Z" fill="#e21b3c"/>
+      <path d="M55 32 A23 23 0 0 1 32 55 L32 32 Z" fill="#facc15"/>
+      <path d="M32 55 A23 23 0 0 1 9 32 L32 32 Z" fill="#26890c"/>
+      <path d="M9 32 A23 23 0 0 1 32 9 L32 32 Z" fill="#1368ce"/>
+      <circle cx="32" cy="32" r="9" fill="#ffffff"/>
+      <polygon points="32,26 34,30 38,32 34,34 32,38 30,34 26,32 30,30" fill="#1e1b2e" stroke="none"/>
+    </g>`,
+
+    reactFire: `<g stroke="${INK}" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M34 6 C39 17 51 23 51 37 C51 49 42 58 32 58 C21 58 13 49 13 38 C13 29 19 22 24 19 C23 26 26 29 28 28 C27 19 30 12 34 6 Z" fill="#ef4444"/>
+      <path d="M33 23 C38 30 43 35 43 42 C43 50 38 55 32 55 C25 55 21 49 21 42 C21 36 26 31 33 23 Z" fill="#f97316" stroke="none"/>
+      <path d="M32 34 C35 39 38 42 38 46 C38 51 35 53 32 53 C28 53 26 50 26 46 C26 42 29 39 32 34 Z" fill="#fde047" stroke="none"/>
+    </g>`,
+
+    reactLaugh: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <circle cx="32" cy="32" r="23" fill="#facc15"/>
+      <path d="M17 26 Q22 20 27 26" fill="none" stroke="${INK}" stroke-width="3"/>
+      <path d="M37 26 Q42 20 47 26" fill="none" stroke="${INK}" stroke-width="3"/>
+      <ellipse cx="14" cy="32" rx="4" ry="2.5" fill="#38bdf8"/>
+      <ellipse cx="50" cy="32" rx="4" ry="2.5" fill="#38bdf8"/>
+      <path d="M18 35 H46 C46 47 39 51 32 51 C25 51 18 47 18 35 Z" fill="#1e1b2e"/>
+      <path d="M23 44 Q32 49 41 44 C39 49 35 51 32 51 C29 51 25 49 23 44 Z" fill="#fb7185" stroke="none"/>
+      <rect x="21" y="36" width="22" height="4" rx="1.5" fill="#ffffff" stroke="none"/>
+    </g>`,
+
+    reactClap: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M22 10 L20 17 M33 7 L33 14 M44 10 L46 17" stroke="#facc15" stroke-width="3.2"/>
+      <path d="M16 36 L26 20 C28 17 32 19 30 22 L25 30 L34 18 C36 15 40 17 38 21 L31 32 L41 21 C43 19 47 22 44 25 L36 36 L44 29 C46 27 49 30 47 33 L36 47 C31 53 22 54 17 48 C13 44 13 40 16 36 Z" fill="#fbbf24"/>
+      <path d="M22 41 L32 28 C34 25 38 27 36 30 L31 38 L40 28 C42 25 46 28 43 31 L36 41 L46 33 C48 31 51 34 49 37 L38 51 C33 56 25 56 20 51 C17 48 18 44 22 41 Z" fill="#fde047"/>
+    </g>`,
+
+    reactShock: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <circle cx="32" cy="32" r="23" fill="#38bdf8"/>
+      <circle cx="32" cy="32" r="20" fill="#7dd3fc" stroke="none"/>
+      <circle cx="32" cy="32" r="23" fill="none"/>
+      <circle cx="22.5" cy="27" r="6.5" fill="#ffffff"/>
+      <circle cx="41.5" cy="27" r="6.5" fill="#ffffff"/>
+      <circle cx="23" cy="27" r="2.8" fill="${INK}" stroke="none"/>
+      <circle cx="41" cy="27" r="2.8" fill="${INK}" stroke="none"/>
+      <ellipse cx="32" cy="43" rx="6.5" ry="8.5" fill="#1e1b2e"/>
+      <ellipse cx="32" cy="47" rx="4" ry="3" fill="#fb7185" stroke="none"/>
+      <polygon points="52,9 54,14 59,16 54,18 52,23 50,18 45,16 50,14" fill="#fde047"/>
     </g>`
   };
 
@@ -564,6 +632,8 @@ const SQA_ART = (() => {
     minus: `<line x1="5" y1="12" x2="19" y2="12" stroke-width="2.8"/>`,
     plus: `<line x1="12" y1="5" x2="12" y2="19" stroke-width="2.8"/><line x1="5" y1="12" x2="19" y2="12" stroke-width="2.8"/>`,
     sliders: `<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.2" fill="currentColor"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.2" fill="currentColor"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="10" cy="18" r="2.2" fill="currentColor"/>`,
+    skipNext: `<polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19" stroke-width="2.6"/>`,
+    flameMini: `<path d="M12.5 2c1.5 3.5 5 5.2 5 9.8A5.5 5.5 0 0 1 12 17.5a5.5 5.5 0 0 1-5.5-5.5c0-2.6 1.5-4.7 3-5.8-.2 1.8.8 2.8 1.5 2.5-.3-2.5.4-4.7 1.5-6.7z" fill="currentColor"/>`,
     music: `<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="18" cy="16" r="3" fill="currentColor"/>`,
     mic: `<rect x="9" y="2" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>`,
     fullscreen: `<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>`,

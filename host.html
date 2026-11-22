@@ -28,15 +28,15 @@
         </a>
 
         <!-- กล่องซ้าย: Join at -->
-        <div class="k-box px-4 py-2.5 flex flex-col justify-center flex-1 min-w-[230px]">
+        <div class="k-box px-3.5 py-2 flex flex-col justify-center flex-1 min-w-[240px] overflow-hidden">
           <div class="text-xs font-bold text-neutral-500">เข้าร่วมผ่านมือถือได้ที่:</div>
-          <div class="flex items-center gap-2 mt-0.5 flex-wrap sm:flex-nowrap">
-            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-lg 2xl:text-2xl text-[#1368ce] hover:underline whitespace-nowrap">
+          <div class="flex items-center gap-2 mt-0.5 flex-nowrap">
+            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-base 2xl:text-xl text-[#1368ce] hover:underline whitespace-nowrap truncate">
               เปิดหน้าผู้เล่น (คลิก) ↗
             </a>
-            <button id="copyLinkBtn" class="btn-3d k-btn-dark px-3 py-1.5 text-xs whitespace-nowrap shrink-0" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
+            <button id="copyLinkBtn" class="btn-3d k-btn-dark px-2.5 py-1 text-xs whitespace-nowrap shrink-0" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
           </div>
-          <div class="flex items-center gap-2 mt-1 text-[11px] xl:text-xs font-bold text-neutral-500 flex-wrap">
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-neutral-500 flex-wrap">
             <span id="hostConnBadge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-neutral-100 text-[#333]">
               <span id="hostConnDot" class="conn-dot conn-wait"></span>
               <span id="hostConnText">กำลังเชื่อมต่อ...</span>
@@ -48,37 +48,40 @@
         </div>
 
         <!-- กล่องกลาง: Game PIN ยักษ์ -->
-        <div class="k-box px-5 2xl:px-7 py-2 flex flex-col justify-center shrink-0">
+        <div class="k-box px-4 2xl:px-6 py-2 flex flex-col justify-center shrink-0">
           <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN:</div>
-          <div id="roomPinText" class="font-display text-4xl sm:text-6xl 2xl:text-7xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
+          <div id="roomPinText" class="font-display text-4xl sm:text-5xl 2xl:text-6xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
         </div>
 
         <!-- กล่องขวา: QR Code -->
         <button id="openQrBtn" class="k-box p-2 flex items-center gap-2 hover:brightness-95 transition shrink-0" title="คลิกเพื่อขยาย QR Code เต็มจอ">
-          <div id="qrPreview" class="w-16 h-16 sm:w-20 sm:h-20 2xl:w-24 2xl:h-24 bg-white grid place-items-center"></div>
+          <div id="qrPreview" class="w-16 h-16 sm:w-20 sm:h-20 bg-white grid place-items-center"></div>
         </button>
       </div>
 
       <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวบน 1080p+, เรียง 2 แถวสะอาดตาบน 720p) -->
-      <div class="flex items-center justify-between 2xl:justify-end gap-2 flex-wrap 2xl:flex-nowrap shrink-0">
-        <div class="flex items-center gap-2 px-1 shrink-0">
-          <span data-art-hero="brandSpark" data-art-size="40" class="sqa-ico drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
-          <div class="k-logo text-3xl sm:text-4xl 2xl:text-5xl whitespace-nowrap">Sci-Quest!</div>
+      <div class="flex items-center justify-between 2xl:justify-end gap-1.5 flex-wrap 2xl:flex-nowrap shrink-0">
+        <div class="flex items-center gap-1.5 px-1 shrink-0">
+          <span data-art-hero="brandSpark" data-art-size="36" class="sqa-ico drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
+          <div class="k-logo text-3xl sm:text-4xl whitespace-nowrap">Sci-Quest!</div>
         </div>
-        <button id="fsBtn" type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิดโหมดเต็มจอ (กดปุ่ม F)">
+        <button id="fsBtn" type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิดโหมดเต็มจอ (กดปุ่ม F)">
           <span data-fs-icon class="sqa-ico"></span>
           <span data-fs-text>เต็มจอ</span>
         </button>
-        <button id="newPinBtn" class="btn-3d k-btn-blue px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="สุ่มรหัสห้อง PIN ใหม่">
-          <span data-art-ui="dice" data-art-size="16" class="sqa-ico"></span>
+        <button id="newPinBtn" class="btn-3d k-btn-blue px-2.5 py-2 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="สุ่มรหัสห้อง PIN ใหม่">
+          <span data-art-ui="dice" data-art-size="15" class="sqa-ico"></span>
           <span>ห้องใหม่</span>
         </button>
-        <button id="resetBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="ล้างข้อมูลผู้เล่นและคะแนนในห้องนี้">
+        <button id="resetBtn" class="btn-3d k-btn-dark px-2.5 py-2 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="ล้างข้อมูลผู้เล่นและคะแนนในห้องนี้">
           <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
           <span>ล้างห้อง</span>
         </button>
-        <button id="bgmBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเพลงประกอบ"></button>
-        <button id="voiceBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงพากย์กวนๆ"></button>
+        <button id="bgmBtn" class="btn-3d k-btn-dark px-2.5 py-2 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="เปิด/ปิดเพลงประกอบ"></button>
+        <button type="button" data-bgm-next class="btn-3d k-btn-dark px-2.5 py-2 text-xs flex items-center justify-center whitespace-nowrap shrink-0" title="เปลี่ยนเพลงประกอบถัดไป (มี 6 สไตล์)">
+          <span data-art-ui="skipNext" data-art-size="16" class="sqa-ico text-[#ffa602]"></span>
+        </button>
+        <button id="voiceBtn" class="btn-3d k-btn-dark px-2.5 py-2 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงพากย์กวนๆ"></button>
         <div class="vol-pill vol-pill-dark py-1.5 px-1.5 shrink-0" aria-label="ปรับระดับเสียง">
           <button id="muteBtn" type="button" data-vol-mute class="vol-step-btn" title="เปิด/ปิดเสียงทั้งหมด"></button>
           <button type="button" data-vol-down class="vol-step-btn" title="ลดเสียง">
@@ -136,6 +139,11 @@
           <span>ปล่อยคำถามโบนัส</span>
         </button>
 
+        <button id="chaosBtn" class="btn-3d px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap text-white" style="background:#c026d3;box-shadow:inset 0 2px 0 rgba(255,255,255,0.24),0 5px 0 #701a75" title="เปิดแผงอีเวนต์ป่วนห้องเพิ่มความตื่นเต้น!">
+          <span data-art-hero="chaosWheel" data-art-size="19" class="sqa-ico"></span>
+          <span>อีเวนต์ป่วนห้อง</span>
+        </button>
+
         <button id="giftAllBtn" class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap" title="สุ่มแจกไอเทมให้ผู้เล่นทุกคนคนละ 1 ชิ้นทันที">
           <span data-art-hero="giftBox" data-art-size="20" class="sqa-ico"></span>
           <span>แจกไอเทมทุกคน</span>
@@ -155,6 +163,21 @@
           <span data-art-ui="play" data-art-size="14" class="sqa-ico text-[#4ade80]"></span>
           <span>จำลองเล่นอัตโนมัติ</span>
         </button>
+      </div>
+    </section>
+
+    <!-- แถบ FEVER TIME x2 ทั้งห้อง! -->
+    <section id="activeFeverBar" class="hidden fever-bar rounded-[8px] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span data-art-hero="feverBolt" data-art-size="40" class="sqa-ico wiggle"></span>
+        <div>
+          <div class="font-display text-lg sm:text-2xl font-black tracking-wide leading-tight">FEVER TIME! คะแนน x2 ทั้งห้อง!</div>
+          <div class="text-xs sm:text-sm font-bold text-white/90">ตอบการ์ดทุกสีในช่วงนี้รับคะแนนคูณ 2 ทันที (ซ้อนกับไอเทม x2 ได้!)</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2.5 shrink-0">
+        <div id="hostFeverTimer" class="px-4 py-1.5 rounded-[6px] bg-[#1e1b2e] text-[#fde047] font-display font-black text-2xl tabular">01:00</div>
+        <button id="stopFeverBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-2 text-xs">ปิด Fever</button>
       </div>
     </section>
 
@@ -246,6 +269,56 @@
         </div>
       </aside>
     </main>
+  </div>
+
+  <!-- MODAL: อีเวนต์ป่วนห้อง (Chaos Events กันเด็กเบื่อ!) -->
+  <div id="chaosModal" class="overlay dim z-[186] hidden">
+    <div class="k-box max-w-xl w-full p-5 sm:p-6 pop-in border-t-8 border-[#c026d3]">
+      <div class="flex items-center justify-between gap-2 mb-4 pb-2.5 border-b-2 border-neutral-200">
+        <div class="flex items-center gap-2.5">
+          <span data-art-hero="chaosWheel" data-art-size="38" class="sqa-ico"></span>
+          <div>
+            <h3 class="font-display text-xl sm:text-2xl font-black text-[#333]">อีเวนต์ป่วนห้อง (Chaos Events!)</h3>
+            <p class="text-xs font-bold text-neutral-500">กดปล่อยจังหวะตื่นเต้นได้ทุกเมื่อ — พลิกเกมให้ทั้งห้องตื่นตัว!</p>
+          </div>
+        </div>
+        <button id="closeChaosModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center">✕</button>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-3">
+        <button id="evFeverBtn" type="button" class="btn-3d k-btn-red p-4 text-left flex items-start gap-3">
+          <span data-art-hero="feverBolt" data-art-size="40" class="sqa-ico shrink-0"></span>
+          <div>
+            <div class="font-display text-base font-black leading-tight">FEVER TIME x2</div>
+            <div class="text-xs text-white/90 font-semibold mt-1">คะแนนคูณสองทั้งห้อง 60 วินาที พร้อมเปิดเพลง Esports สุดมันส์!</div>
+          </div>
+        </button>
+
+        <button id="evUnderdogBtn" type="button" class="btn-3d k-btn-green p-4 text-left flex items-start gap-3">
+          <span data-art-hero="rocketBoost" data-art-size="40" class="sqa-ico shrink-0"></span>
+          <div>
+            <div class="font-display text-base font-black leading-tight">พลังฮึดท้ายตาราง</div>
+            <div class="text-xs text-white/90 font-semibold mt-1">แจกฟรี +150 แต้ม + ไอเทมโจมตี 1 ชิ้น ให้ครึ่งล่างของกระดาน!</div>
+          </div>
+        </button>
+
+        <button id="evFreezeTopBtn" type="button" class="btn-3d k-btn-blue p-4 text-left flex items-start gap-3">
+          <span data-art-item="freeze" data-art-size="40" class="sqa-ico shrink-0"></span>
+          <div>
+            <div class="font-display text-base font-black leading-tight">พายุแช่แข็งจ่าฝูง</div>
+            <div class="text-xs text-white/90 font-semibold mt-1">แช่แข็งหน้าจออันดับ Top 3 ทันที ให้เพื่อนข้างหลังวิ่งแซง!</div>
+          </div>
+        </button>
+
+        <button id="evGiftRainBtn" type="button" class="btn-3d k-btn-yellow p-4 text-left flex items-start gap-3">
+          <span data-art-hero="giftBox" data-art-size="40" class="sqa-ico shrink-0"></span>
+          <div>
+            <div class="font-display text-base font-black leading-tight">ฝนไอเทมทั่วห้อง</div>
+            <div class="text-xs text-white/90 font-semibold mt-1">สุ่มแจกไอเทมป่วนเพื่อนให้ผู้เล่นทุกคนในห้องคนละ 1 ชิ้น!</div>
+          </div>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL: ดูอันดับผู้เล่นทั้งหมด 200+ คน พร้อมค้นหา -->

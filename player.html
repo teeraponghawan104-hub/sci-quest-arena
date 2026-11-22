@@ -134,6 +134,9 @@
             <span data-art-ui="music" data-art-size="13" class="sqa-ico"></span>
             <span>เพลง</span>
           </button>
+          <button type="button" data-bgm-next class="w-6 h-6 rounded-[5px] bg-white/15 hover:bg-white/25 text-[#ffa602] grid place-items-center shrink-0" title="เปลี่ยนเพลงถัดไป (6 สไตล์)">
+            <span data-art-ui="skipNext" data-art-size="13" class="sqa-ico"></span>
+          </button>
           <button id="gameVoiceBtn" type="button" class="px-2 py-1 rounded-[5px] bg-white/15 hover:bg-white/25 text-white text-[11px] font-extrabold inline-flex items-center gap-1" title="เปิด/ปิดเสียงพากย์กวนๆ">
             <span data-art-ui="mic" data-art-size="13" class="sqa-ico"></span>
             <span>พากย์</span>
@@ -169,6 +172,15 @@
         <div id="hdrTimer" class="bg-[#ffa602] text-[#333333] rounded-[4px] px-2.5 py-0.5 font-display font-black text-sm tabular leading-tight shrink-0">
           00:00
         </div>
+      </div>
+
+      <!-- แถบ FEVER TIME x2 ทั้งห้อง! -->
+      <div id="playerFeverBar" class="hidden fever-bar px-3 py-1.5 flex items-center justify-between gap-2">
+        <span class="font-display font-black text-xs sm:text-sm inline-flex items-center gap-1.5">
+          <span data-art-hero="feverBolt" data-art-size="20" class="sqa-ico"></span>
+          <span>FEVER TIME! คะแนน x2 ทั้งห้อง!</span>
+        </span>
+        <span id="playerFeverTimer" class="px-2 py-0.5 rounded-[4px] bg-[#1e1b2e] text-[#fde047] font-display font-black text-xs tabular">01:00</span>
       </div>
 
       <!-- สถานะบัฟ (x2 / โล่) -->
@@ -243,6 +255,25 @@
             <summary class="text-xs font-extrabold text-white cursor-pointer select-none">ดูรหัสการ์ดทั้งหมด 36 ใบ (คลิกเลือก)</summary>
             <div id="allCardsGrid" class="grid grid-cols-6 gap-1.5 mt-2.5"></div>
           </details>
+        </div>
+
+        <!-- แถบส่งสติกเกอร์เชียร์ขึ้นจอใหญ่ครู! (ลดความน่าเบื่อ คุยกับจอครูได้สดๆ) -->
+        <div class="k-panel px-3 py-2 flex items-center justify-between gap-2">
+          <span class="text-[11px] font-extrabold text-white/85 whitespace-nowrap">ส่งเชียร์ขึ้นจอครู:</span>
+          <div class="flex items-center gap-1.5">
+            <button type="button" data-react="fire" class="btn-3d bg-[#46178f] hover:bg-[#5c24b8] w-10 h-9 grid place-items-center" title="ไฟลุก!">
+              <span data-art-hero="reactFire" data-art-size="24" class="sqa-ico"></span>
+            </button>
+            <button type="button" data-react="laugh" class="btn-3d bg-[#46178f] hover:bg-[#5c24b8] w-10 h-9 grid place-items-center" title="ฮามาก!">
+              <span data-art-hero="reactLaugh" data-art-size="24" class="sqa-ico"></span>
+            </button>
+            <button type="button" data-react="clap" class="btn-3d bg-[#46178f] hover:bg-[#5c24b8] w-10 h-9 grid place-items-center" title="ปรบมือ!">
+              <span data-art-hero="reactClap" data-art-size="24" class="sqa-ico"></span>
+            </button>
+            <button type="button" data-react="shock" class="btn-3d bg-[#46178f] hover:bg-[#5c24b8] w-10 h-9 grid place-items-center" title="ช็อก!">
+              <span data-art-hero="reactShock" data-art-size="24" class="sqa-ico"></span>
+            </button>
+          </div>
         </div>
       </section>
 

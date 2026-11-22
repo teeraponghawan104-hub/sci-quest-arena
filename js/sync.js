@@ -16,7 +16,7 @@
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
 
   function defaultRoom(c) {
@@ -24,6 +24,7 @@ const Sync = (() => {
     return {
       code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
       timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false, timerEpoch: 1,
+      feverId: '', feverRemainingSec: 0,
       players: {}, feed: {}, bonus: null, usedBonus: {}
     };
   }
@@ -34,6 +35,7 @@ const Sync = (() => {
     p.answered = p.answered || {};
     p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered).length);
     p.score = Number(p.score || 0);
+    p.streak = Number(p.streak || 0);
     p.isBot = !!p.isBot;
     p.x2Active = !!p.x2Active;
     p.frozen = !!p.frozen;
@@ -66,6 +68,8 @@ const Sync = (() => {
     r.timerRemainingMs = Number(r.timerRemainingMs || 0);
     r.timerRunning = !!r.timerRunning;
     r.timerEpoch = Number(r.timerEpoch || 1);
+    r.feverId = r.feverId || '';
+    r.feverRemainingSec = Math.max(0, Number(r.feverRemainingSec || 0));
     if (r.bonus) {
       r.bonus.answered = r.bonus.answered || {};
       r.bonus.durationSec = Number(r.bonus.durationSec || 20);
@@ -134,8 +138,9 @@ const Sync = (() => {
       const ansCnt = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered || {}).length);
       const jOff = Math.round(((p.joinedAt || baseT) - baseT) / 100);
       const uOff = (p.updatedAt || baseT) - baseT;
+      const streak = Number(p.streak || 0);
       const tup = [p.id, p.name, p.avatar || 0, p.score || 0, ansCnt, jOff, uOff, p.rev || 0, p.hostRev || 0, flags, items || 0];
-      if (meta) tup.push(meta);
+      if (meta || streak) { tup.push(meta || 0); if (streak) tup.push(streak); }
       pArr.push(tup);
     }
 
@@ -153,6 +158,7 @@ const Sync = (() => {
       f: keepFeed
     };
     if (r.timerTotalSec) { wire.tt = r.timerTotalSec; wire.tr = r.timerRemainingMs || 0; wire.te = r.timerEpoch || 1; if (r.timerRunning) wire.tn = 1; }
+    if (r.feverId && r.feverRemainingSec > 0) { wire.fi = r.feverId; wire.fs = Math.ceil(r.feverRemainingSec); }
     if (r.status === 'ended' && r.endedAt) wire.en = r.endedAt;
     if (r.usedBonus && Object.keys(r.usedBonus).length) wire.ub = r.usedBonus;
     if (r.bonus) wire.b = r.bonus;
@@ -176,6 +182,7 @@ const Sync = (() => {
         name: t[1],
         avatar: t[2] || 0,
         score: t[3] || 0,
+        streak: t[12] || 0,
         answeredCount: t[4] || 0,
         joinedAt: baseT + (t[5] || 0) * 100,
         updatedAt: baseT + (t[6] || 0),
@@ -214,6 +221,8 @@ const Sync = (() => {
       timerRemainingMs: raw.tr || 0,
       timerRunning: !!raw.tn,
       timerEpoch: raw.te || 1,
+      feverId: raw.fi || '',
+      feverRemainingSec: raw.fs || 0,
       endedAt: raw.en || null,
       usedBonus: raw.ub || {},
       bonus: raw.b || null,
@@ -301,6 +310,8 @@ const Sync = (() => {
       timerRemainingMs: primary.timerRemainingMs || 0,
       timerRunning: !!primary.timerRunning,
       timerEpoch: primary.timerEpoch || Math.max(a.timerEpoch || 1, b.timerEpoch || 1),
+      feverId: primary.feverId || '',
+      feverRemainingSec: primary.feverRemainingSec || 0,
       endedAt: primary.status === 'ended' ? (primary.endedAt || a.endedAt || b.endedAt || null) : null,
       usedBonus: Object.assign({}, a.usedBonus || {}, b.usedBonus || {}),
       bonus: primary.bonus ? clean(primary.bonus) : null,
@@ -487,6 +498,7 @@ const Sync = (() => {
     topicPing(c)   { return `${this.prefix()}/room/${c || code}/ping`; },
     topicSelfie(c) { return `${this.prefix()}/room/${c || code}/selfie`; },
     topicDirect(pid, c) { return `${this.prefix()}/room/${c || code}/d/${pid}`; },
+    topicReact(c)  { return `${this.prefix()}/room/${c || code}/react`; },
 
     async ensureMqtt() {
       if (window.mqtt) return true;
@@ -532,6 +544,9 @@ const Sync = (() => {
             }
             if (r.bonus && typeof lt.bonusRemainingSec === 'number') {
               r.bonus.remainingSec = lt.bonusRemainingSec;
+            }
+            if (r.feverId && typeof lt.feverRemainingSec === 'number') {
+              r.feverRemainingSec = lt.feverRemainingSec;
             }
           }
         }
@@ -606,6 +621,15 @@ const Sync = (() => {
       this.publishDirect(pid, { patch });
     },
 
+    sendReaction(kind, senderName) {
+      if (!kind) return;
+      const msg = { k: kind, n: String(senderName || '').slice(0, 16) };
+      if (this.bc) { try { this.bc.postMessage({ t: 'react', k: msg.k, n: msg.n }); } catch (e) {} }
+      if (this.client && this.client.connected) {
+        try { this.client.publish(this.topicReact(code), JSON.stringify(msg), { qos: 0, retain: false }); } catch (e) {}
+      }
+    },
+
     startMqttClient(brokerIdx, onInitialDone) {
       const brokers = (cfg.cloud && cfg.cloud.brokers && cfg.cloud.brokers.length)
         ? cfg.cloud.brokers
@@ -618,6 +642,7 @@ const Sync = (() => {
       const tPatch = this.topicPatch(code);
       const tPing = this.topicPing(code);
       const tSelfie = this.topicSelfie(code);
+      const tReact = this.topicReact(code);
       this.lastPingReplyAt = 0;
       this.subbedDirectPid = null;
 
@@ -643,7 +668,7 @@ const Sync = (() => {
           failCount = 0;
           emitConn('connected');
           // Zero Fan-Out Storm: มือถือผู้เล่นรับเฉพาะ /state + ช่องส่วนตัว /d/<pid> (ไม่รับ /patch ของเพื่อนอีก 199 คน!)
-          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie] : [tState];
+          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie, tReact] : [tState];
           if (!isHostRole && myPlayerId) {
             subs.push(this.topicDirect(myPlayerId));
             this.subbedDirectPid = myPlayerId;
@@ -669,6 +694,15 @@ const Sync = (() => {
         });
 
         this.client.on('message', (topic, payload) => {
+          if (topic === tReact) {
+            if (isHostRole && reactCb) {
+              try {
+                const m = JSON.parse(payload.toString());
+                if (m && m.k) reactCb(m.k, m.n || '');
+              } catch (e) {}
+            }
+            return;
+          }
           if (topic === tPing) {
             if (isHostRole && this.cur && Date.now() - this.lastPingReplyAt > 3000) {
               this.lastPingReplyAt = Date.now();
@@ -882,6 +916,7 @@ const Sync = (() => {
         this.bc.onmessage = ev => {
           const d = ev && ev.data;
           if (d && d.t === 'selfie' && isHostRole && selfieCb) { selfieCb(d.pid, d.photo); return; }
+          if (d && d.t === 'react' && isHostRole && reactCb) { reactCb(d.k, d.n || ''); return; }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId && selfieReqCb) { selfieReqCb(); return; }
           emit(this.read());
         };
@@ -896,6 +931,9 @@ const Sync = (() => {
     },
     requestSelfie(pid) {
       if (this.bc) { try { this.bc.postMessage({ t: 'reqSelfie', pid }); } catch (e) {} }
+    },
+    sendReaction(kind, senderName) {
+      if (this.bc) { try { this.bc.postMessage({ t: 'react', k: kind, n: String(senderName || '').slice(0, 16) }); } catch (e) {} }
     },
     async exists(c) { return !!this.read(c); },
     async transact(fn, allowCreate) {
@@ -1147,6 +1185,7 @@ const Sync = (() => {
       selfieCb = opts.onSelfie || null;
       selfieReqCb = opts.onSelfieRequest || null;
       brokerChangeCb = opts.onBrokerChange || null;
+      reactCb = opts.onReaction || null;
       pinnedBrokerIdx = Number(opts.brokerIdx || 0) || 0;
       myPlayerId = opts.playerId || null;
       adapter = pick();
@@ -1158,9 +1197,10 @@ const Sync = (() => {
     sendSelfie: (pid, photo) => adapter && adapter.sendSelfie && adapter.sendSelfie(pid, photo),
     requestSelfie: pid => adapter && adapter.requestSelfie && adapter.requestSelfie(pid),
     sendDirectPlayer: (pid, pObj) => adapter && adapter.sendDirectPlayer && adapter.sendDirectPlayer(pid, pObj),
+    sendReaction: (kind, senderName) => adapter && adapter.sendReaction && adapter.sendReaction(kind, senderName),
     disconnect() {
       if (adapter) adapter.disconnect();
-      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null;
+      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null; reactCb = null;
       myPlayerId = null; last = null;
     },
     defaultRoom,

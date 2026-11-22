@@ -139,6 +139,10 @@ function feedView(e) {
     case 'selfieApproved': return { emoji: uiIconHtml('check', 15), tone: 'green', html: `ครูอนุมัติรูปหน้าตลกของ ${A} ให้เล่นต่อได้!` };
     case 'selfieRejected': return { emoji: uiIconHtml('refresh', 14), tone: 'red', html: `ครูสั่งให้ ${A} ถ่ายรูปหน้าตลกใหม่ (ยังไม่ฮาพอ!)` };
     case 'giftAll': return { emoji: heroIconHtml('giftBox', 19), tone: 'amber', html: `<b>ครูแจกไอเทมสุ่มให้ทุกคนในห้องแล้ว!</b>` };
+    case 'fever': return { emoji: heroIconHtml('feverBolt', 19), tone: 'red', html: `<b>FEVER TIME x2!</b> คะแนนคูณสองทั้งห้อง ${e.sec || 60} วินาที!` };
+    case 'underdog': return { emoji: heroIconHtml('rocketBoost', 19), tone: 'green', html: `<b>พลังฮึดท้ายตาราง!</b> แจก +150 แต้ม + ไอเทมโจมตีให้ ${e.count || 0} คนท้ายตาราง!` };
+    case 'freezeTop': return { emoji: itemIconHtml('freeze', 19), tone: 'cyan', html: `<b>พายุแช่แข็งจ่าฝูง!</b> แช่แข็ง Top 3 บนกระดานคะแนน!` };
+    case 'streak': return { emoji: heroIconHtml('flame', 19), tone: 'amber', html: `${A} <b>ไฟลุก! คอมโบ ${e.streak} ข้อติด</b> (+${e.bonus || 0} โบนัส!)` };
     case 'block': {
       const atkLabel = { steal: 'การขโมย', freeze: 'พายุน้ำแข็ง', blind: 'ระเบิดหมอก', flip: 'ไวรัสกลับหัว', zap: 'สายฟ้าฟาด', selfie: 'กล้องแชะหน้าตลก' }[e.kind] || 'การโจมตี';
       return { emoji: itemIconHtml('shield', 19), tone: 'blue', html: `${B} ใช้โล่กัน${atkLabel}ของ ${A}!`, attack: true };
@@ -259,23 +263,44 @@ function ensureAudioMixerModal() {
     { ch: 'sfx',    title: 'เสียงเอฟเฟกต์ (SFX)',      sub: 'ปุ่มกด / ตอบถูก / ไอเทมป่วนเพื่อน', color: '#26890c', icon: 'bolt' },
     { ch: 'voice',  title: 'เสียงพากย์พิธีกร (Voice)', sub: 'เสียงพากย์สดบรรยายจังหวะสำคัญ', color: '#c026d3', icon: 'mic' }
   ];
+  const trackCards = (window.SFX && SFX.tracks ? SFX.tracks : []).map(t => `
+    <button type="button" data-bgm-pick="${t.id}" class="text-left p-2 rounded-[6px] border-2 border-neutral-200 bg-white hover:border-[#46178f] transition flex items-center gap-2 min-w-0">
+      <span class="w-7 h-7 rounded-[5px] text-white grid place-items-center shrink-0 shadow-[0_2px_0_rgba(0,0,0,0.22)]" style="background:${t.color}">${uiIconHtml('music', 13)}</span>
+      <div class="min-w-0">
+        <div class="font-display font-extrabold text-[11px] text-[#333] leading-tight truncate">${esc(t.name)}</div>
+        <div class="text-[10px] font-bold text-neutral-500 truncate">${esc(t.tag)} • ${esc(t.bpm)}</div>
+      </div>
+    </button>
+  `).join('');
+
   modal = document.createElement('div');
   modal.id = 'audioMixerModal';
-  modal.className = 'overlay dim z-[240] hidden';
+  modal.className = 'overlay dim z-[240] hidden overflow-y-auto';
   modal.innerHTML = `
-    <div class="k-box max-w-md w-full p-5 pop-in border-t-8 border-[#ffa602]">
-      <div class="flex items-center justify-between gap-2 pb-3 mb-3.5 border-b-2 border-neutral-200">
+    <div class="k-box max-w-md w-full p-4 sm:p-5 pop-in border-t-8 border-[#ffa602] my-auto max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b-2 border-neutral-200">
         <div class="flex items-center gap-2.5">
           <span class="w-10 h-10 rounded-[8px] bg-[#46178f] text-[#ffa602] grid place-items-center shadow-[0_3px_0_#25076b]">${uiIconHtml('sliders', 20)}</span>
           <div>
-            <h3 class="font-display text-lg sm:text-xl font-black text-[#333] leading-tight">ปรับระดับเสียงแยกช่อง</h3>
-            <p class="text-[11px] font-bold text-neutral-500">แตะไอคอนด้านซ้ายเพื่อเปิด/ปิดเฉพาะช่อง หรือเลื่อนปรับความดัง</p>
+            <h3 class="font-display text-lg sm:text-xl font-black text-[#333] leading-tight">ปรับเสียง & เลือกเพลงประกอบ</h3>
+            <p class="text-[11px] font-bold text-neutral-500">ปรับความดังแยก 4 ช่อง และเปลี่ยนสไตล์เพลงได้ 6 แนว</p>
           </div>
         </div>
         <button type="button" data-mixer-close class="btn-3d k-btn-dark w-9 h-9 grid place-items-center text-sm shrink-0">✕</button>
       </div>
 
-      <div class="space-y-3">
+      <!-- เลือกเพลงประกอบ 6 สไตล์ -->
+      <div class="mb-3 p-2.5 rounded-[8px] bg-neutral-100 border-2 border-neutral-200">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-extrabold uppercase text-[#333] inline-flex items-center gap-1.5">
+            ${uiIconHtml('music', 14, 'text-[#46178f]')}<span>สไตล์เพลงประกอบ (6 เพลง)</span>
+          </span>
+          <span data-bgm-cur-name class="text-[11px] font-black text-[#46178f]"></span>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">${trackCards}</div>
+      </div>
+
+      <div class="space-y-2.5">
         ${rows.map(r => `
           <div class="rounded-[8px] bg-neutral-100 border-2 border-neutral-200 p-2.5 space-y-2" data-mixer-row="${r.ch}">
             <div class="flex items-center justify-between gap-2">
@@ -346,6 +371,12 @@ function ensureAudioMixerModal() {
       if (ch === 'sfx' || ch === 'master') SFX.click();
     });
   });
+  modal.querySelectorAll('[data-bgm-pick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tr = SFX.setBgmTrack(btn.dataset.bgmPick);
+      if (tr) toast(`${uiIconHtml('music', 15)}<span>เปลี่ยนเพลงเป็น <b>${esc(tr.name)}</b> (${esc(tr.tag)})</span>`, 'info', 2000);
+    });
+  });
   return modal;
 }
 
@@ -380,9 +411,21 @@ function syncVolumeControls() {
     btn.disabled = pct >= 100 && !SFX.muted;
   });
 
+  // ซิงก์ชื่อเพลงปัจจุบัน + ปุ่มใน Mixer
+  const curTrack = SFX.bgmTrack;
+  document.querySelectorAll('[data-bgm-cur-name]').forEach(el => {
+    if (curTrack) el.textContent = curTrack.name;
+  });
+
   // ซิงก์แถบแยกปรับเสียง 4 ช่อง (Master / BGM / SFX / Voice)
   const modal = document.getElementById('audioMixerModal');
   if (modal) {
+    modal.querySelectorAll('[data-bgm-pick]').forEach(btn => {
+      const active = curTrack && btn.dataset.bgmPick === curTrack.id;
+      btn.className = active
+        ? 'text-left p-2 rounded-[6px] border-2 border-[#46178f] bg-[#f3e8ff] ring-2 ring-[#ffa602] transition flex items-center gap-2 min-w-0'
+        : 'text-left p-2 rounded-[6px] border-2 border-neutral-200 bg-white hover:border-[#46178f] transition flex items-center gap-2 min-w-0';
+    });
     ['master', 'bgm', 'sfx', 'voice'].forEach(ch => {
       const chPct = SFX.getChannelPct(ch);
       const pctEl = modal.querySelector(`[data-ch-pct="${ch}"]`);
@@ -429,6 +472,14 @@ function initVolumeControls() {
     if (btn.dataset.volBound) return;
     btn.dataset.volBound = '1';
     btn.addEventListener('click', openAudioMixer);
+  });
+  document.querySelectorAll('[data-bgm-next]').forEach(btn => {
+    if (btn.dataset.volBound) return;
+    btn.dataset.volBound = '1';
+    btn.addEventListener('click', () => {
+      const tr = SFX.nextBgmTrack();
+      if (tr) toast(`${uiIconHtml('music', 15)}<span>เปลี่ยนเพลง: <b>${esc(tr.name)}</b> (${esc(tr.tag)})</span>`, 'info', 2000);
+    });
   });
   document.querySelectorAll('[data-vol-label]').forEach(el => {
     if (el.dataset.volBound) return;

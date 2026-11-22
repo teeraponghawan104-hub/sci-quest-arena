@@ -36,7 +36,7 @@ const Game = (() => {
       items[ITEM_KEYS[rand(ITEM_KEYS.length)]] = 1;
       items.selfie = (items.selfie || 0) + 1;
       return {
-        id, name, avatar, isBot, score: 0, items,
+        id, name, avatar, isBot, score: 0, streak: 0, items,
         x2Active: false,
         frozen: false, frozenBy: '',
         blinded: false, blindedBy: '',
@@ -54,18 +54,49 @@ const Game = (() => {
       const me = room.players[pid];
       if (!me || (me.answered && me.answered[q.id])) return null;
       me.answered = me.answered || {};
+      const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
       let pts = Math.round(COLORS[q.color].points * mult), doubled = false;
+      if (isFever) { pts *= 2; doubled = true; }
       if (me.x2Active) { pts *= 2; doubled = true; me.x2Active = false; }
-      me.score += pts;
-      me.answered[q.id] = pts;
+
+      // ระบบคอมโบตอบถูกต่อเนื่อง (Hot Streak!) + ดรอปไอเทมฟรีทุก 3 ข้อติด!
+      let streakBonus = 0, streakItem = null;
+      if (acc >= 50) {
+        me.streak = (me.streak || 0) + 1;
+        if (me.streak === 2) streakBonus = 30;
+        else if (me.streak === 3) streakBonus = 60;
+        else if (me.streak === 4) streakBonus = 80;
+        else if (me.streak >= 5) streakBonus = 100;
+        if (me.streak >= 3 && me.streak % 3 === 0 && !item) {
+          streakItem = ITEM_KEYS[rand(ITEM_KEYS.length)];
+        }
+      } else {
+        me.streak = 0;
+      }
+
+      const totalPts = pts + streakBonus;
+      const rewardItem = item || streakItem;
+      me.score += totalPts;
+      me.answered[q.id] = totalPts;
       me.answeredCount = Math.max(Number(me.answeredCount || 0) + 1, Object.keys(me.answered).length);
       touch(me, false);
-      Sync.pushFeed(room, { type: 'score', ...feedBase(me, pid), pts, color: q.color, acc, doubled });
-      if (item) {
-        me.items[item] = (me.items[item] || 0) + 1;
-        Sync.pushFeed(room, { type: 'item', ...feedBase(me, pid), item, src: 'red' });
+      Sync.pushFeed(room, { type: 'score', ...feedBase(me, pid), pts: totalPts, color: q.color, acc, doubled, fever: isFever, streak: me.streak });
+      if (me.streak >= 3) {
+        Sync.pushFeed(room, { type: 'streak', ...feedBase(me, pid), streak: me.streak, bonus: streakBonus });
       }
-      return { pts, doubled };
+      if (rewardItem) {
+        me.items[rewardItem] = (me.items[rewardItem] || 0) + 1;
+        Sync.pushFeed(room, { type: 'item', ...feedBase(me, pid), item: rewardItem, src: streakItem ? 'streak' : 'red' });
+      }
+      return { pts: totalPts, doubled, fever: isFever, streak: me.streak, streakBonus, rewardItem, fromStreak: !!streakItem };
+    },
+
+    resetStreak(room, pid) {
+      const me = room.players[pid];
+      if (!me || !me.streak) return false;
+      me.streak = 0;
+      touch(me, false);
+      return true;
     },
 
     useX2(room, pid) {
@@ -186,6 +217,55 @@ const Game = (() => {
       });
       Sync.pushFeed(room, { type: 'giftAll' });
       return list.length;
+    },
+
+    triggerFever(room, sec = 60) {
+      if (!room) return false;
+      if (room.status === 'lobby' || room.status === 'paused') room.status = 'playing';
+      room.feverId = 'fv_' + uid();
+      room.feverRemainingSec = sec;
+      room.hostUpdatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'fever', sec });
+      return true;
+    },
+
+    triggerUnderdogBoost(room) {
+      const ranked = this.ranking(room);
+      if (ranked.length < 2) return 0;
+      const startIdx = Math.max(1, Math.floor(ranked.length / 2));
+      const atkPool = ['steal', 'freeze', 'blind', 'flip', 'zap', 'selfie'];
+      const targets = ranked.slice(startIdx);
+      targets.forEach(p => {
+        p.score += 150;
+        const it = atkPool[rand(atkPool.length)];
+        p.items[it] = (p.items[it] || 0) + 1;
+        touch(p, true);
+      });
+      room.hostUpdatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'underdog', count: targets.length });
+      return targets.length;
+    },
+
+    triggerFreezeTop(room) {
+      const ranked = this.ranking(room);
+      if (!ranked.length) return 0;
+      const top = ranked.slice(0, Math.min(3, ranked.length));
+      let frozenCount = 0;
+      top.forEach(p => {
+        if ((p.items.shield || 0) > 0) {
+          p.items.shield--;
+          touch(p, true);
+          Sync.pushFeed(room, { type: 'block', a: 'พายุครู', b: p.name, kind: 'freeze' });
+        } else {
+          p.frozen = true;
+          p.frozenBy = 'พายุแช่แข็งจ่าฝูง';
+          touch(p, true);
+          frozenCount++;
+        }
+      });
+      room.hostUpdatedAt = Date.now();
+      Sync.pushFeed(room, { type: 'freezeTop', count: frozenCount });
+      return top.length;
     },
 
     applyBonusWin(room, pid, bid, acc, item) {

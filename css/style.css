@@ -634,6 +634,32 @@ html, body {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.32), 0 0 0 2px rgba(30, 27, 46, 0.25);
 }
 
+/* ---------- โหมด FEVER TIME x2 & Classroom Live Reactions ---------- */
+@keyframes feverPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+.fever-bar {
+  background: linear-gradient(90deg, #e21b3c 0%, #f97316 50%, #e21b3c 100%);
+  color: #ffffff;
+  border: 2px solid #fde047;
+  box-shadow: 0 5px 0 #9c1128;
+  animation: feverPulse 1.2s ease-in-out infinite;
+}
+@keyframes reactFloatUp {
+  0%   { transform: translateY(0) scale(0.5) rotate(-8deg); opacity: 0; }
+  15%  { transform: translateY(-35px) scale(1.1) rotate(5deg); opacity: 1; }
+  75%  { transform: translateY(-230px) scale(1) rotate(-4deg); opacity: 0.95; }
+  100% { transform: translateY(-320px) scale(0.85) rotate(6deg); opacity: 0; }
+}
+.react-bubble {
+  position: fixed;
+  bottom: 24px;
+  z-index: 165;
+  pointer-events: none;
+  animation: reactFloatUp 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* ---------- Scanner ---------- */
 #reader video { border-radius: 6px; }
 #reader { border: none !important; }

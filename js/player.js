@@ -187,6 +187,26 @@
   let playerBonusLastTickAt = 0;
   let bonusExpiredLocal = false;
 
+  let playerFeverId = '';
+  let playerFeverRemMs = 0;
+  let playerFeverLastTickAt = 0;
+  let lastReactAt = 0;
+
+  function sendQuickReaction(kind) {
+    const now = Date.now();
+    if (now - lastReactAt < 1800) return;
+    lastReactAt = now;
+    const me = Sync.room && Sync.room.players[myId];
+    SFX.pop();
+    Sync.sendReaction(kind, me ? me.name : '');
+    const map = { fire: 'reactFire', laugh: 'reactLaugh', clap: 'reactClap', shock: 'reactShock' };
+    toast(`${heroIconHtml(map[kind] || 'reactFire', 22)}<span>ส่งเสียงเชียร์ขึ้นจอใหญ่ครูแล้ว!</span>`, 'info', 1400);
+  }
+  document.addEventListener('click', e => {
+    const btn = e.target && e.target.closest ? e.target.closest('[data-react]') : null;
+    if (btn) sendQuickReaction(btn.dataset.react);
+  });
+
   let prevScore = null;
   let prevShields = null;
   let prevZappedAt = 0;
@@ -298,6 +318,9 @@
     el.questionPanel.classList.add('hidden');
     el.scanPanel.classList.remove('hidden');
     el.hdrTimerBar?.classList.add('hidden');
+    $('playerFeverBar')?.classList.add('hidden');
+    playerFeverId = '';
+    playerFeverRemMs = 0;
     playerMatchSyncedOnce = false;
     playerTimerEpoch = 0;
     showView('login');
@@ -608,6 +631,7 @@
       SFX.wrong();
       SFX.announce('gradeMiss');
       bump(el.gradeResult, 'shake');
+      Sync.transact(r => { if (r) Game.resetStreak(r, myId); return r; });
       el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#e21b3c] text-white font-extrabold';
       el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองเพิ่มคำสำคัญแล้วส่งใหม่ได้เลย!';
       return;
@@ -629,21 +653,31 @@
 
     const pts = applied ? applied.pts : Math.round(COLORS[currentQ.color].points * res.multiplier);
     const doubled = applied ? applied.doubled : false;
+    const streak = applied ? (applied.streak || 0) : 0;
+    const streakBonus = applied ? (applied.streakBonus || 0) : 0;
+    const finalItem = (applied && applied.rewardItem) || luckyItem;
+    const fromStreak = !!(applied && applied.fromStreak);
     if (res.accuracy >= 80) { SFX.correct(); SFX.announce('gradePerfect'); }
     else if (res.accuracy >= 50) { SFX.partial(); SFX.announce('gradeClose'); }
     else { SFX.partial(); SFX.announce('gradePartial'); }
 
-    el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#26890c] text-white font-extrabold flex items-center justify-between';
+    el.gradeOutcomeBox.className = 'rounded-[5px] p-3 text-sm bg-[#26890c] text-white font-extrabold flex items-center justify-between gap-2';
+    const streakTag = streak >= 2
+      ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#f97316] text-white text-[11px] font-black ml-1">${uiIconHtml('flameMini', 12, 'text-[#fde047]')} ${streak}× (+${streakBonus})</span>`
+      : '';
     el.gradeOutcomeBox.innerHTML = `
-      <span>ถูกต้อง! คะแนนที่ได้รับ</span>
-      <span class="font-display text-xl font-black">+${pts}${doubled ? ' <span class="x2tag text-xs">x2!</span>' : ''}</span>`;
+      <span>ถูกต้อง! คะแนนที่ได้รับ${streakTag}</span>
+      <span class="font-display text-xl font-black shrink-0">+${pts}${doubled ? ' <span class="x2tag text-xs">x2!</span>' : ''}</span>`;
 
     el.modelAnswerText.textContent = currentQ.model;
     el.modelAnswerBox.classList.remove('hidden');
     el.nextCardBtn.classList.remove('hidden');
 
-    if (luckyItem) {
-      setTimeout(() => showMysteryBox(luckyItem, 'โบนัสพิเศษจากการ์ดสีแดง!'), 650);
+    if (finalItem) {
+      const boxTitle = fromStreak
+        ? `คอมโบไฟลุก ${streak} ข้อติด! รับกล่องสุ่มฟรี!`
+        : 'โบนัสพิเศษจากการ์ดสีแดง!';
+      setTimeout(() => showMysteryBox(finalItem, boxTitle), 650);
     }
   });
 
@@ -1134,6 +1168,16 @@
         }
       }
     }
+    const fBar = $('playerFeverBar');
+    const fTxt = $('playerFeverTimer');
+    if (fBar && fTxt) {
+      if (playerFeverId && playerFeverRemMs > 0 && Sync.room && Sync.room.status !== 'ended') {
+        fBar.classList.remove('hidden');
+        fTxt.textContent = formatClock(playerFeverRemMs);
+      } else {
+        fBar.classList.add('hidden');
+      }
+    }
   }
 
   // ตัวนับเวลาฝั่งมือถือผู้เล่น (ลื่นไหลทุก 200ms ไม่พึ่งนาฬิกาเครื่องข้ามอุปกรณ์)
@@ -1155,6 +1199,14 @@
       playerBonusRemMs = Math.max(0, playerBonusRemMs - dt);
     } else {
       playerBonusLastTickAt = now;
+    }
+
+    if (room.status === 'playing' && playerFeverId && room.feverId === playerFeverId) {
+      const dt = playerFeverLastTickAt ? Math.min(1000, now - playerFeverLastTickAt) : 0;
+      playerFeverLastTickAt = now;
+      playerFeverRemMs = Math.max(0, playerFeverRemMs - dt);
+    } else {
+      playerFeverLastTickAt = now;
     }
     renderPlayerTimers();
   }, 200);
@@ -1225,6 +1277,23 @@
     } else {
       playerMatchSyncedOnce = false;
     }
+
+    // ซิงก์ช่วง FEVER TIME x2 จาก Host แบบไม่พึ่งนาฬิกาเครื่องข้ามอุปกรณ์
+    if (room.feverId && (room.feverRemainingSec || 0) > 0 && room.status !== 'ended') {
+      const incRem = Number(room.feverRemainingSec) * 1000;
+      if (playerFeverId !== room.feverId) {
+        playerFeverId = room.feverId;
+        playerFeverRemMs = incRem;
+        playerFeverLastTickAt = Date.now();
+        SFX.fanfare();
+        toast(`${heroIconHtml('feverBolt', 20)}<span>FEVER TIME! ตอบการ์ดได้คะแนน x2 ทั้งห้อง!</span>`, 'error', 3400);
+      } else if (incRem < playerFeverRemMs - 2500 || incRem > playerFeverRemMs + 4500) {
+        playerFeverRemMs = incRem;
+      }
+    } else {
+      playerFeverId = '';
+      playerFeverRemMs = 0;
+    }
     renderPlayerTimers();
 
     const ranked = Game.ranking(room);
@@ -1255,6 +1324,7 @@
     prevShields = curShields;
 
     const pills = [];
+    if ((me.streak || 0) >= 2) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#f97316] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${uiIconHtml('flameMini', 14, 'text-[#fde047]')}<span>ไฟลุก! คอมโบ ${me.streak} ข้อติด</span></span>`);
     if (me.x2Active) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#d89e00] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${itemIconHtml('x2', 15)}<span>คูณสองพร้อมทำงาน (ข้อถัดไป x2)</span></span>`);
     if (curShields > 0) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#1368ce] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${itemIconHtml('shield', 15)}<span>โล่ป้องกัน x${curShields}</span></span>`);
     el.buffPills.innerHTML = pills.join('');
@@ -1385,17 +1455,28 @@
     }
     prevZappedAt = me.zappedAt || Date.now();
 
+    const lobbyReactBar = `
+      <div class="pt-2 border-t border-neutral-200 mt-2">
+        <div class="text-[11px] font-extrabold text-neutral-500 mb-1.5">ระหว่างรอ กดส่งสติกเกอร์เชียร์ขึ้นจอใหญ่ครูได้นะ!</div>
+        <div class="flex items-center justify-center gap-2">
+          <button type="button" data-react="fire" class="btn-3d k-btn-red w-12 h-11 grid place-items-center">${heroIconHtml('reactFire', 28)}</button>
+          <button type="button" data-react="laugh" class="btn-3d k-btn-yellow w-12 h-11 grid place-items-center">${heroIconHtml('reactLaugh', 28)}</button>
+          <button type="button" data-react="clap" class="btn-3d k-btn-green w-12 h-11 grid place-items-center">${heroIconHtml('reactClap', 28)}</button>
+          <button type="button" data-react="shock" class="btn-3d k-btn-blue w-12 h-11 grid place-items-center">${heroIconHtml('reactShock', 28)}</button>
+        </div>
+      </div>`;
+
     if (room.status === 'lobby') {
       el.stateIcon.innerHTML = heroIconHtml('party', 80);
       el.stateTitle.textContent = "You're in! เข้าห้องแล้ว!";
       el.stateDesc.textContent = `เห็นชื่อของคุณบนหน้าจอครูไหม? รอครูกดเริ่มเกมสักครู่ (${ranked.length} คนในห้อง)`;
-      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36)}<span>${esc(me.name)}</span></div>`;
+      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36)}<span>${esc(me.name)}</span></div>${lobbyReactBar}`;
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'paused') {
       el.stateIcon.innerHTML = heroIconHtml('pauseIcon', 76);
       el.stateTitle.textContent = 'เกมหยุดชั่วคราว';
       el.stateDesc.textContent = 'เงยหน้าดูหน้าจอครูสักครู่นะ เดี๋ยวกลับมาลุยต่อ!';
-      el.stateExtra.innerHTML = '';
+      el.stateExtra.innerHTML = lobbyReactBar;
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'ended') {
       clearPlayerSession(roomCode);
@@ -1428,13 +1509,15 @@
       }
     }
 
-    // เพลงประกอบตามสถานะเกม (เปิดเพลงทันทีตั้งแต่เข้าหน้าเว็บ/Lobby และเปลี่ยนเพลงเร้าใจเมื่อมีโจทย์โบนัส!)
+    // เพลงประกอบตามสถานะเกม (เปิดเพลงทันทีตั้งแต่เข้าหน้าเว็บ/Lobby และเปลี่ยนเพลงเร้าใจเมื่อมีโจทย์โบนัสหรือ Fever!)
     if (room.status === 'ended') {
       SFX.startBgm('podium');
     } else if (room.status === 'paused') {
       SFX.stopBgm();
     } else if (room.bonus) {
       SFX.startBgm('bonus');
+    } else if (room.feverId && (room.feverRemainingSec || 0) > 0) {
+      SFX.startBgm('fever');
     } else {
       SFX.startBgm('play');
     }
