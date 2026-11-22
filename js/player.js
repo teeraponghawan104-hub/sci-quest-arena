@@ -1360,6 +1360,7 @@
       if (b.status === 'active') {
         loadNextBossWave(b.key);
         SFX.drum();
+        SFX.announce('bossStart');
         toast(`${heroIconHtml('bossRaid', 20)}<span>บอส ${esc(meta.name)} บุกห้อง! ช่วยกันตอบคำถามปราบด่วน!</span>`, 'error', 3600);
       }
     } else if (b.status === 'active') {
@@ -1428,6 +1429,7 @@
         if (ov.classList.contains('hidden') || !ov.dataset.winConfetti || ov.dataset.winConfetti !== b.id) {
           ov.dataset.winConfetti = b.id;
           SFX.fanfare();
+          SFX.announce('bossWin');
           confetti(2800, 120);
         }
         iconEl.innerHTML = heroIconHtml('trophy', 86, 'crown-float');
@@ -1573,6 +1575,7 @@
         playerFeverRemMs = incRem;
         playerFeverLastTickAt = Date.now();
         SFX.fanfare();
+        SFX.announce('fever');
         toast(`${heroIconHtml('feverBolt', 20)}<span>FEVER TIME! ตอบการ์ดได้คะแนน x2 ทั้งห้อง!</span>`, 'error', 3400);
       } else if (incRem < playerFeverRemMs - 2500 || incRem > playerFeverRemMs + 4500) {
         playerFeverRemMs = incRem;
