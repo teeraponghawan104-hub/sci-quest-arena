@@ -90,7 +90,7 @@
   refreshJoinLinks(0);
 
   function syncMute() {
-    el.muteBtn.innerHTML = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 18);
+    syncVolumeControls();
     const bgmBtn = $('bgmBtn');
     const voiceBtn = $('voiceBtn');
     if (bgmBtn) {
@@ -103,7 +103,8 @@
     }
   }
   syncMute();
-  el.muteBtn.addEventListener('click', () => { SFX.toggleMute(); syncMute(); });
+  SFX.onChange(syncMute);
+  SFX.startBgm('play');
   $('bgmBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleBgm(); syncMute(); });
   $('voiceBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleVoice(); syncMute(); });
 
@@ -813,7 +814,7 @@
         SFX.stopBgm();
       } else if (room.bonus) {
         SFX.startBgm('bonus');
-      } else if (room.status === 'playing') {
+      } else {
         SFX.startBgm('play');
       }
     }

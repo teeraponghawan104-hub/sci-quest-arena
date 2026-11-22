@@ -245,7 +245,65 @@ function initFullscreenButtons() {
   document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
   syncFullscreenButtons();
 }
-document.addEventListener('DOMContentLoaded', initFullscreenButtons);
+function speakerIconName() {
+  if (!window.SFX || SFX.muted || SFX.volumePct <= 0) return 'speakerOff';
+  return SFX.volumePct < 50 ? 'speakerLow' : 'speakerOn';
+}
+
+function syncVolumeControls() {
+  if (!window.SFX) return;
+  const pct = SFX.volumePct;
+  const ico = uiIconHtml(speakerIconName(), 16);
+  document.querySelectorAll('[data-vol-mute]').forEach(btn => {
+    const ic = btn.querySelector('[data-vol-icon]');
+    if (ic) ic.innerHTML = ico;
+    else btn.innerHTML = ico;
+    btn.title = SFX.muted ? 'เปิดเสียง' : 'ปิดเสียง';
+  });
+  document.querySelectorAll('[data-vol-label]').forEach(el => {
+    el.textContent = `${pct}%`;
+  });
+  document.querySelectorAll('[data-vol-slider]').forEach(inp => {
+    if (document.activeElement !== inp) inp.value = String(pct);
+  });
+  document.querySelectorAll('[data-vol-down]').forEach(btn => {
+    btn.disabled = pct <= 0;
+  });
+  document.querySelectorAll('[data-vol-up]').forEach(btn => {
+    btn.disabled = pct >= 100 && !SFX.muted;
+  });
+}
+
+function initVolumeControls() {
+  if (!window.SFX) return;
+  document.querySelectorAll('[data-vol-mute]').forEach(btn => {
+    if (btn.dataset.volBound) return;
+    btn.dataset.volBound = '1';
+    btn.addEventListener('click', () => SFX.toggleMute());
+  });
+  document.querySelectorAll('[data-vol-down]').forEach(btn => {
+    if (btn.dataset.volBound) return;
+    btn.dataset.volBound = '1';
+    btn.addEventListener('click', () => SFX.volumeDown(0.1));
+  });
+  document.querySelectorAll('[data-vol-up]').forEach(btn => {
+    if (btn.dataset.volBound) return;
+    btn.dataset.volBound = '1';
+    btn.addEventListener('click', () => SFX.volumeUp(0.1));
+  });
+  document.querySelectorAll('[data-vol-slider]').forEach(inp => {
+    if (inp.dataset.volBound) return;
+    inp.dataset.volBound = '1';
+    inp.addEventListener('input', () => SFX.setVolume(Number(inp.value) / 100, true));
+    inp.addEventListener('change', () => { if (SFX.volumePct > 0) SFX.click(); });
+  });
+  SFX.onChange(syncVolumeControls);
+  syncVolumeControls();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  initFullscreenButtons();
+  initVolumeControls();
+});
 
 /* สร้างภาพหน้าตลกการ์ตูน Vector-Style บน Canvas (ไม่ใช้ OS Emoji!) */
 function makeFunnyFaceDataUrl(name = 'Player', avIdx = 0) {

@@ -545,6 +545,68 @@ html, body {
 }
 .zap-flash { animation: zapFlash 0.55s ease-out; }
 
+/* ---------- ปุ่มควบคุมเพิ่ม-ลดเสียง (Tactile Volume Pill & Slider) ---------- */
+.vol-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), 0 5px 0 rgba(0, 0, 0, 0.32);
+  user-select: none;
+}
+.vol-pill-dark {
+  background: #333333;
+  color: #ffffff;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), 0 5px 0 #141414;
+}
+.vol-pill-white {
+  background: #ffffff;
+  color: #333333;
+  box-shadow: inset 0 2px 0 #ffffff, 0 5px 0 #b5b5b5;
+}
+.vol-step-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.06s;
+}
+.vol-pill-dark .vol-step-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.vol-pill-white .vol-step-btn:hover { background: #e5e7eb; }
+.vol-step-btn:active { transform: scale(0.9); }
+.vol-step-btn:disabled { opacity: 0.35; pointer-events: none; }
+
+.vol-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.22);
+  outline: none;
+  cursor: pointer;
+}
+.vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  background: #ffa602;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.vol-range::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  background: #ffa602;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
 /* ---------- Scanner ---------- */
 #reader video { border-radius: 6px; }
 #reader { border: none !important; }

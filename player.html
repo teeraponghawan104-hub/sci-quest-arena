@@ -30,17 +30,26 @@
 
   <!-- ===================== VIEW 1: LOGIN (สไตล์ kahoot.it แท้) ===================== -->
   <main id="loginView" class="relative z-10 max-w-md mx-auto min-h-screen px-4 py-4 flex flex-col justify-between">
-    <div class="flex items-center justify-between">
-      <a href="index.html" class="btn-3d k-btn-dark px-3 py-1.5 text-xs flex items-center gap-1">
+    <div class="flex items-center justify-between gap-1.5">
+      <a href="index.html" class="btn-3d k-btn-dark px-2.5 py-1.5 text-xs flex items-center gap-1 shrink-0">
         <i data-lucide="arrow-left" class="w-4 h-4"></i>
         <span>หน้าแรก</span>
       </a>
-      <span id="loginModeBadge" class="bg-[#25076b] border border-white/15 px-2.5 py-1 rounded-[5px] text-[11px] font-extrabold uppercase"></span>
-      <div class="flex items-center gap-1.5">
-        <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark w-9 h-8 grid place-items-center" title="เปิดโหมดเต็มจอ">
+      <span id="loginModeBadge" class="bg-[#25076b] border border-white/15 px-2 py-1 rounded-[5px] text-[10px] font-extrabold uppercase whitespace-nowrap"></span>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark w-8 h-8 grid place-items-center" title="เปิดโหมดเต็มจอ">
           <span data-fs-icon class="sqa-ico"></span>
         </button>
-        <button id="loginMuteBtn" class="btn-3d k-btn-dark w-9 h-8 grid place-items-center" title="เปิด/ปิดเสียง"></button>
+        <div class="vol-pill vol-pill-dark !py-0.5 !px-1" aria-label="ปรับระดับเสียง">
+          <button id="loginMuteBtn" type="button" data-vol-mute class="vol-step-btn !w-6 !h-6" title="เปิด/ปิดเสียง"></button>
+          <button type="button" data-vol-down class="vol-step-btn !w-6 !h-6" title="ลดเสียง">
+            <span data-art-ui="minus" data-art-size="13" class="sqa-ico"></span>
+          </button>
+          <span data-vol-label class="font-display font-black text-[11px] w-8 text-center tabular text-[#ffa602]">75%</span>
+          <button type="button" data-vol-up class="vol-step-btn !w-6 !h-6" title="เพิ่มเสียง">
+            <span data-art-ui="plus" data-art-size="13" class="sqa-ico"></span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -103,20 +112,38 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-1 shrink-0">
-          <div class="bg-[#241f35] text-white rounded-[5px] px-2 py-1 text-right shadow-[0_2px_0_rgba(0,0,0,0.3)]">
-            <div id="hdrScore" class="font-display font-black text-sm sm:text-lg leading-tight tabular">0</div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <div class="bg-[#241f35] text-white rounded-[5px] px-2.5 py-1 text-right shadow-[0_2px_0_rgba(0,0,0,0.3)]">
+            <div id="hdrScore" class="font-display font-black text-base sm:text-lg leading-tight tabular">0</div>
           </div>
-          <button id="gameBgmBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเพลงประกอบ">
-            <span data-art-ui="music" data-art-size="14" class="sqa-ico"></span>
-          </button>
-          <button id="gameVoiceBtn" type="button" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเสียงพากย์กวนๆ">
-            <span data-art-ui="mic" data-art-size="14" class="sqa-ico"></span>
-          </button>
-          <button type="button" data-fullscreen-btn class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิดโหมดเต็มจอ">
+          <button type="button" data-fullscreen-btn class="w-8 h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิดโหมดเต็มจอ">
             <span data-fs-icon class="sqa-ico"></span>
           </button>
-          <button id="gameMuteBtn" class="w-7 h-7 sm:w-8 sm:h-8 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-[#333] grid place-items-center" title="เปิด/ปิดเสียง"></button>
+        </div>
+      </div>
+
+      <!-- แถบควบคุมเสียง & เพลงประกอบ (เพิ่ม-ลดเสียงได้ทันทีทุกหน้าจอมือถือ) -->
+      <div class="bg-[#33106d] text-white px-2.5 py-1.5 border-b-2 border-black/25 flex items-center justify-between gap-2 shadow-sm">
+        <div class="flex items-center gap-1 shrink-0">
+          <button id="gameBgmBtn" type="button" class="px-2 py-1 rounded-[5px] bg-white/15 hover:bg-white/25 text-white text-[11px] font-extrabold inline-flex items-center gap-1" title="เปิด/ปิดเพลงประกอบ">
+            <span data-art-ui="music" data-art-size="13" class="sqa-ico"></span>
+            <span>เพลง</span>
+          </button>
+          <button id="gameVoiceBtn" type="button" class="px-2 py-1 rounded-[5px] bg-white/15 hover:bg-white/25 text-white text-[11px] font-extrabold inline-flex items-center gap-1" title="เปิด/ปิดเสียงพากย์กวนๆ">
+            <span data-art-ui="mic" data-art-size="13" class="sqa-ico"></span>
+            <span>พากย์</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-1 flex-1 justify-end min-w-0">
+          <button id="gameMuteBtn" type="button" data-vol-mute class="w-6 h-6 rounded-[4px] bg-white/15 hover:bg-white/25 text-white grid place-items-center shrink-0" title="เปิด/ปิดเสียง"></button>
+          <button type="button" data-vol-down class="w-6 h-6 rounded-[4px] bg-white/15 hover:bg-white/25 text-white grid place-items-center shrink-0" title="ลดเสียง">
+            <span data-art-ui="minus" data-art-size="13" class="sqa-ico"></span>
+          </button>
+          <input type="range" min="0" max="100" step="5" value="75" data-vol-slider aria-label="ระดับเสียง" class="vol-range w-16 sm:w-20 shrink" />
+          <button type="button" data-vol-up class="w-6 h-6 rounded-[4px] bg-white/15 hover:bg-white/25 text-white grid place-items-center shrink-0" title="เพิ่มเสียง">
+            <span data-art-ui="plus" data-art-size="13" class="sqa-ico"></span>
+          </button>
+          <span data-vol-label class="font-display font-black text-[11px] text-[#ffa602] w-8 text-right tabular shrink-0">75%</span>
         </div>
       </div>
 

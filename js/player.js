@@ -139,16 +139,15 @@
   }
 
   function syncMute() {
-    const ic = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 16);
-    el.loginMuteBtn.innerHTML = ic;
-    el.gameMuteBtn.innerHTML = ic;
+    syncVolumeControls();
     const bBtn = $('gameBgmBtn');
     const vBtn = $('gameVoiceBtn');
     if (bBtn) bBtn.style.opacity = SFX.bgmOn && !SFX.muted ? '1' : '0.45';
     if (vBtn) vBtn.style.opacity = SFX.voiceOn && !SFX.muted ? '1' : '0.45';
   }
   syncMute();
-  [el.loginMuteBtn, el.gameMuteBtn].forEach(b => b.addEventListener('click', () => { SFX.toggleMute(); syncMute(); }));
+  SFX.onChange(syncMute);
+  SFX.startBgm('play');
   $('gameBgmBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleBgm(); syncMute(); });
   $('gameVoiceBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleVoice(); syncMute(); });
 
@@ -269,7 +268,7 @@
   function leaveRoomToLogin(notice = '') {
     stopScanner();
     stopSelfieCamera();
-    SFX.stopBgm();
+    SFX.startBgm('play');
     clearPlayerSession(roomCode);
     Sync.disconnect();
     myId = null;
@@ -1429,14 +1428,14 @@
       }
     }
 
-    // เพลงประกอบตามสถานะเกม (เล่นเพลงตื่นเต้นทันทีเมื่อมีโจทย์โบนัสพิเศษ!)
+    // เพลงประกอบตามสถานะเกม (เปิดเพลงทันทีตั้งแต่เข้าหน้าเว็บ/Lobby และเปลี่ยนเพลงเร้าใจเมื่อมีโจทย์โบนัส!)
     if (room.status === 'ended') {
       SFX.startBgm('podium');
-    } else if (room.status === 'paused' || room.status === 'lobby') {
+    } else if (room.status === 'paused') {
       SFX.stopBgm();
     } else if (room.bonus) {
       SFX.startBgm('bonus');
-    } else if (room.status === 'playing') {
+    } else {
       SFX.startBgm('play');
     }
 

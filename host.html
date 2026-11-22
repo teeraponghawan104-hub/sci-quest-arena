@@ -19,7 +19,7 @@
 
   <div class="relative z-10 w-full max-w-[2200px] mx-auto px-3 sm:px-5 lg:px-6 py-3 lg:py-4 flex flex-col min-h-screen gap-3 lg:gap-4">
     <!-- ===================== KAHOOT! TOP PIN BANNER ===================== -->
-    <header class="flex flex-col xl:flex-row items-stretch justify-between gap-3">
+    <header class="flex flex-col 2xl:flex-row items-stretch justify-between gap-3">
       <!-- แผงขาวคู่สไตล์ Kahoot Lobby (Join at + Game PIN + QR) -->
       <div class="flex flex-wrap sm:flex-nowrap items-stretch gap-2.5 flex-1 min-w-0">
         <!-- ปุ่มกลับหน้าแรก -->
@@ -31,7 +31,7 @@
         <div class="k-box px-4 py-2.5 flex flex-col justify-center flex-1 min-w-[230px]">
           <div class="text-xs font-bold text-neutral-500">เข้าร่วมผ่านมือถือได้ที่:</div>
           <div class="flex items-center gap-2 mt-0.5 flex-wrap sm:flex-nowrap">
-            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-lg xl:text-2xl text-[#1368ce] hover:underline whitespace-nowrap">
+            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-lg 2xl:text-2xl text-[#1368ce] hover:underline whitespace-nowrap">
               เปิดหน้าผู้เล่น (คลิก) ↗
             </a>
             <button id="copyLinkBtn" class="btn-3d k-btn-dark px-3 py-1.5 text-xs whitespace-nowrap shrink-0" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
@@ -48,22 +48,22 @@
         </div>
 
         <!-- กล่องกลาง: Game PIN ยักษ์ -->
-        <div class="k-box px-5 xl:px-7 py-2 flex flex-col justify-center shrink-0">
+        <div class="k-box px-5 2xl:px-7 py-2 flex flex-col justify-center shrink-0">
           <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN:</div>
-          <div id="roomPinText" class="font-display text-4xl sm:text-6xl xl:text-7xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
+          <div id="roomPinText" class="font-display text-4xl sm:text-6xl 2xl:text-7xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
         </div>
 
         <!-- กล่องขวา: QR Code -->
         <button id="openQrBtn" class="k-box p-2 flex items-center gap-2 hover:brightness-95 transition shrink-0" title="คลิกเพื่อขยาย QR Code เต็มจอ">
-          <div id="qrPreview" class="w-16 h-16 sm:w-20 sm:h-20 xl:w-24 xl:h-24 bg-white grid place-items-center"></div>
+          <div id="qrPreview" class="w-16 h-16 sm:w-20 sm:h-20 2xl:w-24 2xl:h-24 bg-white grid place-items-center"></div>
         </button>
       </div>
 
-      <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวเต็มตาบนจอใหญ่) -->
-      <div class="flex items-center justify-between xl:justify-end gap-2 flex-wrap xl:flex-nowrap shrink-0">
+      <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวบน 1080p+, เรียง 2 แถวสะอาดตาบน 720p) -->
+      <div class="flex items-center justify-between 2xl:justify-end gap-2 flex-wrap 2xl:flex-nowrap shrink-0">
         <div class="flex items-center gap-2 px-1 shrink-0">
           <span data-art-hero="brandSpark" data-art-size="40" class="sqa-ico drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
-          <div class="k-logo text-3xl sm:text-4xl xl:text-5xl whitespace-nowrap">Sci-Quest!</div>
+          <div class="k-logo text-3xl sm:text-4xl 2xl:text-5xl whitespace-nowrap">Sci-Quest!</div>
         </div>
         <button id="fsBtn" type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิดโหมดเต็มจอ (กดปุ่ม F)">
           <span data-fs-icon class="sqa-ico"></span>
@@ -79,12 +79,21 @@
         </button>
         <button id="bgmBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเพลงประกอบ"></button>
         <button id="voiceBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงพากย์กวนๆ"></button>
-        <button id="muteBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-base flex items-center justify-center whitespace-nowrap shrink-0" title="เปิด/ปิดเสียงทั้งหมด"></button>
+        <div class="vol-pill vol-pill-dark py-1.5 px-1.5 shrink-0" aria-label="ปรับระดับเสียง">
+          <button id="muteBtn" type="button" data-vol-mute class="vol-step-btn" title="เปิด/ปิดเสียงทั้งหมด"></button>
+          <button type="button" data-vol-down class="vol-step-btn" title="ลดเสียง">
+            <span data-art-ui="minus" data-art-size="14" class="sqa-ico"></span>
+          </button>
+          <span data-vol-label class="font-display font-black text-xs w-9 text-center tabular text-[#ffa602]">75%</span>
+          <button type="button" data-vol-up class="vol-step-btn" title="เพิ่มเสียง">
+            <span data-art-ui="plus" data-art-size="14" class="sqa-ico"></span>
+          </button>
+        </div>
       </div>
     </header>
 
     <!-- ===================== KAHOOT! CONTROL BAR ===================== -->
-    <section class="k-panel flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5 px-3.5 py-3">
+    <section class="k-panel flex flex-wrap 2xl:flex-nowrap items-center justify-between gap-2.5 px-3.5 py-3">
       <!-- จำนวนผู้เล่น + สถานะ + ระบบกำหนดเวลาเกม -->
       <div class="flex flex-wrap items-center gap-2 shrink-0">
         <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[6px] font-display font-extrabold text-sm sm:text-base whitespace-nowrap inline-flex items-center gap-1.5 shadow-[0_3px_0_#141414]">
@@ -113,7 +122,7 @@
       </div>
 
       <!-- ปุ่มควบคุมหลักของครู (4 สี Kahoot!) -->
-      <div class="flex flex-wrap xl:flex-nowrap items-center gap-2">
+      <div class="flex flex-wrap 2xl:flex-nowrap items-center gap-2">
         <button id="playPauseBtn" class="btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5 whitespace-nowrap">
           <i data-lucide="play" class="w-5 h-5"></i>
           <span>เริ่มเกม!</span>

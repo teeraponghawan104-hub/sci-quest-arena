@@ -16,17 +16,27 @@ const SFX = (() => {
   let muted = localStorage.getItem('sqa_muted') === '1';
   let bgmOn = localStorage.getItem('sqa_bgm') !== '0';
   let voiceOn = localStorage.getItem('sqa_voice') !== '0';
+  let volume = (() => {
+    const str = localStorage.getItem('sqa_volume');
+    if (str === null || str === '') return 0.75;
+    const raw = Number(str);
+    return Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : 0.75;
+  })();
+  let isDucked = false;
 
   let bgmMode = 'none'; // 'none' | 'play' | 'bonus' | 'podium'
   let bgmSource = null;
   let bgmAudioEl = null;
+  let bgmReqId = 0;
   let currentVo = null;
   let lastVoAt = 0;
+  let autoplayBlocked = false;
 
   const sfxBuffers = new Map();
   const sfxLoading = new Map();
   const sfxLastPlayed = new Map();
   const voCache = new Map();
+  const listeners = new Set();
 
   const SFX_LIST = [
     'click', 'pop', 'join', 'correct', 'partial', 'wrong', 'coin', 'item',
@@ -34,19 +44,57 @@ const SFX = (() => {
     'dizzy', 'zap', 'potion', 'bonus', 'fanfare', 'drum', 'shutter'
   ];
 
+  const effVol = () => (muted ? 0 : volume);
+  const bgmWebGain = () => (isDucked ? 0.12 : 0.38) * effVol();
+  const bgmElVol = () => Math.max(0, Math.min(1, (isDucked ? 0.10 : 0.34) * effVol()));
+  const voElVol = () => Math.max(0, Math.min(1, effVol() * 1.15));
+
+  function applyGains() {
+    if (master) master.gain.value = effVol();
+    if (bgmGain) bgmGain.gain.value = bgmWebGain();
+    if (bgmAudioEl) bgmAudioEl.volume = bgmElVol();
+    if (currentVo) currentVo.volume = voElVol();
+  }
+
+  function notifyChange() {
+    listeners.forEach(fn => { try { fn(); } catch (e) {} });
+  }
+
+  function hideUnlockHint() {
+    autoplayBlocked = false;
+    const el = document.getElementById('audioUnlockHint');
+    if (el) el.remove();
+  }
+
+  function showUnlockHint() {
+    if (muted || !bgmOn || volume <= 0 || bgmMode === 'none') return;
+    autoplayBlocked = true;
+    if (!document.body || document.getElementById('audioUnlockHint')) return;
+    const box = document.createElement('button');
+    box.id = 'audioUnlockHint';
+    box.type = 'button';
+    box.className = 'pop-in btn-3d k-btn-yellow fixed top-3 left-1/2 -translate-x-1/2 z-[245] px-4 py-2 text-xs sm:text-sm flex items-center gap-2 border-2 border-white whitespace-nowrap';
+    const ico = window.SQA_ART ? SQA_ART.uiSvg('music', 15) : '';
+    box.innerHTML = `<span class="w-6 h-6 rounded-full bg-[#241f35] text-[#ffa602] grid place-items-center shrink-0 wiggle">${ico}</span><span>แตะเพื่อเปิดเพลงประกอบ</span>`;
+    box.addEventListener('click', () => {
+      SFX.unlock();
+      hideUnlockHint();
+    });
+    document.body.appendChild(box);
+  }
+
   function ac() {
     try {
       if (!ctx) {
         ctx = new (window.AudioContext || window.webkitAudioContext)();
         master = ctx.createGain();
-        master.gain.value = 0.75;
         master.connect(ctx.destination);
         bgmGain = ctx.createGain();
-        bgmGain.gain.value = 0.30;
         bgmGain.connect(ctx.destination);
+        applyGains();
         preloadAllSfx();
       }
-      if (ctx.state === 'suspended') ctx.resume();
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     } catch (e) { return null; }
     return ctx;
   }
@@ -72,7 +120,7 @@ const SFX = (() => {
   }
 
   function playSfx(name, vol = 0.85, rate = 1.0) {
-    if (muted) return;
+    if (muted || volume <= 0) return;
     // กันเสียงซ้อนถี่เกินไปเมื่อมีผู้เล่น 200 เครื่องเข้าห้องหรือได้คะแนนพร้อมกัน
     const now = Date.now();
     const minGap = (name === 'crack' || name === 'click') ? 35 : 130;
@@ -112,8 +160,9 @@ const SFX = (() => {
     });
   }
 
-  /* ---------------- 🎵 Studio Stereo BGM Loops ---------------- */
+  /* ---------------- Studio Stereo BGM Loops (Instant Auto-Start + Autoplay Fallback) ---------------- */
   function stopBgmNode() {
+    bgmReqId++;
     if (bgmSource) {
       try { bgmSource.stop(); bgmSource.disconnect(); } catch (e) {}
       bgmSource = null;
@@ -124,46 +173,83 @@ const SFX = (() => {
     }
   }
 
-  async function startBgm(mode = 'play') {
-    if (bgmMode === mode && (bgmSource || bgmAudioEl)) return;
+  async function startBgm(mode = 'play', fromGesture = false) {
+    const isPlayingNow = !!(bgmSource || (bgmAudioEl && !bgmAudioEl.paused));
+    if (bgmMode === mode && isPlayingNow) return;
     bgmMode = mode;
     stopBgmNode();
-    if (mode === 'none' || !bgmOn || muted) return;
+    if (mode === 'none' || !bgmOn || muted || volume <= 0) {
+      hideUnlockHint();
+      return;
+    }
 
+    const reqId = ++bgmReqId;
     const track = { play: 'bgm_play', bonus: 'bgm_bonus', podium: 'bgm_podium' }[mode] || 'bgm_play';
     const url = `audio/sfx/${track}.mp3`;
-    const c = ac();
-    const buf = await loadBuffer(url);
-    // ตรวจสอบว่าสถานะยังไม่เปลี่ยนระหว่างรอโหลด
-    if (bgmMode !== mode || !bgmOn || muted) return;
 
-    if (c && buf) {
-      try {
-        stopBgmNode();
-        const src = c.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        src.connect(bgmGain);
-        src.start(0);
-        bgmSource = src;
-        return;
-      } catch (e) {}
+    // ถ้า AudioContext พร้อมทำงานแล้ว (หรือปลดล็อกจากการแตะหน้าจอ) -> เล่นผ่าน Web Audio Loop ไร้รอยต่อ
+    if (fromGesture || (ctx && ctx.state === 'running')) {
+      const c = ac();
+      if (c && c.state === 'suspended') {
+        try { await c.resume(); } catch (e) {}
+      }
+      if (c && c.state === 'running') {
+        const buf = await loadBuffer(url);
+        if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0) return;
+        if (buf) {
+          try {
+            stopBgmNode();
+            const src = c.createBufferSource();
+            src.buffer = buf;
+            src.loop = true;
+            src.connect(bgmGain);
+            applyGains();
+            src.start(0);
+            bgmSource = src;
+            hideUnlockHint();
+            return;
+          } catch (e) {}
+        }
+      }
     }
+
+    // โหมดเข้าหน้าเว็บครั้งแรก -> ลองเล่นทันทีผ่าน HTML5 Audio (เล่นเลยทันทีหากเบราว์เซอร์อนุญาต!)
     if (typeof Audio !== 'undefined') {
       try {
-        stopBgmNode();
         const a = new Audio(url);
         a.loop = true;
-        a.volume = 0.25;
-        bgmAudioEl = a;
-        a.play().catch(() => {});
-      } catch (e) {}
+        a.volume = bgmElVol();
+        const p = a.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0) {
+              try { a.pause(); } catch (e) {}
+              return;
+            }
+            stopBgmNode();
+            bgmAudioEl = a;
+            applyGains();
+            hideUnlockHint();
+          }).catch(() => {
+            try { a.pause(); } catch (e) {}
+            if (reqId === bgmReqId && bgmMode === mode && bgmOn && !muted && volume > 0) {
+              showUnlockHint();
+            }
+          });
+        } else {
+          bgmAudioEl = a;
+          hideUnlockHint();
+        }
+      } catch (e) {
+        showUnlockHint();
+      }
     }
   }
 
   function stopBgm() {
     bgmMode = 'none';
     stopBgmNode();
+    hideUnlockHint();
   }
 
   /* ---------------- เสียงพากย์ธรรมชาติ (Neural Thai Voice MP3) ---------------- */
@@ -190,14 +276,13 @@ const SFX = (() => {
   }
 
   function setDucking(duck) {
-    const vol = duck ? 0.10 : 0.30;
-    if (bgmGain) bgmGain.gain.value = vol;
-    if (bgmAudioEl) bgmAudioEl.volume = duck ? 0.08 : 0.25;
+    isDucked = !!duck;
+    applyGains();
   }
 
   function playVoClip(filename, bubbleText, priority = false) {
     if (bubbleText) showMcBubble(bubbleText);
-    if (muted || !voiceOn || !filename || typeof Audio === 'undefined') return;
+    if (muted || volume <= 0 || !voiceOn || !filename || typeof Audio === 'undefined') return;
     const now = Date.now();
     if (!priority && now - lastVoAt < 1800) return;
     lastVoAt = now;
@@ -213,7 +298,7 @@ const SFX = (() => {
         voCache.set(filename, audio);
       }
       audio.currentTime = 0;
-      audio.volume = 0.95;
+      audio.volume = voElVol();
       currentVo = audio;
       setDucking(true);
       audio.onended = () => setDucking(false);
@@ -429,11 +514,16 @@ const SFX = (() => {
     }
   }
 
-  return {
+  const api = {
     unlock() {
       const c = ac();
-      if (bgmMode !== 'none' && bgmOn && !muted && !bgmSource && !bgmAudioEl) {
-        const m = bgmMode; bgmMode = 'none'; startBgm(m);
+      if (c && c.state === 'suspended') c.resume().catch(() => {});
+      hideUnlockHint();
+      const isPlayingNow = !!(bgmSource || (bgmAudioEl && !bgmAudioEl.paused));
+      if (bgmMode !== 'none' && bgmOn && !muted && volume > 0 && !isPlayingNow) {
+        const m = bgmMode;
+        bgmMode = 'none';
+        startBgm(m, true);
       }
       return c;
     },
@@ -464,37 +554,91 @@ const SFX = (() => {
     stopBgm,
     speak: playVoClip,
     announce,
+    onChange(fn) { if (typeof fn === 'function') listeners.add(fn); },
 
-    get muted() { return muted; },
+    get muted() { return muted || volume <= 0; },
     get bgmOn() { return bgmOn; },
     get voiceOn() { return voiceOn; },
+    get volume() { return volume; },
+    get volumePct() { return muted ? 0 : Math.round(volume * 100); },
+    get autoplayBlocked() { return autoplayBlocked; },
+
+    setVolume(v, silent = false) {
+      const next = Math.max(0, Math.min(1, Math.round(Number(v) * 100) / 100));
+      volume = next;
+      localStorage.setItem('sqa_volume', String(volume));
+      if (volume > 0 && muted) {
+        muted = false;
+        localStorage.setItem('sqa_muted', '0');
+      }
+      applyGains();
+      if (volume <= 0) {
+        stopBgmNode();
+        if (currentVo) currentVo.pause();
+        hideUnlockHint();
+      } else if (bgmMode !== 'none' && bgmOn && !bgmSource && !(bgmAudioEl && !bgmAudioEl.paused)) {
+        const m = bgmMode; bgmMode = 'none'; startBgm(m, true);
+      }
+      if (!silent && volume > 0) this.click();
+      notifyChange();
+      return volume;
+    },
+    volumeUp(step = 0.1) {
+      const base = muted ? 0 : volume;
+      return this.setVolume(Math.min(1, Math.round((base + step) * 20) / 20));
+    },
+    volumeDown(step = 0.1) {
+      const base = muted ? 0 : volume;
+      return this.setVolume(Math.max(0, Math.round((base - step) * 20) / 20));
+    },
 
     toggleMute() {
-      muted = !muted;
-      localStorage.setItem('sqa_muted', muted ? '1' : '0');
-      if (muted) {
+      if (muted || volume <= 0) {
+        muted = false;
+        if (volume <= 0) {
+          volume = 0.75;
+          localStorage.setItem('sqa_volume', String(volume));
+        }
+        localStorage.setItem('sqa_muted', '0');
+        applyGains();
+        this.click();
+        if (bgmMode !== 'none' && bgmOn) { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
+      } else {
+        muted = true;
+        localStorage.setItem('sqa_muted', '1');
         if (currentVo) currentVo.pause();
         stopBgmNode();
-      } else {
-        this.click();
-        if (bgmMode !== 'none' && bgmOn) { const m = bgmMode; bgmMode = 'none'; startBgm(m); }
+        hideUnlockHint();
+        applyGains();
       }
+      notifyChange();
       return muted;
     },
     toggleBgm() {
       bgmOn = !bgmOn;
       localStorage.setItem('sqa_bgm', bgmOn ? '1' : '0');
-      if (!bgmOn) stopBgmNode();
-      else if (bgmMode !== 'none') { const m = bgmMode; bgmMode = 'none'; startBgm(m); }
+      if (!bgmOn) { stopBgmNode(); hideUnlockHint(); }
+      else if (bgmMode !== 'none') { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
+      notifyChange();
       return bgmOn;
     },
     toggleVoice() {
       voiceOn = !voiceOn;
       localStorage.setItem('sqa_voice', voiceOn ? '1' : '0');
       if (!voiceOn && currentVo) currentVo.pause();
-      else if (voiceOn) playVoClip('voice_on.mp3', '🎙️ เปิดเสียงพากย์พิธีกรสนามแล้วค่ะ!', true);
+      else if (voiceOn) playVoClip('voice_on.mp3', 'เปิดเสียงพากย์พิธีกรสนามแล้วค่ะ!', true);
+      notifyChange();
       return voiceOn;
     }
   };
+  return api;
 })();
-document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
+window.SFX = SFX;
+['pointerdown', 'touchstart', 'keydown'].forEach(ev => {
+  document.addEventListener(ev, () => {
+    if (window.SFX && (SFX.autoplayBlocked || !document._sqaUnlocked)) {
+      document._sqaUnlocked = true;
+      SFX.unlock();
+    }
+  }, { passive: true });
+});

@@ -24,10 +24,16 @@
         <span data-fs-icon class="sqa-ico"></span>
         <span data-fs-text class="hidden sm:inline">เต็มจอ</span>
       </button>
-      <button id="muteBtn" class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5" title="เปิด/ปิดเสียง">
-        <span id="muteIcon" class="sqa-ico"></span>
-        <span id="muteText" class="hidden sm:inline">เสียง</span>
-      </button>
+      <div class="vol-pill vol-pill-white" aria-label="ปรับระดับเสียง">
+        <button id="muteBtn" type="button" data-vol-mute class="vol-step-btn" title="เปิด/ปิดเสียง"></button>
+        <button type="button" data-vol-down class="vol-step-btn" title="ลดเสียง">
+          <span data-art-ui="minus" data-art-size="14" class="sqa-ico"></span>
+        </button>
+        <span data-vol-label class="font-display font-black text-xs w-9 text-center tabular">75%</span>
+        <button type="button" data-vol-up class="vol-step-btn" title="เพิ่มเสียง">
+          <span data-art-ui="plus" data-art-size="14" class="sqa-ico"></span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -137,14 +143,7 @@
   <script src="js/questions.js"></script>
   <script>
     document.getElementById('modeBadge').innerHTML = modeBadgeHtml();
-
-    const muteBtn = document.getElementById('muteBtn');
-    function syncMuteUI() {
-      document.getElementById('muteIcon').innerHTML = uiIconHtml(SFX.muted ? 'speakerOff' : 'speakerOn', 16);
-      document.getElementById('muteText').textContent = SFX.muted ? 'ปิดเสียง' : 'เสียง';
-    }
-    syncMuteUI();
-    muteBtn.addEventListener('click', () => { SFX.toggleMute(); syncMuteUI(); });
+    SFX.startBgm('play');
 
     document.getElementById('hostForm').addEventListener('submit', e => {
       e.preventDefault();
