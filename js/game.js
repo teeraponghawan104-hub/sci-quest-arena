@@ -221,7 +221,10 @@ const Game = (() => {
 
     triggerFever(room, sec = 60) {
       if (!room) return false;
-      if (room.status === 'lobby' || room.status === 'paused') room.status = 'playing';
+      if (room.status === 'lobby' || room.status === 'paused') {
+        room.status = 'playing';
+        if (room.timerTotalSec > 0) room.timerRunning = true;
+      }
       room.feverId = 'fv_' + uid();
       room.feverRemainingSec = sec;
       room.hostUpdatedAt = Date.now();
@@ -231,8 +234,12 @@ const Game = (() => {
 
     triggerUnderdogBoost(room) {
       const ranked = this.ranking(room);
-      if (ranked.length < 2) return 0;
-      const startIdx = Math.max(1, Math.floor(ranked.length / 2));
+      if (!ranked.length) return { count: 0, targets: [] };
+      if (room.status === 'lobby' || room.status === 'paused') {
+        room.status = 'playing';
+        if (room.timerTotalSec > 0) room.timerRunning = true;
+      }
+      const startIdx = ranked.length === 1 ? 0 : Math.floor(ranked.length / 2);
       const atkPool = ['steal', 'freeze', 'blind', 'flip', 'zap', 'selfie'];
       const targets = ranked.slice(startIdx);
       targets.forEach(p => {
@@ -243,18 +250,24 @@ const Game = (() => {
       });
       room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'underdog', count: targets.length });
-      return targets.length;
+      return { count: targets.length, targets };
     },
 
     triggerFreezeTop(room) {
       const ranked = this.ranking(room);
-      if (!ranked.length) return 0;
+      if (!ranked.length) return { total: 0, frozenCount: 0, blockedCount: 0, affected: [] };
+      if (room.status === 'lobby' || room.status === 'paused') {
+        room.status = 'playing';
+        if (room.timerTotalSec > 0) room.timerRunning = true;
+      }
       const top = ranked.slice(0, Math.min(3, ranked.length));
       let frozenCount = 0;
+      let blockedCount = 0;
       top.forEach(p => {
         if ((p.items.shield || 0) > 0) {
           p.items.shield--;
           touch(p, true);
+          blockedCount++;
           Sync.pushFeed(room, { type: 'block', a: 'พายุครู', b: p.name, kind: 'freeze' });
         } else {
           p.frozen = true;
@@ -265,7 +278,7 @@ const Game = (() => {
       });
       room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'freezeTop', count: frozenCount });
-      return top.length;
+      return { total: top.length, frozenCount, blockedCount, affected: top };
     },
 
     applyBonusWin(room, pid, bid, acc, item) {

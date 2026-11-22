@@ -276,7 +276,10 @@ const Sync = (() => {
     if (!pb) { const c = normalizePlayer(clean(pa), roundId); c.roundId = roundId; return c; }
 
     const revA = Number(pa.rev || 0), revB = Number(pb.rev || 0);
-    const bIsNewer = revB !== revA ? (revB > revA) : ((pb.updatedAt || 0) >= (pa.updatedAt || 0));
+    const hA = Number(pa.hostRev || 0), hB = Number(pb.hostRev || 0);
+    const bIsNewer = revB !== revA
+      ? (revB > revA)
+      : (hB !== hA ? (hB > hA) : ((pb.updatedAt || 0) >= (pa.updatedAt || 0)));
     const newer = clean(bIsNewer ? pb : pa);
     const older = bIsNewer ? pa : pb;
 
@@ -285,7 +288,6 @@ const Sync = (() => {
     newer.answeredCount = Math.max(Number(newer.answeredCount || 0), Number(older.answeredCount || 0), Object.keys(newer.answered).length);
 
     // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่)
-    const hA = Number(pa.hostRev || 0), hB = Number(pb.hostRev || 0);
     if (hA !== hB) {
       const hWin = hB > hA ? pb : pa;
       newer.selfieLocked = !!hWin.selfieLocked;
@@ -581,7 +583,7 @@ const Sync = (() => {
     publishState(r) {
       if (!this.client || !this.client.connected || !r) return;
       try {
-        // อัปเดตเวลาคงเหลือสดๆ จากนาฬิกา Host ทุกครั้งที่ Broadcast (กันเวลาบนมือถือเด็กดีดย้อนหลัง!)
+        // อัปเดตเวลาคงเหลือสดๆ จากนาฬิกา Host เฉพาะรายการที่ ID ตรงกัน (ป้องกันทับค่าอีเวนต์ใหม่เป็น 0!)
         if (isHostRole && liveTimerFn) {
           const lt = liveTimerFn();
           if (lt) {
@@ -589,13 +591,13 @@ const Sync = (() => {
               r.timerRemainingMs = lt.timerRemainingMs;
               r.timerRunning = !!lt.timerRunning;
             }
-            if (r.bonus && typeof lt.bonusRemainingSec === 'number') {
+            if (r.bonus && lt.bonusId && lt.bonusId === r.bonus.id && typeof lt.bonusRemainingSec === 'number') {
               r.bonus.remainingSec = lt.bonusRemainingSec;
             }
-            if (r.feverId && typeof lt.feverRemainingSec === 'number') {
+            if (r.feverId && lt.feverId && lt.feverId === r.feverId && typeof lt.feverRemainingSec === 'number') {
               r.feverRemainingSec = lt.feverRemainingSec;
             }
-            if (r.boss && r.boss.status === 'active' && typeof lt.bossRemainingSec === 'number') {
+            if (r.boss && r.boss.status === 'active' && lt.bossId && lt.bossId === r.boss.id && typeof lt.bossRemainingSec === 'number') {
               r.boss.remainingSec = lt.bossRemainingSec;
             }
           }

@@ -1082,14 +1082,19 @@
   $('giftAllBtn')?.addEventListener('click', async () => {
     SFX.item();
     let count = 0;
+    let giftedList = [];
     await Sync.transact(room => {
       if (!room) return;
       count = Game.giftRandomItemToAll(room);
       room.hostUpdatedAt = Date.now();
+      giftedList = Object.values(room.players || {});
       return room;
     });
     if (!count) toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
-    else toast(`${heroIconHtml('giftBox', 18)}<span>สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!</span>`, 'success');
+    else {
+      if (giftedList.length <= 30) giftedList.forEach(p => Sync.sendDirectPlayer(p.id, p));
+      toast(`${heroIconHtml('giftBox', 18)}<span>สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!</span>`, 'success');
+    }
   });
 
   // ===================== อัญเชิญบอสคำถามยักษ์ (Co-Op Boss Raid Summoner!) =====================
@@ -1198,6 +1203,11 @@
     await Sync.transact(room => {
       if (!room) return;
       Game.triggerFever(room, 60);
+      trackedFeverId = room.feverId;
+      feverRemainingMs = 60000;
+      feverLastTickAt = Date.now();
+      feverLastSyncAt = Date.now();
+      feverEnding = false;
       return room;
     });
     toast(`${heroIconHtml('feverBolt', 18)}<span>เปิดโหมด FEVER TIME x2 ทั้งห้อง 60 วินาที!</span>`, 'error', 3500);
@@ -1205,6 +1215,8 @@
 
   $('stopFeverBtn')?.addEventListener('click', async () => {
     SFX.click();
+    trackedFeverId = '';
+    feverRemainingMs = 0;
     await Sync.transact(room => {
       if (!room) return;
       room.feverId = '';
@@ -1217,32 +1229,58 @@
   $('evUnderdogBtn')?.addEventListener('click', async () => {
     chaosModal?.classList.add('hidden');
     SFX.item();
-    let cnt = 0;
+    let res = { count: 0, targets: [] };
     await Sync.transact(room => {
       if (!room) return;
-      cnt = Game.triggerUnderdogBoost(room);
+      res = Game.triggerUnderdogBoost(room);
       return room;
     });
-    if (!cnt) toast('ต้องมีผู้เล่นอย่างน้อย 2 คนในห้องก่อนนะ', 'warn');
-    else toast(`${heroIconHtml('rocketBoost', 18)}<span>ปล่อยพลังฮึดท้ายตารางให้ ${cnt} คนเรียบร้อย!</span>`, 'success', 3200);
+    if (!res.count) {
+      toast('ยังไม่มีผู้เล่นในห้องเลย ลองเชิญนักเรียนเข้าห้องก่อนนะ', 'warn');
+    } else {
+      res.targets.slice(0, 30).forEach(p => Sync.sendDirectPlayer(p.id, p));
+      toast(`${heroIconHtml('rocketBoost', 18)}<span>ปล่อยพลังฮึดท้ายตาราง (+150 แต้ม + ไอเทมโจมตี) ให้ ${res.count} คนเรียบร้อย!</span>`, 'success', 3400);
+    }
   });
 
   $('evFreezeTopBtn')?.addEventListener('click', async () => {
     chaosModal?.classList.add('hidden');
     SFX.freeze();
-    let cnt = 0;
+    let res = { total: 0, frozenCount: 0, blockedCount: 0, affected: [] };
     await Sync.transact(room => {
       if (!room) return;
-      cnt = Game.triggerFreezeTop(room);
+      res = Game.triggerFreezeTop(room);
       return room;
     });
-    if (!cnt) toast('ยังไม่มีผู้เล่นในห้องให้แช่แข็ง', 'warn');
-    else toast(`${itemIconHtml('freeze', 18)}<span>ปล่อยพายุแช่แข็งจ่าฝูง Top ${cnt} แล้ว!</span>`, 'ice', 3200);
+    if (!res.total) {
+      toast('ยังไม่มีผู้เล่นในห้องให้แช่แข็ง', 'warn');
+    } else {
+      res.affected.forEach(p => Sync.sendDirectPlayer(p.id, p));
+      const msg = res.blockedCount > 0
+        ? `พายุแช่แข็งจ่าฝูง! แช่แข็ง ${res.frozenCount} คน (ติดโล่กันไว้ ${res.blockedCount} คน)`
+        : `ปล่อยพายุแช่แข็งจ่าฝูง Top ${res.frozenCount} แล้ว!`;
+      toast(`${itemIconHtml('freeze', 18)}<span>${msg}</span>`, 'ice', 3400);
+    }
   });
 
-  $('evGiftRainBtn')?.addEventListener('click', () => {
+  $('evGiftRainBtn')?.addEventListener('click', async () => {
     chaosModal?.classList.add('hidden');
-    $('giftAllBtn')?.click();
+    SFX.item();
+    let count = 0;
+    let giftedList = [];
+    await Sync.transact(room => {
+      if (!room) return;
+      count = Game.giftRandomItemToAll(room);
+      room.hostUpdatedAt = Date.now();
+      giftedList = Object.values(room.players || {});
+      return room;
+    });
+    if (!count) {
+      toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
+    } else {
+      if (giftedList.length <= 30) giftedList.forEach(p => Sync.sendDirectPlayer(p.id, p));
+      toast(`${heroIconHtml('giftBox', 18)}<span>ฝนไอเทมทั่วห้อง! แจกไอเทมสุ่มให้ ${count} คนเรียบร้อย!</span>`, 'success', 3400);
+    }
   });
 
   // ===================== Classroom Live Reactions (สติกเกอร์เชียร์ลอยขึ้นจอครู!) =====================
@@ -1572,8 +1610,11 @@
     Sync.setLiveTimerGetter(() => ({
       timerRemainingMs: Math.round(matchRemainingMs),
       timerRunning: !!(Sync.room && Sync.room.status === 'playing' && (Sync.room.timerTotalSec || 0) > 0),
+      bonusId: trackedBonusId,
       bonusRemainingSec: trackedBonusId ? Math.max(1, Math.ceil(bonusRemainingMs / 1000)) : null,
-      feverRemainingSec: trackedFeverId ? Math.max(0, Math.ceil(feverRemainingMs / 1000)) : 0,
+      feverId: trackedFeverId,
+      feverRemainingSec: trackedFeverId ? Math.max(0, Math.ceil(feverRemainingMs / 1000)) : null,
+      bossId: trackedBossId,
       bossRemainingSec: trackedBossId ? Math.max(0, Math.ceil(bossRemainingMs / 1000)) : null
     }));
     await Sync.connect(roomCode, onRoomUpdate, {

@@ -191,6 +191,8 @@
   let playerFeverRemMs = 0;
   let playerFeverLastTickAt = 0;
   let lastReactAt = 0;
+  let prevHostRev = null;
+  let prevItemTotal = null;
 
   function sendQuickReaction(kind) {
     const now = Date.now();
@@ -622,18 +624,13 @@
       el.gradeBar.style.width = `${res.accuracy}%`;
     });
 
-    el.gradeKeywords.innerHTML = res.concepts.map(c => c.credit > 0
-      ? `<span class="kw-chip bg-[#26890c] text-white">✓ ${esc(c.label)}</span>`
-      : `<span class="kw-chip bg-neutral-200 text-neutral-500">○ ${esc(c.label)}</span>`
-    ).join('');
-
     if (res.multiplier === 0) {
       SFX.wrong();
       SFX.announce('gradeMiss');
       bump(el.gradeResult, 'shake');
       Sync.transact(r => { if (r) Game.resetStreak(r, myId); return r; });
       el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#e21b3c] text-white font-extrabold';
-      el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองเพิ่มคำสำคัญแล้วส่งใหม่ได้เลย!';
+      el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองอธิบายเหตุผลให้ชัดเจนขึ้นแล้วส่งใหม่ได้เลย!';
       return;
     }
 
@@ -744,14 +741,10 @@
     el.bonusGradePct.style.color = res.color;
     el.bonusGradeBar.style.width = `${res.accuracy}%`;
     el.bonusGradeBar.style.background = res.color;
-    el.bonusGradeKw.innerHTML = res.concepts.map(c => c.credit > 0
-      ? `<span class="kw-chip !text-xs bg-[#26890c] text-white">✓ ${esc(c.label)}</span>`
-      : `<span class="kw-chip !text-xs bg-neutral-200 text-neutral-500">○ ${esc(c.label)}</span>`
-    ).join('');
 
     if (res.accuracy < Game.cfg.bonusPassThreshold) {
       SFX.wrong();
-      toast(`ต้องแม่นยำอย่างน้อย ${Game.cfg.bonusPassThreshold}% ลองเติมคำสำคัญอีกนิด!`, 'warn');
+      toast(`ต้องแม่นยำอย่างน้อย ${Game.cfg.bonusPassThreshold}% ลองอธิบายให้ชัดเจนขึ้นอีกนิด!`, 'warn');
       return;
     }
 
@@ -1291,7 +1284,6 @@
     const tierEl = $('bossHitTier');
     const pctEl = $('bossHitPct');
     const barEl = $('bossHitBar');
-    const kwEl = $('bossHitKw');
     const outEl = $('bossHitOutcome');
     const nextBtn = $('bossNextWaveBtn');
     const atkBtn = $('bossAttackBtn');
@@ -1300,18 +1292,12 @@
     if (tierEl) { tierEl.textContent = calc.dmg > 0 ? calc.tier : 'ป้องกันได้! ลองใหม่!'; tierEl.style.color = calc.dmg > 0 ? (calc.crit ? '#d89e00' : '#26890c') : '#e21b3c'; }
     if (pctEl) { pctEl.textContent = `${grade.accuracy}%`; pctEl.style.color = grade.color; }
     if (barEl) { barEl.style.width = `${grade.accuracy}%`; barEl.style.background = grade.color; }
-    if (kwEl) {
-      kwEl.innerHTML = grade.concepts.map(c => c.credit > 0
-        ? `<span class="kw-chip !text-xs bg-[#26890c] text-white">✓ ${esc(c.label)}</span>`
-        : `<span class="kw-chip !text-xs bg-neutral-200 text-neutral-500">○ ${esc(c.label)}</span>`
-      ).join('');
-    }
 
     if (calc.dmg <= 0) {
       SFX.wrong();
       if (outEl) {
         outEl.className = 'rounded-[5px] p-2.5 text-xs sm:text-sm bg-[#e21b3c] text-white font-extrabold';
-        outEl.textContent = 'ความแม่นยำยังไม่ถึง 35% บอสบล็อกไว้ได้! ลองเติมคำสำคัญแล้วโจมตีใหม่เลย!';
+        outEl.textContent = 'ความแม่นยำยังไม่ถึง 35% บอสบล็อกไว้ได้! ลองอธิบายให้ตรงประเด็นขึ้นแล้วโจมตีใหม่!';
       }
       return;
     }
@@ -1617,12 +1603,24 @@
       }
     }
     const curShields = me.items?.shield || 0;
+    const curItemTotal = ITEM_KEYS.reduce((acc, k) => acc + (Number(me.items?.[k]) || 0), 0);
+    const curHostRev = Number(me.hostRev || 0);
     if (prevShields !== null && curShields < prevShields) {
       SFX.block();
       toast(`${itemIconHtml('shield', 18)}<span>โล่ป้องกันช่วยสกัดการโจมตีของเพื่อนไว้ได้!</span>`, 'info', 3200);
+    } else if (prevHostRev !== null && curHostRev > prevHostRev && !me.frozen && !me.selfieLocked) {
+      if (prevScore !== null && me.score >= prevScore + 150 && curItemTotal > (prevItemTotal ?? curItemTotal)) {
+        SFX.item();
+        toast(`${heroIconHtml('rocketBoost', 20)}<span>พลังฮึดท้ายตาราง! รับฟรี +${me.score - prevScore} แต้ม + ไอเทมโจมตี!</span>`, 'success', 3600);
+      } else if (prevItemTotal !== null && curItemTotal > prevItemTotal) {
+        SFX.item();
+        toast(`${heroIconHtml('giftBox', 20)}<span>ฝนไอเทมจากครู! รับไอเทมสุ่มเข้ากระเป๋าแล้ว!</span>`, 'success', 3200);
+      }
     }
     prevScore = me.score;
     prevShields = curShields;
+    prevHostRev = curHostRev;
+    prevItemTotal = curItemTotal;
 
     const pills = [];
     if ((me.streak || 0) >= 2) pills.push(`<span class="px-2.5 py-1 rounded-[5px] bg-[#f97316] text-white font-extrabold text-xs inline-flex items-center gap-1 shadow">${uiIconHtml('flameMini', 14, 'text-[#fde047]')}<span>ไฟลุก! คอมโบ ${me.streak} ข้อติด</span></span>`);
