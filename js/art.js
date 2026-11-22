@@ -618,6 +618,200 @@ const SQA_ART = (() => {
       <ellipse cx="32" cy="43" rx="6.5" ry="8.5" fill="#1e1b2e"/>
       <ellipse cx="32" cy="47" rx="4" ry="3" fill="#fb7185" stroke="none"/>
       <polygon points="52,9 54,14 59,16 54,18 52,23 50,18 45,16 50,14" fill="#fde047"/>
+    </g>`,
+
+    bossRaid: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M12 10 L24 22 L19 27 L9 14 Z" fill="#facc15"/>
+      <path d="M52 10 L40 22 L45 27 L55 14 Z" fill="#facc15"/>
+      <path d="M15 28 C15 16 23 11 32 11 C41 11 49 16 49 28 C49 38 45 43 42 46 L42 54 H22 L22 46 C19 43 15 38 15 28 Z" fill="#e21b3c"/>
+      <path d="M21 20 C25 15 39 15 43 20 C40 18 24 18 21 20 Z" fill="#ff6b81" stroke="none"/>
+      <polygon points="19,27 29,31 21,35" fill="#fde047"/>
+      <polygon points="45,27 35,31 43,35" fill="#fde047"/>
+      <rect x="25" y="42" width="14" height="8" rx="2" fill="#1e1b2e"/>
+      <line x1="29" y1="42" x2="29" y2="50" stroke="#ffffff" stroke-width="2.2"/>
+      <line x1="35" y1="42" x2="35" y2="50" stroke="#ffffff" stroke-width="2.2"/>
+      <polygon points="32,4 35,11 40,9 37,16 27,16 24,9 29,11" fill="#facc15"/>
+    </g>`,
+
+    swordHit: `<g stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <polygon points="52,8 46,24 26,44 18,36 38,16" fill="#38bdf8"/>
+      <polygon points="52,8 43,21 24,40 21,37 40,18" fill="#e0f2fe" stroke="none"/>
+      <polygon points="52,8 46,24 26,44 18,36 38,16" fill="none"/>
+      <path d="M14 31 L31 48 L27 52 L10 35 Z" fill="#facc15"/>
+      <path d="M11 49 L19 41 L23 45 L15 53 Z" fill="#d97706"/>
+      <circle cx="11" cy="53" r="4.5" fill="#facc15"/>
+      <polygon points="18,12 20,17 25,19 20,21 18,26 16,21 11,19 16,17" fill="#fde047"/>
+      <polygon points="50,38 52,43 57,45 52,47 50,52 48,47 43,45 48,43" fill="#f472b6"/>
+    </g>`
+  };
+
+  /* =====================================================================
+   * 4 BESPOKE STUDIO CEL-SHADED RAID BOSSES (viewBox 0 0 220 190)
+   * Zero <defs> ID collisions, 4K crisp, multi-layer sci-fi/fantasy design
+   * ===================================================================== */
+  const BOSS_SVGS = {
+    /* 1: Dr. Glitch AI — จอมหลอนข้อมูล (Film 1: AI Hallucination Overlord) */
+    dr_glitch: `<g stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+      <!-- Cosmic Orbit Rings -->
+      <ellipse cx="110" cy="102" rx="92" ry="30" transform="rotate(-10 110 102)" fill="none" stroke="#f472b6" stroke-width="3.5" stroke-dasharray="18 10" opacity="0.8"/>
+      <ellipse cx="110" cy="102" rx="88" ry="26" transform="rotate(11 110 102)" fill="none" stroke="#38bdf8" stroke-width="2.8" stroke-dasharray="12 12" opacity="0.75"/>
+      <!-- Floating Glitch Shards / Cyber Wings -->
+      <polygon points="16,74 52,58 46,96 20,104" fill="#be123c"/>
+      <polygon points="24,78 46,68 42,90 26,95" fill="#fb7185" stroke="none"/>
+      <polygon points="204,74 168,58 174,96 200,104" fill="#be123c"/>
+      <polygon points="196,78 174,68 178,90 194,95" fill="#fb7185" stroke="none"/>
+      <polygon points="24,118 54,108 58,136 32,144" fill="#7c3aed"/>
+      <polygon points="196,118 166,108 162,136 188,144" fill="#7c3aed"/>
+      <!-- Lightning Sparks -->
+      <polygon points="48,30 34,50 45,50 38,68 58,44 47,44" fill="#fde047"/>
+      <polygon points="172,30 186,50 175,50 182,68 162,44 173,44" fill="#fde047"/>
+      <!-- Lower Floating Mech Tail / Thruster -->
+      <path d="M84 146 L110 176 L136 146 Z" fill="#4c1d95"/>
+      <path d="M95 148 L110 168 L125 148 Z" fill="#38bdf8" stroke="none"/>
+      <ellipse cx="110" cy="176" rx="18" ry="5" fill="#f472b6" opacity="0.85" stroke="none"/>
+      <!-- Armored Cyber Core Body -->
+      <path d="M62 56 L110 38 L158 56 L166 116 L142 150 L78 150 L54 116 Z" fill="#2e1065"/>
+      <path d="M72 62 L110 47 L148 62 L154 110 L135 141 L85 141 L66 110 Z" fill="#4c1d95" stroke="none"/>
+      <!-- Shoulder Armor Horns -->
+      <path d="M56 64 L36 36 L76 48 Z" fill="#e21b3c"/>
+      <path d="M164 64 L184 36 L144 48 Z" fill="#e21b3c"/>
+      <!-- Cyber Crown -->
+      <polygon points="84,45 90,18 103,36 110,12 117,36 130,18 136,45" fill="#facc15"/>
+      <circle cx="110" cy="12" r="5" fill="#fef08a"/>
+      <circle cx="90" cy="18" r="4" fill="#fef08a"/>
+      <circle cx="130" cy="18" r="4" fill="#fef08a"/>
+      <!-- Giant Glowing Cyclops Visor Screen -->
+      <path d="M70 72 H150 L144 114 H76 Z" fill="#0f172a"/>
+      <path d="M75 77 H145 L142 86 H78 Z" fill="#1e293b" stroke="none"/>
+      <!-- Glitch Scanlines inside Screen -->
+      <line x1="78" y1="90" x2="142" y2="90" stroke="#e21b3c" stroke-width="2" opacity="0.5"/>
+      <line x1="80" y1="103" x2="140" y2="103" stroke="#38bdf8" stroke-width="2" opacity="0.5"/>
+      <!-- Glowing Crimson Laser Eye -->
+      <ellipse cx="110" cy="94" rx="22" ry="15" fill="#e21b3c"/>
+      <ellipse cx="110" cy="94" rx="13" ry="10" fill="#fde047" stroke="none"/>
+      <ellipse cx="110" cy="94" rx="5.5" ry="9" fill="#1e1b2e" stroke="none"/>
+      <circle cx="115" cy="89" r="3.4" fill="#ffffff" stroke="none"/>
+      <!-- Jagged Digital Mouth / Reactor -->
+      <path d="M84 126 L93 135 L102 126 L110 136 L118 126 L127 135 L136 126" fill="none" stroke="#38bdf8" stroke-width="4.2"/>
+      <!-- Floating Data Cubes -->
+      <rect x="26" y="42" width="12" height="12" rx="2.5" transform="rotate(18 32 48)" fill="#38bdf8"/>
+      <rect x="182" y="42" width="12" height="12" rx="2.5" transform="rotate(-18 188 48)" fill="#f472b6"/>
+      <circle cx="110" cy="144" r="5" fill="#fde047"/>
+    </g>`,
+
+    /* 2: Phantom Mirage — ราชินีมายาดิจิทัล (Film 2: Virtual Influencer Mirage) */
+    mirage_queen: `<g stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+      <!-- Radiant Hologram Halo -->
+      <circle cx="110" cy="94" r="76" fill="none" stroke="#38bdf8" stroke-width="3.2" stroke-dasharray="20 8" opacity="0.8"/>
+      <circle cx="110" cy="94" r="64" fill="#1e3a8a" opacity="0.32" stroke="none"/>
+      <!-- Crystal Prism Wings -->
+      <polygon points="14,66 64,46 58,92 22,102" fill="#0ea5e9"/>
+      <polygon points="24,70 58,56 54,84 28,92" fill="#7dd3fc" stroke="none"/>
+      <polygon points="206,66 156,46 162,92 198,102" fill="#0ea5e9"/>
+      <polygon points="196,70 162,56 166,84 192,92" fill="#7dd3fc" stroke="none"/>
+      <polygon points="24,112 62,102 68,144 36,154" fill="#c026d3"/>
+      <polygon points="34,116 58,109 62,136 42,143" fill="#f0abfc" stroke="none"/>
+      <polygon points="196,112 158,102 152,144 184,154" fill="#c026d3"/>
+      <polygon points="186,116 162,109 158,136 178,143" fill="#f0abfc" stroke="none"/>
+      <!-- Flowing Ethereal Cape / Diamond Base -->
+      <path d="M74 134 L110 178 L146 134 Z" fill="#1d4ed8"/>
+      <path d="M88 138 L110 166 L132 138 Z" fill="#38bdf8" stroke="none"/>
+      <!-- Sculpted Royal Collar & Shoulders -->
+      <path d="M62 126 Q110 156 158 126 L146 102 H74 Z" fill="#1e1b2e"/>
+      <polygon points="110,122 124,136 110,150 96,136" fill="#f472b6"/>
+      <polygon points="110,127 118,136 110,145 102,136" fill="#fbcfe8" stroke="none"/>
+      <!-- Regal Crystal Head / Visor Mask -->
+      <path d="M68 78 C68 48 86 36 110 36 C134 36 152 48 152 78 C152 108 134 128 110 132 C86 128 68 108 68 78 Z" fill="#f8fafc"/>
+      <path d="M75 64 C84 52 96 46 110 46 C124 46 136 52 145 64 C134 60 122 58 110 58 C98 58 86 60 75 64 Z" fill="#e0f2fe" stroke="none"/>
+      <!-- Obsidian Masquerade Visor -->
+      <path d="M68 74 L92 66 L110 76 L128 66 L152 74 L146 102 L124 106 L110 96 L96 106 L74 102 Z" fill="#0f172a"/>
+      <!-- Glowing Neon Dual Eyes -->
+      <polygon points="82,84 101,88 86,96" fill="#38bdf8"/>
+      <polygon points="138,84 119,88 134,96" fill="#38bdf8"/>
+      <circle cx="92" cy="89" r="3" fill="#ffffff" stroke="none"/>
+      <circle cx="128" cy="89" r="3" fill="#ffffff" stroke="none"/>
+      <!-- Smirk Lip -->
+      <path d="M98 113 Q110 120 122 113" fill="none" stroke="#c026d3" stroke-width="3.6"/>
+      <!-- Diamond Hologram Tiara -->
+      <polygon points="82,46 96,24 110,8 124,24 138,46 122,40 110,48 98,40" fill="#38bdf8"/>
+      <polygon points="110,14 118,28 110,40 102,28" fill="#fef08a"/>
+      <!-- Levitating Neon Stars -->
+      <polygon points="36,30 40,38 48,41 40,44 36,52 32,44 24,41 32,38" fill="#fde047"/>
+      <polygon points="184,30 188,38 196,41 188,44 184,52 180,44 172,41 180,38" fill="#f472b6"/>
+    </g>`,
+
+    /* 3: Echo Heart — จักรกลหัวใจจำลอง (Film 3: Synthetic Heart Colossus) */
+    echo_colossus: `<g stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+      <!-- Golden Halo Ring -->
+      <ellipse cx="110" cy="24" rx="46" ry="11" fill="none" stroke="#facc15" stroke-width="5.5"/>
+      <ellipse cx="110" cy="24" rx="46" ry="11" fill="none" stroke="#fef9c3" stroke-width="2" stroke-dasharray="16 10"/>
+      <!-- Articulated Golden Angelic Mech Wings -->
+      <path d="M58 84 L12 42 L22 76 L10 92 L46 108 L26 128 L66 126 Z" fill="#facc15"/>
+      <path d="M52 86 L24 58 L30 78 L22 90 L48 102 Z" fill="#fef08a" stroke="none"/>
+      <path d="M162 84 L208 42 L198 76 L210 92 L174 108 L194 128 L154 126 Z" fill="#facc15"/>
+      <path d="M168 86 L196 58 L190 78 L198 90 L172 102 Z" fill="#fef08a" stroke="none"/>
+      <!-- Gilded Mech Torso -->
+      <path d="M64 82 L110 68 L156 82 L164 134 L132 168 H88 L56 134 Z" fill="#fff7ed"/>
+      <path d="M72 90 L110 78 L148 90 L153 130 L127 159 H93 L67 130 Z" fill="#fde68a" stroke="none"/>
+      <!-- Armored Shoulder Pauldrons -->
+      <path d="M46 84 C46 66 64 58 82 68 L74 96 L48 98 Z" fill="#d97706"/>
+      <path d="M174 84 C174 66 156 58 138 68 L146 96 L172 98 Z" fill="#d97706"/>
+      <!-- Head Helm -->
+      <path d="M80 42 C80 28 93 22 110 22 C127 22 140 28 140 42 L144 74 L110 86 L76 74 Z" fill="#f59e0b"/>
+      <path d="M84 48 H136 L132 68 L110 76 L88 68 Z" fill="#0f172a"/>
+      <!-- Expressive Cyan Visor Eyes -->
+      <ellipse cx="97" cy="58" rx="7" ry="4.5" fill="#38bdf8"/>
+      <ellipse cx="123" cy="58" rx="7" ry="4.5" fill="#38bdf8"/>
+      <circle cx="99" cy="56.5" r="2" fill="#ffffff" stroke="none"/>
+      <circle cx="125" cy="56.5" r="2" fill="#ffffff" stroke="none"/>
+      <!-- Glowing Holographic Heart Core in Chest -->
+      <circle cx="110" cy="122" r="28" fill="#1e1b2e"/>
+      <circle cx="110" cy="122" r="22" fill="#be185d" opacity="0.45" stroke="none"/>
+      <path d="M110 142 C92 130 85 122 85 113 C85 105 91 100 98 100 C103 100 107 103 110 108 C113 103 117 100 122 100 C129 100 135 105 135 113 C135 122 128 130 110 142 Z" fill="#fb7185"/>
+      <path d="M95 108 C92 108 90 111 91 114" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.85"/>
+      <!-- Heartbeat Pulse Line across Core -->
+      <polyline points="86,122 99,122 104,112 111,132 117,118 122,122 134,122" fill="none" stroke="#fef08a" stroke-width="3.2"/>
+      <!-- Bottom Hover Thruster -->
+      <ellipse cx="110" cy="176" rx="28" ry="6" fill="#facc15" opacity="0.7" stroke="none"/>
+    </g>`,
+
+    /* 4: Decibel Titan — ไททันคลื่นเสียงคลั่ง (Film 4: Sonic Boom Titan) */
+    decibel_titan: `<g stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+      <!-- Vibrating Sonic Shockwave Arcs -->
+      <path d="M16 58 Q4 95 16 132" fill="none" stroke="#4ade80" stroke-width="4.5"/>
+      <path d="M28 68 Q19 95 28 122" fill="none" stroke="#38bdf8" stroke-width="3.5"/>
+      <path d="M204 58 Q216 95 204 132" fill="none" stroke="#4ade80" stroke-width="4.5"/>
+      <path d="M192 68 Q201 95 192 122" fill="none" stroke="#38bdf8" stroke-width="3.5"/>
+      <!-- Twin Massive Bass-Cannon Shoulders -->
+      <circle cx="48" cy="84" r="30" fill="#14532d"/>
+      <circle cx="48" cy="84" r="21" fill="#1e293b"/>
+      <circle cx="48" cy="84" r="13" fill="#22c55e"/>
+      <circle cx="48" cy="84" r="5.5" fill="#fef08a"/>
+      <circle cx="172" cy="84" r="30" fill="#14532d"/>
+      <circle cx="172" cy="84" r="21" fill="#1e293b"/>
+      <circle cx="172" cy="84" r="13" fill="#22c55e"/>
+      <circle cx="172" cy="84" r="5.5" fill="#fef08a"/>
+      <!-- Armored Titan Chassis -->
+      <path d="M66 64 L110 52 L154 64 L162 132 L140 166 H80 L58 132 Z" fill="#16a34a"/>
+      <path d="M74 72 L110 62 L146 72 L152 126 L134 156 H86 L68 126 Z" fill="#22c55e" stroke="none"/>
+      <!-- Armored Head & Acoustic Crest -->
+      <path d="M84 30 L110 14 L136 30 L142 64 H78 Z" fill="#15803d"/>
+      <polygon points="103,14 110,4 117,14 115,36 105,36" fill="#fde047"/>
+      <rect x="82" y="38" width="56" height="22" rx="6" fill="#0f172a"/>
+      <!-- Intense Laser Eyes -->
+      <polygon points="88,45 106,49 91,55" fill="#fde047"/>
+      <polygon points="132,45 114,49 129,55" fill="#fde047"/>
+      <!-- Giant Chest Equalizer Reactor -->
+      <rect x="74" y="80" width="72" height="58" rx="10" fill="#0f172a"/>
+      <rect x="82" y="106" width="9" height="24" rx="3" fill="#4ade80" stroke="none"/>
+      <rect x="94" y="92" width="9" height="38" rx="3" fill="#fde047" stroke="none"/>
+      <rect x="106" y="86" width="9" height="44" rx="3" fill="#38bdf8" stroke="none"/>
+      <rect x="118" y="96" width="9" height="34" rx="3" fill="#fde047" stroke="none"/>
+      <rect x="130" y="104" width="9" height="26" rx="3" fill="#4ade80" stroke="none"/>
+      <!-- Heavy Armored Belt & Lower Glow -->
+      <rect x="82" y="144" width="56" height="14" rx="4" fill="#1e293b"/>
+      <rect x="98" y="147" width="24" height="8" rx="2" fill="#38bdf8" stroke="none"/>
+      <ellipse cx="110" cy="176" rx="34" ry="6" fill="#4ade80" opacity="0.7" stroke="none"/>
     </g>`
   };
 
@@ -655,6 +849,7 @@ const SQA_ART = (() => {
     phone: `<rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/>`,
     target: `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/>`,
     play: `<polygon points="6 4 20 12 6 20 6 4" fill="currentColor"/>`,
+    pause: `<rect x="6" y="4" width="4.5" height="16" rx="1" fill="currentColor"/><rect x="13.5" y="4" width="4.5" height="16" rx="1" fill="currentColor"/>`,
     stop: `<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>`,
     hourglass: `<path d="M6 2h12M6 22h12M7 2v5l5 5-5 5v5M17 2v5l-5 5 5 5v5"/>`,
     send: `<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor"/>`,
@@ -702,6 +897,11 @@ const SQA_ART = (() => {
     uiSvg(name, size = 16, cls = '') {
       const inner = UI_SVGS[name] || UI_SVGS.star;
       return svg24(inner, size, cls);
+    },
+    bossSvg(key, width = 200, cls = '') {
+      const inner = BOSS_SVGS[key] || BOSS_SVGS.dr_glitch;
+      const h = Math.round(width * 190 / 220);
+      return `<svg viewBox="0 0 220 190" width="${width}" height="${h}" class="sqa-svg ${cls}" aria-hidden="true" focusable="false">${inner}</svg>`;
     },
     smokeSvg
   };

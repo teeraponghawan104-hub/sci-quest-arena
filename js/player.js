@@ -1178,6 +1178,299 @@
         fBar.classList.add('hidden');
       }
     }
+
+    const pbTimer = $('playerBossTimer');
+    if (pbTimer && activeBossId && Sync.room && Sync.room.boss && Sync.room.boss.status === 'active') {
+      pbTimer.textContent = formatClock(playerBossRemMs);
+    }
+  }
+
+  // ===================== CO-OP BOSS RAID (ฝั่งมือถือผู้เล่น) =====================
+  let activeBossId = '';
+  let playerBossArtKey = '';
+  let playerBossRemMs = 0;
+  let playerBossLastTickAt = 0;
+  let bossMinimized = false;
+  let bossDismissedResultId = '';
+  let bossMyLocalDmg = 0;
+  let bossWaveNum = 1;
+  let currentBossQ = null;
+  const bossSeenQ = new Set();
+
+  function spawnPlayerBossDmgPop(dmg, crit) {
+    const sprite = $('playerBossArt');
+    if (sprite) {
+      sprite.classList.remove('boss-hit');
+      void sprite.offsetWidth;
+      sprite.classList.add('boss-hit');
+    }
+    const layer = $('playerBossDmgPop');
+    if (!layer) return;
+    const pop = document.createElement('div');
+    pop.className = 'boss-dmg-pop';
+    pop.innerHTML = `<div class="px-2 py-0.5 rounded-[5px] font-display font-black text-base shadow border-2 border-white ${crit ? 'bg-[#facc15] text-[#1e1b2e]' : 'bg-[#e21b3c] text-white'}">-${dmg}!${crit ? ' CRIT!' : ''}</div>`;
+    layer.appendChild(pop);
+    setTimeout(() => pop.remove(), 1350);
+  }
+
+  function loadNextBossWave(bossKey) {
+    const q = Game.pickBossQuestion(bossKey, bossSeenQ);
+    if (!q) return;
+    currentBossQ = q;
+    bossSeenQ.add(q.id);
+    const film = FILMS[q.film] || FILMS.f1;
+    const wb = $('playerBossWaveBadge');
+    const fb = $('playerBossFilmBadge');
+    const qt = $('playerBossQ');
+    const inp = $('bossAnswerInput');
+    const btn = $('bossAttackBtn');
+    const resBox = $('bossHitResult');
+    const nextBtn = $('bossNextWaveBtn');
+    if (wb) wb.textContent = `ระลอกที่ ${bossWaveNum}`;
+    if (fb) {
+      fb.style.background = film.color;
+      fb.innerHTML = `${filmIconHtml(q.film, 14)}<span>${esc(film.short)}</span>`;
+    }
+    if (qt) qt.textContent = q.q;
+    if (inp) { inp.value = ''; inp.disabled = false; }
+    if (btn) { btn.disabled = false; btn.classList.remove('hidden'); }
+    if (resBox) resBox.classList.add('hidden');
+    if (nextBtn) nextBtn.classList.add('hidden');
+  }
+
+  $('bossMinimizeBtn')?.addEventListener('click', () => {
+    SFX.click();
+    bossMinimized = true;
+    $('bossOverlay')?.classList.add('hidden');
+    const room = Sync.room;
+    if (room && room.boss && room.boss.status === 'active') {
+      $('playerBossBanner')?.classList.remove('hidden');
+    }
+  });
+  $('playerBossBanner')?.addEventListener('click', () => {
+    SFX.pop();
+    bossMinimized = false;
+    $('playerBossBanner')?.classList.add('hidden');
+    $('bossOverlay')?.classList.remove('hidden');
+  });
+  $('bossCloseResultBtn')?.addEventListener('click', () => {
+    SFX.click();
+    if (Sync.room && Sync.room.boss) bossDismissedResultId = Sync.room.boss.id;
+    $('bossOverlay')?.classList.add('hidden');
+    $('playerBossBanner')?.classList.add('hidden');
+  });
+  $('bossNextWaveBtn')?.addEventListener('click', () => {
+    SFX.pop();
+    const room = Sync.room;
+    if (!room || !room.boss || room.boss.status !== 'active') return;
+    bossWaveNum++;
+    loadNextBossWave(room.boss.key);
+    $('bossAnswerInput')?.focus();
+  });
+
+  $('bossAttackForm')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const room = Sync.room;
+    const me = room && room.players[myId];
+    if (!room || !me || !room.boss || room.boss.status !== 'active' || !currentBossQ) return;
+    const inp = $('bossAnswerInput');
+    const ans = (inp ? inp.value : '').trim();
+    if (!ans) {
+      SFX.wrong();
+      if (inp) bump(inp, 'shake');
+      toast('พิมพ์คำตอบก่อนโจมตีบอสนะ!', 'warn');
+      return;
+    }
+
+    const grade = Grader.grade(ans, currentBossQ);
+    const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
+    const hasBoost = !!(me.x2Active || isFever);
+    const calc = Game.calcBossDamage(grade.accuracy, hasBoost);
+
+    const resBox = $('bossHitResult');
+    const tierEl = $('bossHitTier');
+    const pctEl = $('bossHitPct');
+    const barEl = $('bossHitBar');
+    const kwEl = $('bossHitKw');
+    const outEl = $('bossHitOutcome');
+    const nextBtn = $('bossNextWaveBtn');
+    const atkBtn = $('bossAttackBtn');
+
+    if (resBox) resBox.classList.remove('hidden');
+    if (tierEl) { tierEl.textContent = calc.dmg > 0 ? calc.tier : 'ป้องกันได้! ลองใหม่!'; tierEl.style.color = calc.dmg > 0 ? (calc.crit ? '#d89e00' : '#26890c') : '#e21b3c'; }
+    if (pctEl) { pctEl.textContent = `${grade.accuracy}%`; pctEl.style.color = grade.color; }
+    if (barEl) { barEl.style.width = `${grade.accuracy}%`; barEl.style.background = grade.color; }
+    if (kwEl) {
+      kwEl.innerHTML = grade.concepts.map(c => c.credit > 0
+        ? `<span class="kw-chip !text-xs bg-[#26890c] text-white">✓ ${esc(c.label)}</span>`
+        : `<span class="kw-chip !text-xs bg-neutral-200 text-neutral-500">○ ${esc(c.label)}</span>`
+      ).join('');
+    }
+
+    if (calc.dmg <= 0) {
+      SFX.wrong();
+      if (outEl) {
+        outEl.className = 'rounded-[5px] p-2.5 text-xs sm:text-sm bg-[#e21b3c] text-white font-extrabold';
+        outEl.textContent = 'ความแม่นยำยังไม่ถึง 35% บอสบล็อกไว้ได้! ลองเติมคำสำคัญแล้วโจมตีใหม่เลย!';
+      }
+      return;
+    }
+
+    if (inp) inp.disabled = true;
+    if (atkBtn) { atkBtn.disabled = true; atkBtn.classList.add('hidden'); }
+    if (nextBtn) nextBtn.classList.remove('hidden');
+
+    bossMyLocalDmg += calc.dmg;
+    const myDmgEl = $('playerBossMyDmg');
+    if (myDmgEl) myDmgEl.textContent = bossMyLocalDmg.toLocaleString();
+
+    spawnPlayerBossDmgPop(calc.dmg, calc.crit);
+    if (calc.crit) SFX.zap(); else SFX.correct();
+
+    if (outEl) {
+      outEl.className = 'rounded-[5px] p-2.5 text-sm font-extrabold flex items-center justify-between gap-2 ' + (calc.crit ? 'bg-[#d89e00] text-white' : 'bg-[#26890c] text-white');
+      outEl.innerHTML = `<span>โจมตีบอสสำเร็จ! (+${calc.pts} แต้มทันที)</span><span class="font-display text-lg font-black shrink-0">-${calc.dmg} HP!</span>`;
+    }
+
+    Sync.sendBossHit({
+      hitId: uid(),
+      bossId: room.boss.id,
+      pid: myId,
+      dmg: calc.dmg,
+      acc: grade.accuracy,
+      crit: calc.crit,
+      pts: calc.pts,
+      usedX2: !!me.x2Active
+    });
+  });
+
+  function renderPlayerBoss(room, me) {
+    const ov = $('bossOverlay');
+    const banner = $('playerBossBanner');
+    if (!ov || !banner) return;
+    const b = room && room.boss;
+    if (!b || !b.id || room.status !== 'playing') {
+      ov.classList.add('hidden');
+      banner.classList.add('hidden');
+      activeBossId = '';
+      playerBossArtKey = '';
+      bossMinimized = false;
+      return;
+    }
+
+    const meta = BOSSES[b.key] || BOSSES.dr_glitch;
+    const pct = Math.max(0, Math.min(100, Math.round((b.hp / Math.max(1, b.maxHp)) * 100)));
+    const serverMyEntry = (b.dmgByPlayer && b.dmgByPlayer[myId]) || (b.topDmg || []).find(x => x.id === myId);
+    if (serverMyEntry && serverMyEntry.dmg > bossMyLocalDmg) bossMyLocalDmg = serverMyEntry.dmg;
+
+    if (activeBossId !== b.id) {
+      activeBossId = b.id;
+      bossMinimized = false;
+      bossMyLocalDmg = serverMyEntry ? serverMyEntry.dmg : 0;
+      bossWaveNum = 1;
+      bossSeenQ.clear();
+      playerBossRemMs = Math.max(0, Number(b.remainingSec ?? b.durationSec ?? 90)) * 1000;
+      playerBossLastTickAt = Date.now();
+      if (b.status === 'active') {
+        loadNextBossWave(b.key);
+        SFX.drum();
+        toast(`${heroIconHtml('bossRaid', 20)}<span>บอส ${esc(meta.name)} บุกห้อง! ช่วยกันตอบคำถามปราบด่วน!</span>`, 'error', 3600);
+      }
+    } else if (b.status === 'active') {
+      const incRem = Number(b.remainingSec ?? 0) * 1000;
+      if (incRem < playerBossRemMs - 2500 || incRem > playerBossRemMs + 4500) playerBossRemMs = incRem;
+    }
+
+    const card = $('playerBossCard');
+    const hdr = $('playerBossHeader');
+    if (card) card.style.borderColor = b.status === 'defeated' ? '#facc15' : meta.color;
+    if (hdr) hdr.style.background = `radial-gradient(circle at 25% 45%, ${meta.color}77 0%, #1c074a 60%, #10032b 100%)`;
+
+    const artEl = $('playerBossArt');
+    if (artEl && playerBossArtKey !== `${b.key}_${b.status}`) {
+      playerBossArtKey = `${b.key}_${b.status}`;
+      artEl.innerHTML = b.status === 'defeated'
+        ? heroIconHtml('trophy', 88, 'crown-float')
+        : bossArtHtml(b.key, 108);
+    }
+
+    $('playerBossName').textContent = meta.name;
+    $('playerBossTitle').textContent = meta.title;
+    $('playerBossHpText').textContent = `${Number(b.hp || 0).toLocaleString()} / ${Number(b.maxHp || 0).toLocaleString()}`;
+    const hpFill = $('playerBossHpFill');
+    if (hpFill) {
+      hpFill.style.width = `${pct}%`;
+      hpFill.style.setProperty('--boss-color', meta.color);
+    }
+    $('playerBossMyDmg').textContent = bossMyLocalDmg.toLocaleString();
+    const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
+    $('playerBossBoostTag')?.classList.toggle('hidden', !(me.x2Active || isFever));
+
+    $('playerBossBannerText').textContent = `${meta.name} กำลังบุก! แตะเพื่อช่วยกันตี!`;
+    $('playerBossBannerHp').textContent = `${pct}% HP`;
+
+    const fightEl = $('bossStepFight');
+    const resEl = $('bossStepResult');
+    if (b.status === 'active') {
+      fightEl?.classList.remove('hidden');
+      resEl?.classList.add('hidden');
+      $('bossMinimizeBtn')?.classList.remove('hidden');
+      if (bossMinimized) {
+        ov.classList.add('hidden');
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+        ov.classList.remove('hidden');
+      }
+    } else {
+      banner.classList.add('hidden');
+      if (bossDismissedResultId === b.id) {
+        ov.classList.add('hidden');
+        return;
+      }
+      fightEl?.classList.add('hidden');
+      resEl?.classList.remove('hidden');
+      $('bossMinimizeBtn')?.classList.add('hidden');
+      $('playerBossTimer').textContent = b.status === 'defeated' ? 'WIN!' : '00:00';
+
+      const iconEl = $('bossResultIcon');
+      const titleEl = $('bossResultTitle');
+      const descEl = $('bossResultDesc');
+      const mvpEl = $('bossResultMvp');
+
+      if (b.status === 'defeated') {
+        if (ov.classList.contains('hidden') || !ov.dataset.winConfetti || ov.dataset.winConfetti !== b.id) {
+          ov.dataset.winConfetti = b.id;
+          SFX.fanfare();
+          confetti(2800, 120);
+        }
+        iconEl.innerHTML = heroIconHtml('trophy', 86, 'crown-float');
+        titleEl.textContent = `ปราบ ${meta.name} สำเร็จ!`;
+        const joined = bossMyLocalDmg > 0;
+        const myRank = (b.topDmg || []).findIndex(x => x.id === myId);
+        const mvpBonus = [200, 100, 50][myRank] || 0;
+        descEl.textContent = joined
+          ? `คุณทำดาเมจรวม ${bossMyLocalDmg.toLocaleString()} HP! รับโบนัสร่วมพลัง +${b.coopReward || 300} แต้ม${mvpBonus ? ` + โบนัส MVP #${myRank + 1} (+${mvpBonus} แต้ม!)` : ''} + ไอเทมสุ่ม 1 ชิ้น!`
+          : `เพื่อน ๆ ในห้องร่วมพลังปราบบอสสำเร็จแล้ว! รอบหน้ามาร่วมตีชิงโบนัสกันนะ!`;
+      } else {
+        iconEl.innerHTML = bossArtHtml(b.key, 118);
+        titleEl.textContent = 'หมดเวลา Raid! บอสหนีไปได้!';
+        descEl.textContent = bossMyLocalDmg > 0
+          ? `คุณช่วยทำดาเมจ ${bossMyLocalDmg.toLocaleString()} HP รับคะแนนปลอบใจ +50 แต้มแล้ว!`
+          : `บอสหนีไปได้โดยเหลือเลือดอีก ${Number(b.hp || 0).toLocaleString()} HP`;
+      }
+
+      const medals = ['medal1', 'medal2', 'medal3'];
+      const top3 = (b.topDmg || []).slice(0, 3);
+      mvpEl.innerHTML = `<div class="text-xs font-extrabold uppercase text-neutral-500">Top 3 Boss Raid MVPs</div>` +
+        (top3.length ? top3.map((m, i) => `
+          <div class="flex items-center justify-between text-sm font-extrabold text-[#333]">
+            <span class="inline-flex items-center gap-1.5">${heroIconHtml(medals[i] || 'trophy', 22)}<span>${esc(m.name)}</span></span>
+            <span class="font-display font-black text-[#e21b3c] tabular">${Number(m.dmg || 0).toLocaleString()} DMG</span>
+          </div>`).join('') : '<div class="text-xs text-neutral-500 font-bold">ไม่มีผู้ทำดาเมจในรอบนี้</div>');
+
+      ov.classList.remove('hidden');
+    }
   }
 
   // ตัวนับเวลาฝั่งมือถือผู้เล่น (ลื่นไหลทุก 200ms ไม่พึ่งนาฬิกาเครื่องข้ามอุปกรณ์)
@@ -1207,6 +1500,14 @@
       playerFeverRemMs = Math.max(0, playerFeverRemMs - dt);
     } else {
       playerFeverLastTickAt = now;
+    }
+
+    if (room.status === 'playing' && activeBossId && room.boss && room.boss.id === activeBossId && room.boss.status === 'active') {
+      const dt = playerBossLastTickAt ? Math.min(1000, now - playerBossLastTickAt) : 0;
+      playerBossLastTickAt = now;
+      playerBossRemMs = Math.max(0, playerBossRemMs - dt);
+    } else {
+      playerBossLastTickAt = now;
     }
     renderPlayerTimers();
   }, 200);
@@ -1509,11 +1810,13 @@
       }
     }
 
-    // เพลงประกอบตามสถานะเกม (เปิดเพลงทันทีตั้งแต่เข้าหน้าเว็บ/Lobby และเปลี่ยนเพลงเร้าใจเมื่อมีโจทย์โบนัสหรือ Fever!)
+    // เพลงประกอบตามสถานะเกม (เปิดเพลงทันทีตั้งแต่เข้าหน้าเว็บ/Lobby และเปลี่ยนเพลงเร้าใจเมื่อมีบอส โจทย์โบนัส หรือ Fever!)
     if (room.status === 'ended') {
       SFX.startBgm('podium');
     } else if (room.status === 'paused') {
       SFX.stopBgm();
+    } else if (room.boss && room.boss.status === 'active') {
+      SFX.startBgm('boss');
     } else if (room.bonus) {
       SFX.startBgm('bonus');
     } else if (room.feverId && (room.feverRemainingSec || 0) > 0) {
@@ -1521,6 +1824,8 @@
     } else {
       SFX.startBgm('play');
     }
+
+    renderPlayerBoss(room, me);
 
     if (!mysteryOpen) {
       if (room.status === 'playing' && room.bonus && !(room.bonus.answered || {})[myId]) {

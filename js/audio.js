@@ -199,7 +199,7 @@ const SFX = (() => {
   function resolveTrackFile(mode) {
     if (mode === 'bonus') return 'bgm_bonus';
     if (mode === 'podium') return 'bgm_podium';
-    if (mode === 'fever') return 'bgm_esports';
+    if (mode === 'fever' || mode === 'boss') return 'bgm_esports';
     return bgmTrackId || 'bgm_play';
   }
 

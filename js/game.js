@@ -305,6 +305,159 @@ const Game = (() => {
       touch(me, false);
       Sync.pushFeed(room, { type: 'unflip', ...feedBase(me, pid) });
       return true;
+    },
+
+    /* ---------------- ระบบ Co-Op Boss Raid (ช่วยกันทั้งห้องปราบบอสคำถาม!) ---------------- */
+    calcBossHp(playerCount, mult = 1) {
+      const n = Math.max(1, Number(playerCount) || 1);
+      const raw = Math.max(450, n * 200) * Number(mult || 1);
+      return Math.max(400, Math.round(raw / 50) * 50);
+    },
+
+    calcBossDamage(acc, hasBoost = false) {
+      const boost = hasBoost ? 1.5 : 1;
+      if (acc >= 80) return { dmg: Math.round(220 * boost), pts: 60, crit: true, tier: 'CRITICAL HIT!' };
+      if (acc >= 55) return { dmg: Math.round(150 * boost), pts: 40, crit: false, tier: 'DIRECT HIT!' };
+      if (acc >= 35) return { dmg: Math.round(90 * boost), pts: 20, crit: false, tier: 'GLANCING HIT!' };
+      return { dmg: 0, pts: 0, crit: false, tier: 'MISS!' };
+    },
+
+    pickBossQuestion(bossKey, seenSet) {
+      const bs = (typeof BOSSES !== 'undefined' && BOSSES[bossKey]) || null;
+      const film = bs ? bs.film : null;
+      const allPool = [...QUESTIONS, ...BONUS_QUESTIONS];
+      const themePool = film ? allPool.filter(q => q.film === film) : allPool;
+      const freshTheme = themePool.filter(q => !seenSet || !seenSet.has(q.id));
+      if (freshTheme.length) return freshTheme[rand(freshTheme.length)];
+      const freshAny = allPool.filter(q => !seenSet || !seenSet.has(q.id));
+      if (freshAny.length) return freshAny[rand(freshAny.length)];
+      return themePool[rand(themePool.length)] || allPool[rand(allPool.length)];
+    },
+
+    spawnBoss(room, bossKey, durationSec = 90, hpMult = 1, coopReward = 300) {
+      if (!room) return null;
+      const key = (typeof BOSSES !== 'undefined' && BOSSES[bossKey]) ? bossKey : 'dr_glitch';
+      if (room.status === 'lobby' || room.status === 'paused') {
+        room.status = 'playing';
+        if (room.timerTotalSec > 0) room.timerRunning = true;
+      }
+      room.bonus = null; // ปิดคำถามโบนัสเดิมไม่ให้ทับกัน
+      const pCount = Object.keys(room.players || {}).length;
+      const maxHp = this.calcBossHp(pCount, hpMult);
+      const dur = Math.max(30, Number(durationSec) || 90);
+      const now = Date.now();
+      room.boss = {
+        id: 'bs_' + uid(),
+        key,
+        maxHp,
+        hp: maxHp,
+        durationSec: dur,
+        remainingSec: dur,
+        status: 'active',
+        startedAt: now,
+        hitCount: 0,
+        coopReward: Number(coopReward) || 300,
+        dmgByPlayer: {},
+        topDmg: [],
+        lastHit: null,
+        contributorsCount: 0
+      };
+      room.hostUpdatedAt = now;
+      Sync.pushFeed(room, { type: 'bossStart', bossKey: key, maxHp, sec: dur });
+      return room.boss;
+    },
+
+    applyBossHit(room, pid, bossId, dmg, acc, crit = false, instantPts = 0, usedX2 = false) {
+      if (!room || !room.boss || room.boss.id !== bossId || room.boss.status !== 'active') return null;
+      const me = room.players[pid];
+      const safeDmg = Math.max(0, Math.min(800, Math.round(Number(dmg) || 0)));
+      if (!me || safeDmg <= 0) return null;
+
+      room.boss.dmgByPlayer = room.boss.dmgByPlayer || {};
+      const prev = room.boss.dmgByPlayer[pid] || { id: pid, name: me.name, avatar: me.avatar, dmg: 0, hits: 0 };
+      prev.name = me.name;
+      prev.avatar = me.avatar;
+      prev.dmg += safeDmg;
+      prev.hits += 1;
+      room.boss.dmgByPlayer[pid] = prev;
+
+      room.boss.hp = Math.max(0, Number(room.boss.hp || 0) - safeDmg);
+      room.boss.hitCount = Number(room.boss.hitCount || 0) + 1;
+      room.boss.topDmg = Object.values(room.boss.dmgByPlayer)
+        .sort((a, b) => b.dmg - a.dmg)
+        .slice(0, 5)
+        .map(d => ({ id: d.id, name: d.name, avatar: d.avatar, dmg: d.dmg, hits: d.hits }));
+      room.boss.contributorsCount = Object.keys(room.boss.dmgByPlayer).length;
+      room.boss.lastHit = { id: uid(), pid, name: me.name, avatar: me.avatar, dmg: safeDmg, crit: !!crit, t: Date.now() };
+
+      const addPts = Math.max(0, Math.min(200, Math.round(Number(instantPts) || 0)));
+      me.score += addPts;
+      if (usedX2 && me.x2Active) me.x2Active = false;
+      touch(me, false);
+      Sync.pushFeed(room, { type: 'bossHit', ...feedBase(me, pid), dmg: safeDmg, crit: !!crit, acc });
+
+      let defeated = false;
+      if (room.boss.hp <= 0) {
+        this.resolveBossVictory(room);
+        defeated = true;
+      } else {
+        room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      }
+      return { dmg: safeDmg, pts: addPts, hpLeft: room.boss.hp, defeated, myTotalDmg: prev.dmg };
+    },
+
+    resolveBossVictory(room) {
+      if (!room || !room.boss || room.boss.status !== 'active') return null;
+      const b = room.boss;
+      b.hp = 0;
+      b.status = 'defeated';
+      b.endedAt = Date.now();
+      const sorted = Object.values(b.dmgByPlayer || {}).sort((a, b2) => b2.dmg - a.dmg);
+      b.topDmg = sorted.slice(0, 5).map(d => ({ id: d.id, name: d.name, avatar: d.avatar, dmg: d.dmg, hits: d.hits }));
+      b.contributorsCount = sorted.length;
+
+      const coopReward = Number(b.coopReward) || 300;
+      const mvpBonus = [200, 100, 50];
+      sorted.forEach((entry, idx) => {
+        const p = room.players[entry.id];
+        if (!p) return;
+        const extra = idx < mvpBonus.length ? mvpBonus[idx] : 0;
+        p.score += coopReward + extra;
+        const gift = ITEM_KEYS[rand(ITEM_KEYS.length)];
+        p.items[gift] = (p.items[gift] || 0) + 1;
+        touch(p, true);
+      });
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      const top = sorted[0];
+      Sync.pushFeed(room, {
+        type: 'bossWin',
+        bossKey: b.key,
+        coopReward,
+        mvpName: top ? top.name : '',
+        mvpDmg: top ? top.dmg : 0,
+        count: sorted.length
+      });
+      return { sorted, coopReward };
+    },
+
+    resolveBossTimeout(room) {
+      if (!room || !room.boss || room.boss.status !== 'active') return false;
+      const b = room.boss;
+      b.status = 'escaped';
+      b.remainingSec = 0;
+      b.endedAt = Date.now();
+      const sorted = Object.values(b.dmgByPlayer || {}).sort((a, b2) => b2.dmg - a.dmg);
+      b.topDmg = sorted.slice(0, 5).map(d => ({ id: d.id, name: d.name, avatar: d.avatar, dmg: d.dmg, hits: d.hits }));
+      b.contributorsCount = sorted.length;
+      sorted.forEach(entry => {
+        const p = room.players[entry.id];
+        if (!p) return;
+        p.score += 50;
+        touch(p, true);
+      });
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      Sync.pushFeed(room, { type: 'bossFail', bossKey: b.key, count: sorted.length });
+      return true;
     }
   };
 })();

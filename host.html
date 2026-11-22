@@ -19,7 +19,7 @@
 
   <div class="relative z-10 w-full max-w-[2200px] mx-auto px-3 sm:px-5 lg:px-6 py-3 lg:py-4 flex flex-col min-h-screen gap-3 lg:gap-4">
     <!-- ===================== KAHOOT! TOP PIN BANNER ===================== -->
-    <header class="flex flex-col 2xl:flex-row items-stretch justify-between gap-3">
+    <header class="flex flex-col min-[1720px]:flex-row items-stretch justify-between gap-3">
       <!-- แผงขาวคู่สไตล์ Kahoot Lobby (Join at + Game PIN + QR) -->
       <div class="flex flex-wrap sm:flex-nowrap items-stretch gap-2.5 flex-1 min-w-0">
         <!-- ปุ่มกลับหน้าแรก -->
@@ -31,7 +31,7 @@
         <div class="k-box px-3.5 py-2 flex flex-col justify-center flex-1 min-w-[240px] overflow-hidden">
           <div class="text-xs font-bold text-neutral-500">เข้าร่วมผ่านมือถือได้ที่:</div>
           <div class="flex items-center gap-2 mt-0.5 flex-nowrap">
-            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-base 2xl:text-xl text-[#1368ce] hover:underline whitespace-nowrap truncate">
+            <a id="openPlayerLink" href="player.html" target="_blank" class="font-display font-black text-base min-[1720px]:text-xl text-[#1368ce] hover:underline whitespace-nowrap truncate">
               เปิดหน้าผู้เล่น (คลิก) ↗
             </a>
             <button id="copyLinkBtn" class="btn-3d k-btn-dark px-2.5 py-1 text-xs whitespace-nowrap shrink-0" title="คัดลอกลิงก์">คัดลอกลิงก์</button>
@@ -48,9 +48,9 @@
         </div>
 
         <!-- กล่องกลาง: Game PIN ยักษ์ -->
-        <div class="k-box px-4 2xl:px-6 py-2 flex flex-col justify-center shrink-0">
+        <div class="k-box px-4 min-[1720px]:px-6 py-2 flex flex-col justify-center shrink-0">
           <div class="text-xs font-extrabold uppercase tracking-wider text-neutral-500">Game PIN:</div>
-          <div id="roomPinText" class="font-display text-4xl sm:text-5xl 2xl:text-6xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
+          <div id="roomPinText" class="font-display text-4xl sm:text-5xl min-[1720px]:text-6xl font-black tracking-wider text-[#333333] leading-none tabular">----</div>
         </div>
 
         <!-- กล่องขวา: QR Code -->
@@ -59,8 +59,8 @@
         </button>
       </div>
 
-      <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวบน 1080p+, เรียง 2 แถวสะอาดตาบน 720p) -->
-      <div class="flex items-center justify-between 2xl:justify-end gap-1.5 flex-wrap 2xl:flex-nowrap shrink-0">
+      <!-- โลโก้ Sci-Quest! + ปุ่มเต็มจอ/เปลี่ยนห้อง/รีเซ็ต/เสียง (เรียงแถวเดียวบน 1080p+, เรียง 2 แถวสะอาดตาบนจอเล็ก) -->
+      <div class="flex items-center justify-between min-[1720px]:justify-end gap-1.5 flex-wrap min-[1720px]:flex-nowrap shrink-0">
         <div class="flex items-center gap-1.5 px-1 shrink-0">
           <span data-art-hero="brandSpark" data-art-size="36" class="sqa-ico drop-shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
           <div class="k-logo text-3xl sm:text-4xl whitespace-nowrap">Sci-Quest!</div>
@@ -99,7 +99,7 @@
     </header>
 
     <!-- ===================== KAHOOT! CONTROL BAR ===================== -->
-    <section class="k-panel flex flex-wrap 2xl:flex-nowrap items-center justify-between gap-2.5 px-3.5 py-3">
+    <section class="k-panel flex flex-wrap min-[1720px]:flex-nowrap items-center justify-between gap-2.5 px-3.5 py-3">
       <!-- จำนวนผู้เล่น + สถานะ + ระบบกำหนดเวลาเกม -->
       <div class="flex flex-wrap items-center gap-2 shrink-0">
         <div id="playerCountBadge" class="bg-[#333333] text-white px-3.5 py-2 rounded-[6px] font-display font-extrabold text-sm sm:text-base whitespace-nowrap inline-flex items-center gap-1.5 shadow-[0_3px_0_#141414]">
@@ -128,40 +128,45 @@
       </div>
 
       <!-- ปุ่มควบคุมหลักของครู (4 สี Kahoot!) -->
-      <div class="flex flex-wrap 2xl:flex-nowrap items-center gap-2">
-        <button id="playPauseBtn" class="btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5 whitespace-nowrap">
+      <div class="flex flex-wrap min-[1720px]:flex-nowrap items-center gap-2">
+        <button id="playPauseBtn" class="btn-3d k-btn-green px-4 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0">
           <i data-lucide="play" class="w-5 h-5"></i>
           <span>เริ่มเกม!</span>
         </button>
 
-        <button id="bonusBtn" class="btn-3d k-btn-yellow px-4 py-2.5 text-sm sm:text-base flex items-center gap-1.5 whitespace-nowrap">
+        <button id="bonusBtn" class="btn-3d k-btn-yellow px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
           <span>●</span>
-          <span>ปล่อยคำถามโบนัส</span>
+          <span>คำถามโบนัส</span>
         </button>
 
-        <button id="chaosBtn" class="btn-3d px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap text-white" style="background:#c026d3;box-shadow:inset 0 2px 0 rgba(255,255,255,0.24),0 5px 0 #701a75" title="เปิดแผงอีเวนต์ป่วนห้องเพิ่มความตื่นเต้น!">
+        <button id="bossBtn" class="btn-3d px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap text-white" style="background:linear-gradient(180deg,#f97316 0%,#dc2626 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,0.28),0 5px 0 #7f1d1d" title="ปล่อยบอสคำถามยักษ์ให้ทั้งห้องช่วยกันตีชิงคะแนน!">
+          <span data-art-hero="bossRaid" data-art-size="20" class="sqa-ico"></span>
+          <span>บอสคำถาม!</span>
+        </button>
+
+        <button id="chaosBtn" class="btn-3d px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap text-white" style="background:#c026d3;box-shadow:inset 0 2px 0 rgba(255,255,255,0.24),0 5px 0 #701a75" title="เปิดแผงอีเวนต์ป่วนห้องเพิ่มความตื่นเต้น!">
           <span data-art-hero="chaosWheel" data-art-size="19" class="sqa-ico"></span>
           <span>อีเวนต์ป่วนห้อง</span>
         </button>
 
-        <button id="giftAllBtn" class="btn-3d k-btn-white px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap" title="สุ่มแจกไอเทมให้ผู้เล่นทุกคนคนละ 1 ชิ้นทันที">
-          <span data-art-hero="giftBox" data-art-size="20" class="sqa-ico"></span>
-          <span>แจกไอเทมทุกคน</span>
+        <button id="giftAllBtn" class="btn-3d k-btn-white px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap" title="สุ่มแจกไอเทมให้ผู้เล่นทุกคนคนละ 1 ชิ้นทันที">
+          <span data-art-hero="giftBox" data-art-size="19" class="sqa-ico"></span>
+          <span>แจกไอเทม</span>
         </button>
 
-        <button id="podiumBtn" class="btn-3d k-btn-red px-4 py-2.5 text-sm sm:text-base flex items-center gap-1.5 whitespace-nowrap">
-          <span data-art-ui="trophyMini" data-art-size="16" class="sqa-ico"></span>
+        <button id="podiumBtn" class="btn-3d k-btn-red px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
+          <span data-art-ui="trophyMini" data-art-size="15" class="sqa-ico"></span>
           <span>โพเดียม 1-2-3</span>
         </button>
 
-        <button id="addBotsBtn" class="btn-3d k-btn-blue px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap">
+        <button id="addBotsBtn" class="btn-3d k-btn-blue px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1 whitespace-nowrap">
           <span>◆</span>
-          <span>+ บอท 4 คน</span>
+          <span>+ บอท 4</span>
         </button>
 
-        <button id="simToggleBtn" class="btn-3d k-btn-dark px-3.5 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
+        <button id="simToggleBtn" class="btn-3d k-btn-dark px-3 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
           <span data-art-ui="play" data-art-size="14" class="sqa-ico text-[#4ade80]"></span>
-          <span>จำลองเล่นอัตโนมัติ</span>
+          <span>จำลองอัตโนมัติ</span>
         </button>
       </div>
     </section>
@@ -208,6 +213,75 @@
       </div>
       <div class="w-full h-3 bg-black/20 rounded-full overflow-hidden">
         <div id="hostBonusBar" class="h-full bg-[#46178f] transition-all duration-200" style="width:100%"></div>
+      </div>
+    </section>
+
+    <!-- ===================== CO-OP BOSS RAID LIVE STAGE (บอสคำถามยักษ์ประจำห้อง!) ===================== -->
+    <section id="activeBossStage" class="hidden boss-arena-stage p-4 sm:p-5 pop-in">
+      <div class="grid lg:grid-cols-12 gap-4 items-center relative z-10">
+        <!-- ซ้าย: ตัวบอสเวกเตอร์ขนาดใหญ่ + เลเยอร์ดาเมจลอย -->
+        <div class="lg:col-span-3 flex flex-col items-center justify-center relative">
+          <div class="boss-portal w-44 h-40 sm:w-52 sm:h-44 flex items-center justify-center relative">
+            <div id="hostBossArt" class="boss-sprite"></div>
+            <div id="hostBossDmgLayer" class="absolute inset-0 pointer-events-none overflow-visible"></div>
+          </div>
+        </div>
+
+        <!-- กลาง: ชื่อบอส + หลอดเลือด HP ยักษ์ + เวลานับถอยหลัง + รางวัล Co-op -->
+        <div class="lg:col-span-6 space-y-2.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="hostBossStatusBadge" class="px-2.5 py-1 rounded-[5px] bg-[#e21b3c] text-white font-display font-black text-xs uppercase inline-flex items-center gap-1.5 shadow">
+                <span data-art-hero="bossRaid" data-art-size="16" class="sqa-ico"></span>
+                <span>CO-OP BOSS RAID!</span>
+              </span>
+              <span id="hostBossFilmTag" class="px-2.5 py-1 rounded-[5px] bg-white/15 text-white font-extrabold text-xs inline-flex items-center gap-1"></span>
+              <span id="hostBossEnrageTag" class="hidden px-2.5 py-1 rounded-[5px] bg-[#fde047] text-[#1e1b2e] font-display font-black text-xs animate-pulse">คลั่งแล้ว! เลือดใกล้หมด!</span>
+            </div>
+            <div id="hostBossTimer" class="px-3.5 py-1 rounded-[6px] bg-[#1e1b2e] border-2 border-[#ffa602] text-[#fde047] font-display font-black text-xl sm:text-2xl tabular inline-flex items-center gap-1.5">
+              01:30
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-baseline gap-2.5 flex-wrap">
+              <h3 id="hostBossName" class="font-display text-2xl sm:text-3xl font-black text-white leading-none">Dr. Glitch AI</h3>
+              <span id="hostBossTitle" class="text-sm sm:text-base font-extrabold text-[#fde047]">จอมหลอนข้อมูล</span>
+            </div>
+            <p id="hostBossSubtitle" class="text-xs sm:text-sm font-semibold text-white/85 mt-1">ช่วยกันตอบคำถามบนมือถือโจมตีบอส! ปราบได้ทั้งห้องรับ +300 แต้ม + ไอเทมฟรี! (MVP รับเพิ่ม +200!)</p>
+          </div>
+
+          <!-- หลอดเลือด BOSS HP ยักษ์ -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs sm:text-sm font-display font-black">
+              <span class="text-white/90 uppercase tracking-wider">BOSS HP</span>
+              <span id="hostBossHpText" class="text-[#fde047] text-base sm:text-lg tabular">1,200 / 1,200 HP (100%)</span>
+            </div>
+            <div class="boss-hp-track">
+              <div id="hostBossHpFill" class="boss-hp-fill" style="width:100%"></div>
+            </div>
+          </div>
+
+          <!-- สถิติร่วมสู้ + ข้อความสรุปผลเมื่อชนะ/หมดเวลา -->
+          <div class="flex items-center justify-between gap-2 flex-wrap text-xs font-extrabold text-white/85">
+            <span id="hostBossStats" class="inline-flex items-center gap-2"></span>
+            <button id="closeBossBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-1.5 text-xs">ปิดบอส</button>
+          </div>
+        </div>
+
+        <!-- ขวา: อันดับ Top 3 ผู้ทำดาเมจสูงสุด (Boss Raid MVPs) -->
+        <div class="lg:col-span-3 bg-black/35 border border-white/15 rounded-[8px] p-3 space-y-2">
+          <div class="flex items-center justify-between text-xs font-display font-black text-[#fde047] uppercase pb-1.5 border-b border-white/15">
+            <span class="inline-flex items-center gap-1.5">
+              <span data-art-hero="swordHit" data-art-size="18" class="sqa-ico"></span>
+              <span>TOP DAMAGE MVP</span>
+            </span>
+            <span id="hostBossHitCount" class="text-white/75 tabular">0 ฮิต</span>
+          </div>
+          <div id="hostBossMvpList" class="space-y-1.5 text-xs">
+            <div class="text-center text-white/60 py-3 font-bold">รอการโจมตีแรกจากนักเรียน...</div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -269,6 +343,53 @@
         </div>
       </aside>
     </main>
+  </div>
+
+  <!-- MODAL: เลือกปล่อยบอสคำถามยักษ์ (Co-Op Boss Raid Summoner!) -->
+  <div id="bossModal" class="overlay dim z-[188] hidden overflow-y-auto">
+    <div class="k-box max-w-3xl w-full p-5 sm:p-6 pop-in border-t-8 border-[#e21b3c] my-auto">
+      <div class="flex items-center justify-between gap-2 mb-4 pb-2.5 border-b-2 border-neutral-200">
+        <div class="flex items-center gap-2.5">
+          <span data-art-hero="bossRaid" data-art-size="42" class="sqa-ico"></span>
+          <div>
+            <h3 class="font-display text-xl sm:text-2xl font-black text-[#333]">อัญเชิญบอสคำถามยักษ์! (Co-Op Boss Raid)</h3>
+            <p class="text-xs sm:text-sm font-bold text-neutral-500">ทุกทีมช่วยกันตอบคำถามโจมตีบอสให้เลือดหมด! ปราบได้ทั้งห้องรับ +300 แต้ม + ไอเทม! MVP รับเพิ่ม +200!</p>
+          </div>
+        </div>
+        <button id="closeBossModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center shrink-0">✕</button>
+      </div>
+
+      <!-- ตั้งค่าเวลา Raid + ความอึดของบอส (คำนวณ HP อัตโนมัติตามจำนวนผู้เล่นในห้อง!) -->
+      <div class="grid sm:grid-cols-2 gap-2.5 mb-3">
+        <div class="bg-neutral-100 rounded-[6px] p-2">
+          <div class="text-[11px] font-extrabold text-neutral-500 uppercase mb-1.5">เวลาร่วมพลังตีบอส</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-boss-sec="60" class="boss-sec-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">60 วินาที</button>
+            <button type="button" data-boss-sec="90" class="boss-sec-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white">90 วิ (แนะนำ)</button>
+            <button type="button" data-boss-sec="120" class="boss-sec-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">120 วินาที</button>
+          </div>
+        </div>
+        <div class="bg-neutral-100 rounded-[6px] p-2">
+          <div class="flex items-center justify-between text-[11px] font-extrabold text-neutral-500 uppercase mb-1.5">
+            <span>ความอึดของบอส (Auto Scale)</span>
+            <span id="bossHpPreview" class="text-[#e21b3c] font-display font-black">800 HP</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-boss-mult="1" class="boss-mult-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-[#e21b3c] text-white">ปกติ (1×)</button>
+            <button type="button" data-boss-mult="1.5" class="boss-mult-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">บอสอึด (1.5×)</button>
+            <button type="button" data-boss-mult="2" class="boss-mult-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200">บอสโหด (2×)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- แกลเลอรีเลือก 4 บอสเวกเตอร์สุดอลังการ -->
+      <div id="bossPickerGrid" class="grid sm:grid-cols-2 gap-3 mb-3.5"></div>
+
+      <button id="randomBossBtn" type="button" class="btn-3d k-btn-red w-full py-3.5 text-base flex items-center justify-center gap-2">
+        <span data-art-hero="bossRaid" data-art-size="22" class="sqa-ico"></span>
+        <span>สุ่มบอสและเริ่ม Co-Op Raid ทันที!</span>
+      </button>
+    </div>
   </div>
 
   <!-- MODAL: อีเวนต์ป่วนห้อง (Chaos Events กันเด็กเบื่อ!) -->

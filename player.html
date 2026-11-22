@@ -183,6 +183,15 @@
         <span id="playerFeverTimer" class="px-2 py-0.5 rounded-[4px] bg-[#1e1b2e] text-[#fde047] font-display font-black text-xs tabular">01:00</span>
       </div>
 
+      <!-- แถบแจ้งเตือนบอสกำลังบุก (คลิกกลับเข้าสู้บอสได้ทันทีถ้าซ่อนหน้าต่างบอสไว้) -->
+      <button id="playerBossBanner" type="button" class="hidden w-full bg-[#1d0944] text-white px-3 py-2 border-b-4 border-[#e21b3c] flex items-center justify-between gap-2 text-left">
+        <span class="font-display font-black text-xs sm:text-sm inline-flex items-center gap-1.5 min-w-0">
+          <span data-art-hero="bossRaid" data-art-size="20" class="sqa-ico shrink-0"></span>
+          <span id="playerBossBannerText" class="truncate">บอสบุก! แตะเพื่อร่วมตีบอส!</span>
+        </span>
+        <span id="playerBossBannerHp" class="px-2 py-0.5 rounded-[4px] bg-[#e21b3c] text-white font-display font-black text-xs tabular shrink-0">100% HP</span>
+      </button>
+
       <!-- สถานะบัฟ (x2 / โล่) -->
       <div id="buffPills" class="flex items-center gap-1.5 mt-2 px-3 flex-wrap hidden"></div>
     </header>
@@ -502,6 +511,97 @@
         </button>
       </div>
       <div id="targetList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
+    </div>
+  </div>
+
+  <!-- ===================== OVERLAY: CO-OP BOSS RAID (ช่วยกันทั้งห้องปราบบอสคำถาม!) ===================== -->
+  <div id="bossOverlay" class="overlay dim z-[165] hidden overflow-y-auto">
+    <div id="playerBossCard" class="k-box max-w-md w-full overflow-hidden pop-in my-auto border-4 border-[#e21b3c]">
+      <!-- หัวการ์ดบอสสไตล์ Cosmic Battle Arena -->
+      <div id="playerBossHeader" class="p-3.5 text-white relative" style="background:radial-gradient(circle at 25% 45%, rgba(226,27,60,0.48) 0%, #1c074a 60%, #10032b 100%)">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <span class="px-2 py-0.5 rounded-[4px] bg-[#e21b3c] text-white font-display font-black text-[11px] uppercase inline-flex items-center gap-1">
+            <span data-art-hero="bossRaid" data-art-size="14" class="sqa-ico"></span>
+            <span>CO-OP BOSS RAID</span>
+          </span>
+          <div class="flex items-center gap-1.5">
+            <span id="playerBossTimer" class="px-2.5 py-0.5 rounded-[4px] bg-[#1e1b2e] border border-[#ffa602] text-[#fde047] font-display font-black text-sm tabular">01:30</span>
+            <button id="bossMinimizeBtn" type="button" class="px-2 py-0.5 rounded-[4px] bg-white/15 hover:bg-white/25 text-white text-[11px] font-extrabold">ซ่อน</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="relative w-28 h-24 flex items-center justify-center shrink-0">
+            <div id="playerBossArt" class="boss-sprite"></div>
+            <div id="playerBossDmgPop" class="absolute inset-0 pointer-events-none overflow-visible"></div>
+          </div>
+          <div class="min-w-0 flex-1 space-y-1.5">
+            <div>
+              <div id="playerBossName" class="font-display text-lg font-black leading-tight truncate">Dr. Glitch AI</div>
+              <div id="playerBossTitle" class="text-xs font-extrabold text-[#fde047]">จอมหลอนข้อมูล</div>
+            </div>
+            <!-- หลอดเลือดบอสรวมทั้งห้อง -->
+            <div>
+              <div class="flex items-center justify-between text-[11px] font-display font-black mb-0.5">
+                <span class="text-white/80">BOSS HP</span>
+                <span id="playerBossHpText" class="text-[#fde047] tabular">1,200 / 1,200</span>
+              </div>
+              <div class="boss-hp-track !h-5 !border-2">
+                <div id="playerBossHpFill" class="boss-hp-fill" style="width:100%"></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between gap-1 text-[11px] font-extrabold">
+              <span class="text-white/90">ดาเมจของฉัน: <b id="playerBossMyDmg" class="text-[#fde047] tabular">0</b></span>
+              <span id="playerBossBoostTag" class="hidden px-1.5 py-0.5 rounded bg-[#facc15] text-[#1e1b2e] font-black text-[10px]">+50% CRIT!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ขั้นที่ 1: กำลังตอบคำถามโจมตีบอส -->
+      <div id="bossStepFight" class="p-4 space-y-3 bg-white">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <span id="playerBossWaveBadge" class="px-2 py-0.5 rounded-[4px] bg-[#241f35] text-[#fde047] font-display font-black text-xs">ระลอกที่ 1</span>
+          <span id="playerBossFilmBadge" class="px-2 py-0.5 rounded-[4px] text-white font-extrabold text-xs inline-flex items-center gap-1"></span>
+        </div>
+
+        <div class="bg-neutral-100 border-2 border-neutral-200 rounded-[6px] p-3">
+          <h3 id="playerBossQ" class="font-display text-base sm:text-lg font-extrabold text-[#333] leading-snug"></h3>
+        </div>
+
+        <form id="bossAttackForm" class="space-y-2.5">
+          <textarea id="bossAnswerInput" rows="3" placeholder="พิมพ์คำตอบวิทยาศาสตร์เพื่อโจมตีบอส..." class="input-big text-sm sm:text-base resize-none"></textarea>
+          <button id="bossAttackBtn" type="submit" class="btn-3d k-btn-red w-full py-3.5 text-base sm:text-lg inline-flex items-center justify-center gap-2">
+            <span data-art-hero="swordHit" data-art-size="22" class="sqa-ico"></span>
+            <span>โจมตีบอส! (Attack)</span>
+          </button>
+        </form>
+
+        <div id="bossHitResult" class="hidden space-y-2.5 pt-2.5 border-t-2 border-neutral-200 pop-in">
+          <div class="flex items-center justify-between">
+            <span id="bossHitTier" class="font-display font-black text-base"></span>
+            <span id="bossHitPct" class="font-display font-black text-xl tabular"></span>
+          </div>
+          <div class="w-full h-3 bg-neutral-200 rounded-[4px] overflow-hidden">
+            <div id="bossHitBar" class="bar-fill h-full" style="width:0%"></div>
+          </div>
+          <div id="bossHitKw" class="flex flex-wrap gap-1"></div>
+          <div id="bossHitOutcome" class="rounded-[5px] p-2.5 text-sm font-extrabold"></div>
+          <button id="bossNextWaveBtn" type="button" class="hidden btn-3d k-btn-green w-full py-3 text-base inline-flex items-center justify-center gap-2">
+            <span data-art-hero="swordHit" data-art-size="20" class="sqa-ico"></span>
+            <span>โจมตีระลอกถัดไป! →</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ขั้นที่ 2: สรุปผลชัยชนะ / หมดเวลา Raid -->
+      <div id="bossStepResult" class="hidden p-5 text-center space-y-3 bg-white">
+        <div id="bossResultIcon" class="inline-flex items-center justify-center mx-auto"></div>
+        <h3 id="bossResultTitle" class="font-display text-2xl font-black text-[#333]"></h3>
+        <p id="bossResultDesc" class="text-sm font-bold text-neutral-600"></p>
+        <div id="bossResultMvp" class="bg-neutral-100 rounded-[6px] p-3 text-left space-y-1.5"></div>
+        <button id="bossCloseResultBtn" type="button" class="btn-3d k-btn-green w-full py-3.5 text-base">กลับสู่สนามประลอง →</button>
+      </div>
     </div>
   </div>
 

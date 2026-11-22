@@ -38,6 +38,51 @@ const ITEMS = {
 };
 const ITEM_KEYS = Object.keys(ITEMS);
 
+/* บอสคำถามยักษ์ประจำห้อง 4 ตัว (Co-Op Raid Bosses จับคู่กับภาพยนตร์วิทย์ 4 เรื่อง) */
+const BOSSES = {
+  dr_glitch: {
+    key: 'dr_glitch',
+    name: 'Dr. Glitch AI',
+    title: 'จอมหลอนข้อมูล',
+    film: 'f1',
+    color: '#e21b3c',
+    dark: '#881337',
+    accent: '#f472b6',
+    tagline: 'แต่งข้อมูลปลอมขั้นเทพ! ช่วยกันตอบคำถามจับผิด AI ปราบมัน!'
+  },
+  mirage_queen: {
+    key: 'mirage_queen',
+    name: 'Phantom Mirage',
+    title: 'ราชินีมายาดิจิทัล',
+    film: 'f2',
+    color: '#1368ce',
+    dark: '#1e3a8a',
+    accent: '#38bdf8',
+    tagline: 'สร้างภาพลวงตาบนโซเชียล! รวมพลังทั้งห้องเปิดโปงความจริง!'
+  },
+  echo_colossus: {
+    key: 'echo_colossus',
+    name: 'Echo Heart',
+    title: 'จักรกลหัวใจจำลอง',
+    film: 'f3',
+    color: '#d89e00',
+    dark: '#92400e',
+    accent: '#fb7185',
+    tagline: 'เลียนแบบหัวใจมนุษย์ได้แนบเนียน! ตอบคำถามสยบพลังจักรกล!'
+  },
+  decibel_titan: {
+    key: 'decibel_titan',
+    name: 'Decibel Titan',
+    title: 'ไททันคลื่นเสียงคลั่ง',
+    film: 'f4',
+    color: '#26890c',
+    dark: '#14532d',
+    accent: '#4ade80',
+    tagline: 'ปล่อยคลื่นเสียงสนั่นห้อง! ช่วยกันตอบความรู้คลื่นเสียงหยุดมัน!'
+  }
+};
+const BOSS_KEYS = Object.keys(BOSSES);
+
 const TONES = {
   sky: '#1368ce', green: '#26890c', yellow: '#d89e00', red: '#e21b3c', violet: '#46178f', amber: '#d89e00',
   emerald: '#26890c', cyan: '#008299', blue: '#1368ce', fuchsia: '#c026d3', slate: '#333333'
@@ -75,6 +120,9 @@ function heroIconHtml(name, size = 48, cls = '') {
 function uiIconHtml(name, size = 16, cls = '') {
   return window.SQA_ART ? SQA_ART.uiSvg(name, size, cls) : '';
 }
+function bossArtHtml(key, width = 190, cls = '') {
+  return window.SQA_ART ? SQA_ART.bossSvg(key, width, cls) : '';
+}
 
 function avatarHtml(i, size = 48, extra = '') {
   const idx = (i >= 0 && i < AVATARS.length) ? i : 0;
@@ -109,6 +157,11 @@ function hydrateStaticIcons() {
     const variant = Number(el.dataset.artSmoke) || 0;
     const sz = Number(el.dataset.artSize) || 136;
     el.innerHTML = SQA_ART.smokeSvg(variant, sz);
+  });
+  document.querySelectorAll('[data-art-boss]').forEach(el => {
+    const key = el.dataset.artBoss;
+    const sz = Number(el.dataset.artSize) || 190;
+    el.innerHTML = SQA_ART.bossSvg(key, sz);
   });
 }
 document.addEventListener('DOMContentLoaded', hydrateStaticIcons);
@@ -149,6 +202,19 @@ function feedView(e) {
     }
     case 'unfreeze': return { emoji: heroIconHtml('hammer', 19), tone: 'sky', html: `${A} ทุบน้ำแข็งแตกแล้ว!` };
     case 'bonus': return { emoji: heroIconHtml('giftBox', 19), tone: 'fuchsia', html: `<b>ปล่อยคำถามโบนัส!</b> ตอบผ่านรับกล่องสุ่ม` };
+    case 'bossStart': {
+      const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
+      return { emoji: heroIconHtml('bossRaid', 19), tone: 'red', html: `<b>บอสปรากฏตัว! ${esc(bs.name)}</b> (HP ${Number(e.maxHp || 0).toLocaleString()}) ช่วยกันตีด่วน!` };
+    }
+    case 'bossHit': return { emoji: heroIconHtml('swordHit', 19), tone: e.crit ? 'amber' : 'fuchsia', html: `${A} โจมตีบอส <b>-${e.dmg} HP</b>${e.crit ? ' <span class="x2tag">CRIT!</span>' : ''}` };
+    case 'bossWin': {
+      const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
+      return { emoji: heroIconHtml('trophy', 19), tone: 'green', html: `<b>ปราบ ${esc(bs.name)} สำเร็จ!</b> ทั้งห้องรับ <b>+${e.coopReward || 300}</b> แต้ม!${e.mvpName ? ` MVP: <b>${esc(e.mvpName)}</b>` : ''}` };
+    }
+    case 'bossFail': {
+      const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
+      return { emoji: heroIconHtml('bossRaid', 19), tone: 'slate', html: `<b>หมดเวลา Raid!</b> ${esc(bs.name)} หนีไปได้ (รับปลอบใจ +50 แต้มทุกคนที่ร่วมสู้)` };
+    }
     default: return { emoji: uiIconHtml('sparkles', 14), tone: 'slate', html: esc(e.text || '') };
   }
 }

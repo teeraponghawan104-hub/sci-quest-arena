@@ -370,6 +370,9 @@
         else if (e.type === 'freezeTop') { SFX.freeze(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('freeze', 32)}</span><span>${v.html}</span>`, TONES.cyan); }
         else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('shield', 30)}</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
         else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
+        else if (e.type === 'bossStart') { SFX.drum(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.red); }
+        else if (e.type === 'bossWin') { SFX.fanfare(); confetti(3200, 150); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('trophy', 32)}</span><span>${v.html}</span>`, TONES.green); }
+        else if (e.type === 'bossFail') { SFX.wrong(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.slate); }
       });
     }
 
@@ -407,6 +410,139 @@
   let feverLastTickAt = 0;
   let feverLastSyncAt = 0;
   let feverEnding = false;
+
+  let trackedBossId = '';
+  let trackedBossArtKey = '';
+  let bossRemainingMs = 0;
+  let bossLastTickAt = 0;
+  let bossLastSyncAt = 0;
+  let bossEnding = false;
+  let lastBossHitRenderId = '';
+  const seenBossHitIds = new Set();
+
+  function spawnBossDmgPopup(hit) {
+    const layer = $('hostBossDmgLayer');
+    const sprite = $('hostBossArt');
+    if (sprite) {
+      sprite.classList.remove('boss-hit');
+      void sprite.offsetWidth;
+      sprite.classList.add('boss-hit');
+    }
+    if (!layer || !hit) return;
+    const pop = document.createElement('div');
+    pop.className = 'boss-dmg-pop';
+    const xOff = 32 + Math.random() * 36;
+    pop.style.left = `${xOff.toFixed(1)}%`;
+    pop.innerHTML = `
+      <div class="px-2.5 py-1 rounded-[6px] font-display font-black text-lg sm:text-xl shadow-lg border-2 border-white ${hit.crit ? 'bg-[#facc15] text-[#1e1b2e]' : 'bg-[#e21b3c] text-white'}">
+        -${Number(hit.dmg || 0)}!${hit.crit ? ' CRIT!' : ''}
+      </div>
+      <div class="text-center mt-0.5">
+        <span class="px-1.5 py-0.5 rounded bg-[#1e1b2e]/90 text-white font-display font-bold text-[10px]">${esc(hit.name || '')}</span>
+      </div>`;
+    layer.appendChild(pop);
+    setTimeout(() => pop.remove(), 1400);
+  }
+
+  function renderBossStage(room) {
+    const stage = $('activeBossStage');
+    if (!stage) return;
+    const b = room && room.boss;
+    if (!b || !b.id || room.status === 'ended') {
+      stage.classList.add('hidden');
+      trackedBossId = '';
+      trackedBossArtKey = '';
+      bossRemainingMs = 0;
+      bossEnding = false;
+      return;
+    }
+
+    const meta = BOSSES[b.key] || BOSSES.dr_glitch;
+    const film = FILMS[meta.film] || FILMS.f1;
+    const pct = Math.max(0, Math.min(100, Math.round((b.hp / Math.max(1, b.maxHp)) * 100)));
+    const isEnraged = b.status === 'active' && pct <= 35;
+
+    if (trackedBossId !== b.id) {
+      trackedBossId = b.id;
+      bossRemainingMs = Math.max(0, Number(b.remainingSec ?? b.durationSec ?? 90)) * 1000;
+      bossLastTickAt = Date.now();
+      bossLastSyncAt = Date.now();
+      bossEnding = b.status !== 'active';
+      lastBossHitRenderId = b.lastHit ? b.lastHit.id : '';
+    }
+
+    stage.style.setProperty('--boss-color', meta.color);
+    stage.style.setProperty('--boss-glow', meta.color + '77');
+    stage.classList.remove('hidden', 'boss-enraged', 'boss-defeated');
+    if (isEnraged) stage.classList.add('boss-enraged');
+    if (b.status === 'defeated') stage.classList.add('boss-defeated');
+
+    const artEl = $('hostBossArt');
+    if (artEl && trackedBossArtKey !== `${b.key}_${b.status}`) {
+      trackedBossArtKey = `${b.key}_${b.status}`;
+      artEl.innerHTML = b.status === 'defeated'
+        ? `<div class="relative flex flex-col items-center">${heroIconHtml('trophy', 124, 'crown-float')}<span class="mt-1 px-3 py-0.5 rounded-full bg-[#facc15] text-[#1e1b2e] font-display font-black text-xs shadow">DEFEATED!</span></div>`
+        : bossArtHtml(b.key, 196);
+    }
+
+    if (b.lastHit && b.lastHit.id && b.lastHit.id !== lastBossHitRenderId) {
+      lastBossHitRenderId = b.lastHit.id;
+      spawnBossDmgPopup(b.lastHit);
+      if (b.lastHit.crit) SFX.zap(); else SFX.pop();
+    }
+
+    $('hostBossName').textContent = meta.name;
+    $('hostBossTitle').textContent = meta.title;
+    $('hostBossFilmTag').innerHTML = `${filmIconHtml(meta.film, 16)}<span>${esc(film.short)}</span>`;
+    $('hostBossEnrageTag').classList.toggle('hidden', !isEnraged);
+
+    const statusBadge = $('hostBossStatusBadge');
+    const subtitle = $('hostBossSubtitle');
+    const timerEl = $('hostBossTimer');
+    const closeBtn = $('closeBossBtn');
+
+    if (b.status === 'defeated') {
+      statusBadge.style.background = '#26890c';
+      statusBadge.innerHTML = `${heroIconHtml('trophy', 16)}<span>ปราบบอสสำเร็จ! VICTORY!</span>`;
+      subtitle.textContent = `สุดยอดมาก! ทุกคนที่ร่วมสู้ (${b.contributorsCount || 0} คน) รับโบนัส +${b.coopReward || 300} แต้ม + ไอเทมสุ่มแล้ว! (MVP รับเพิ่มสูงสุด +200!)`;
+      timerEl.textContent = 'WIN!';
+      closeBtn.textContent = 'ปิดหน้าต่างชัยชนะ';
+    } else if (b.status === 'escaped') {
+      statusBadge.style.background = '#475569';
+      statusBadge.innerHTML = `${heroIconHtml('bossRaid', 16)}<span>หมดเวลา RAID • บอสหนีไปได้!</span>`;
+      subtitle.textContent = `เกือบปราบได้แล้ว! เหลือเลือดอีก ${b.hp.toLocaleString()} HP — ทุกคนที่ช่วยตีรับปลอบใจ +50 แต้มแล้ว!`;
+      timerEl.textContent = '00:00';
+      closeBtn.textContent = 'ปิดหน้าต่างบอส';
+    } else {
+      statusBadge.style.background = meta.color;
+      statusBadge.innerHTML = `${heroIconHtml('bossRaid', 16)}<span>CO-OP BOSS RAID!</span>`;
+      subtitle.textContent = `${meta.tagline} • ปราบได้ทั้งห้องรับ +${b.coopReward || 300} แต้ม + ไอเทม! (MVP +200!)`;
+      timerEl.textContent = formatClock(bossRemainingMs);
+      closeBtn.textContent = 'ปิดบอส';
+    }
+
+    $('hostBossHpText').textContent = `${Number(b.hp || 0).toLocaleString()} / ${Number(b.maxHp || 0).toLocaleString()} HP (${pct}%)`;
+    $('hostBossHpFill').style.width = `${pct}%`;
+    $('hostBossHitCount').textContent = `${Number(b.hitCount || 0)} ฮิต`;
+    $('hostBossStats').innerHTML = `${uiIconHtml('users', 14, 'text-[#fde047]')}<span>ร่วมโจมตีแล้ว ${Number(b.contributorsCount || 0)} คน</span>`;
+
+    const mvps = (b.topDmg || []).slice(0, 3);
+    const mvpList = $('hostBossMvpList');
+    const medals = ['medal1', 'medal2', 'medal3'];
+    if (!mvps.length) {
+      mvpList.innerHTML = '<div class="text-center text-white/60 py-3 font-bold">รอการโจมตีแรกจากนักเรียน...</div>';
+    } else {
+      mvpList.innerHTML = mvps.map((m, idx) => `
+        <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[5px] bg-white/10 text-white">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="sqa-ico shrink-0">${heroIconHtml(medals[idx] || 'trophy', 20)}</span>
+            ${avatarHtml(m.avatar, 24)}
+            <span class="font-display font-extrabold truncate">${esc(m.name)}</span>
+          </div>
+          <span class="font-display font-black text-[#fde047] tabular shrink-0">${Number(m.dmg || 0).toLocaleString()}</span>
+        </div>`).join('');
+    }
+  }
 
   function renderFeverBar(room) {
     const bar = $('activeFeverBar');
@@ -603,6 +739,39 @@
     } else {
       feverLastTickAt = now;
     }
+
+    // 4) นับเวลาถอยหลังของ Co-Op Boss Raid
+    if (room.status === 'playing' && room.boss && room.boss.status === 'active' && trackedBossId === room.boss.id) {
+      const dt = bossLastTickAt ? Math.min(1000, now - bossLastTickAt) : 0;
+      bossLastTickAt = now;
+      bossRemainingMs = Math.max(0, bossRemainingMs - dt);
+      const tEl = $('hostBossTimer');
+      if (tEl) tEl.textContent = formatClock(bossRemainingMs);
+      const bSec = Math.ceil(bossRemainingMs / 1000);
+      if (bSec > 0 && bSec <= 10 && bSec !== lastBonusBeepSec) {
+        lastBonusBeepSec = bSec;
+        SFX.click();
+      }
+      if (bossRemainingMs <= 0 && !bossEnding) {
+        bossEnding = true;
+        SFX.wrong();
+        await Sync.transact(r => {
+          if (!r || !r.boss || r.boss.id !== trackedBossId || r.boss.status !== 'active') return;
+          Game.resolveBossTimeout(r);
+          return r;
+        });
+      } else if (now - bossLastSyncAt >= 5000) {
+        bossLastSyncAt = now;
+        await Sync.transact(r => {
+          if (!r || !r.boss || r.boss.id !== trackedBossId || r.boss.status !== 'active') return;
+          r.boss.remainingSec = Math.max(1, Math.ceil(bossRemainingMs / 1000));
+          r.hostUpdatedAt = Date.now();
+          return r;
+        }, { deferBroadcast: true });
+      }
+    } else {
+      bossLastTickAt = now;
+    }
   }, 200);
 
   // ตั้งเวลาเกมจาก dropdown
@@ -660,16 +829,15 @@
 
     const btn = el.playPauseBtn;
     if (room.status === 'playing') {
-      btn.className = 'btn-3d k-btn-blue px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5';
-      btn.innerHTML = '<i data-lucide="pause" class="w-5 h-5"></i><span>หยุดเกมชั่วคราว</span>';
+      btn.className = 'btn-3d k-btn-blue px-4 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0';
+      btn.innerHTML = `${uiIconHtml('pause', 15)}<span>หยุดเกมชั่วคราว</span>`;
     } else if (room.status === 'paused') {
-      btn.className = 'btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5';
-      btn.innerHTML = '<i data-lucide="play" class="w-5 h-5"></i><span>เล่นต่อ!</span>';
+      btn.className = 'btn-3d k-btn-green px-4 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0';
+      btn.innerHTML = `${uiIconHtml('play', 15)}<span>เล่นต่อ!</span>`;
     } else {
-      btn.className = 'btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base flex items-center gap-1.5';
-      btn.innerHTML = '<i data-lucide="play" class="w-5 h-5"></i><span>เริ่มเกม!</span>';
+      btn.className = 'btn-3d k-btn-green px-4 py-2.5 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0';
+      btn.innerHTML = `${uiIconHtml('play', 15)}<span>เริ่มเกม!</span>`;
     }
-    refreshIcons();
   }
 
   function showPodium(room) {
@@ -867,6 +1035,7 @@
     renderFeed(room);
     renderBonusBar(room);
     renderFeverBar(room);
+    renderBossStage(room);
     renderSelfieReview(room);
     if (room.status === 'ended') {
       stopSim();
@@ -876,6 +1045,8 @@
       el.podiumOverlay.classList.add('hidden');
       if (room.status === 'paused') {
         SFX.stopBgm();
+      } else if (room.boss && room.boss.status === 'active') {
+        SFX.startBgm('boss');
       } else if (room.bonus) {
         SFX.startBgm('bonus');
       } else if (room.feverId && (room.feverRemainingSec || 0) > 0) {
@@ -919,6 +1090,99 @@
     });
     if (!count) toast('ยังไม่มีผู้เล่นในห้องให้แจกไอเทม', 'warn');
     else toast(`${heroIconHtml('giftBox', 18)}<span>สุ่มแจกไอเทมให้ผู้เล่น ${count} คนเรียบร้อย!</span>`, 'success');
+  });
+
+  // ===================== อัญเชิญบอสคำถามยักษ์ (Co-Op Boss Raid Summoner!) =====================
+  const bossModal = $('bossModal');
+  let selectedBossSec = 90;
+  let selectedBossMult = 1;
+
+  function renderBossModalGrid() {
+    const pCount = Sync.room ? Object.keys(Sync.room.players || {}).length : 0;
+    const estHp = Game.calcBossHp(pCount, selectedBossMult);
+    const hpPreview = $('bossHpPreview');
+    if (hpPreview) hpPreview.textContent = `${estHp.toLocaleString()} HP (${Math.max(1, pCount)} คน)`;
+
+    const grid = $('bossPickerGrid');
+    if (!grid) return;
+    grid.innerHTML = BOSS_KEYS.map(key => {
+      const b = BOSSES[key];
+      const f = FILMS[b.film] || FILMS.f1;
+      return `
+        <button type="button" data-summon-boss="${b.key}" class="boss-card-pick p-3.5 text-left flex items-center gap-3">
+          <div class="w-24 h-24 rounded-[8px] flex items-center justify-center shrink-0" style="background:radial-gradient(circle,${b.color}66 0%,#12042e 80%);border:2px solid ${b.color}">
+            ${bossArtHtml(b.key, 92)}
+          </div>
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2 py-0.5 rounded-[4px] text-[10px] font-extrabold text-white inline-flex items-center gap-1" style="background:${f.color}">${filmIconHtml(b.film, 13)}<span>${esc(f.short)}</span></span>
+            </div>
+            <div class="font-display text-base sm:text-lg font-black leading-tight text-white">${esc(b.name)}</div>
+            <div class="text-xs font-extrabold text-[#fde047]">${esc(b.title)}</div>
+            <p class="text-[11px] font-medium text-white/80 leading-snug line-clamp-2">${esc(b.tagline)}</p>
+          </div>
+        </button>`;
+    }).join('');
+    grid.querySelectorAll('[data-summon-boss]').forEach(btn => {
+      btn.addEventListener('click', () => launchBossRaid(btn.dataset.summonBoss));
+    });
+  }
+
+  async function launchBossRaid(bossKey) {
+    bossModal?.classList.add('hidden');
+    SFX.drum();
+    const meta = BOSSES[bossKey] || BOSSES.dr_glitch;
+    await Sync.transact(room => {
+      if (!room) return;
+      Game.spawnBoss(room, meta.key, selectedBossSec, selectedBossMult, 300);
+      return room;
+    });
+    toast(`${heroIconHtml('bossRaid', 20)}<span>อัญเชิญบอส ${esc(meta.name)} แล้ว! ช่วยกันตีทั้งห้องเลย!</span>`, 'error', 3600);
+  }
+
+  $('bossBtn')?.addEventListener('click', () => {
+    SFX.pop();
+    renderBossModalGrid();
+    bossModal?.classList.remove('hidden');
+  });
+  $('closeBossModal')?.addEventListener('click', () => { SFX.click(); bossModal?.classList.add('hidden'); });
+  bossModal?.addEventListener('click', e => { if (e.target === bossModal) bossModal.classList.add('hidden'); });
+
+  document.querySelectorAll('.boss-sec-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      SFX.click();
+      selectedBossSec = Number(btn.dataset.bossSec) || 90;
+      document.querySelectorAll('.boss-sec-btn').forEach(b => {
+        b.className = b === btn
+          ? 'boss-sec-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-[#46178f] text-white'
+          : 'boss-sec-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200';
+      });
+    });
+  });
+  document.querySelectorAll('.boss-mult-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      SFX.click();
+      selectedBossMult = Number(btn.dataset.bossMult) || 1;
+      document.querySelectorAll('.boss-mult-btn').forEach(b => {
+        b.className = b === btn
+          ? 'boss-mult-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-[#e21b3c] text-white'
+          : 'boss-mult-btn py-1.5 rounded-[4px] font-display font-black text-xs bg-white text-[#333] hover:bg-neutral-200';
+      });
+      renderBossModalGrid();
+    });
+  });
+  $('randomBossBtn')?.addEventListener('click', () => {
+    const key = BOSS_KEYS[rand(BOSS_KEYS.length)];
+    launchBossRaid(key);
+  });
+  $('closeBossBtn')?.addEventListener('click', async () => {
+    SFX.click();
+    await Sync.transact(room => {
+      if (!room) return;
+      room.boss = null;
+      room.hostUpdatedAt = Date.now();
+      return room;
+    });
   });
 
   // ===================== อีเวนต์ป่วนห้อง (Chaos Events!) =====================
@@ -1090,13 +1354,14 @@
     });
   });
 
-  el.podiumBtn.addEventListener('click', async () => {
+    el.podiumBtn.addEventListener('click', async () => {
     SFX.drum();
     await Sync.transact(room => {
       if (!room) return;
       room.status = 'ended';
       room.endedAt = Date.now();
       room.bonus = null;
+      room.boss = null;
       room.hostUpdatedAt = Date.now();
       return room;
     });
@@ -1117,11 +1382,15 @@
     stopSim();
     matchEnding = false;
     trackedBonusId = null;
+    trackedBossId = '';
+    trackedBossArtKey = '';
+    seenBossHitIds.clear();
     await Sync.transact(room => {
       const now = Date.now();
       const base = room || Sync.defaultRoom(roomCode);
       base.status = 'lobby';
       base.bonus = null;
+      base.boss = null;
       base.feverId = '';
       base.feverRemainingSec = 0;
       base.endedAt = null;
@@ -1218,6 +1487,16 @@
       if (bot.flipped) { Game.unflip(room, bot.id); return room; }
       if (bot.selfieLocked) return; // บอทรอส่งรูปและรอครูกดอนุญาตบนหน้าจอใหญ่
 
+      // หากมีบอสคำถามกำลังบุกห้อง ให้บอทร่วมแรงช่วยกันโจมตีบอสด้วย!
+      if (room.boss && room.boss.status === 'active' && Math.random() < 0.78) {
+        const acc = 45 + rand(55);
+        const calc = Game.calcBossDamage(acc, !!bot.x2Active);
+        if (calc.dmg > 0) {
+          Game.applyBossHit(room, bot.id, room.boss.id, calc.dmg, acc, calc.crit, calc.pts, !!bot.x2Active);
+          return room;
+        }
+      }
+
       if (room.bonus && !(room.bonus.answered || {})[bot.id] && Math.random() < 0.7) {
         Game.applyBonusWin(room, bot.id, room.bonus.id, 75 + rand(25), Game.randomItem());
         return room;
@@ -1294,7 +1573,8 @@
       timerRemainingMs: Math.round(matchRemainingMs),
       timerRunning: !!(Sync.room && Sync.room.status === 'playing' && (Sync.room.timerTotalSec || 0) > 0),
       bonusRemainingSec: trackedBonusId ? Math.max(1, Math.ceil(bonusRemainingMs / 1000)) : null,
-      feverRemainingSec: trackedFeverId ? Math.max(0, Math.ceil(feverRemainingMs / 1000)) : 0
+      feverRemainingSec: trackedFeverId ? Math.max(0, Math.ceil(feverRemainingMs / 1000)) : 0,
+      bossRemainingSec: trackedBossId ? Math.max(0, Math.ceil(bossRemainingMs / 1000)) : null
     }));
     await Sync.connect(roomCode, onRoomUpdate, {
       isHost: true,
@@ -1306,6 +1586,24 @@
       onReaction: (kind, senderName) => {
         spawnReactionBubble(kind, senderName);
       },
+      onBossHit: hit => {
+        if (!hit || !hit.bossId || !hit.pid) return;
+        if (hit.hitId) {
+          if (seenBossHitIds.has(hit.hitId)) return;
+          seenBossHitIds.add(hit.hitId);
+          if (seenBossHitIds.size > 400) {
+            const first = seenBossHitIds.values().next().value;
+            seenBossHitIds.delete(first);
+          }
+        }
+        let defeatedNow = false;
+        Sync.transact(room => {
+          if (!room || !room.boss || room.boss.id !== hit.bossId || room.boss.status !== 'active') return;
+          const res = Game.applyBossHit(room, hit.pid, hit.bossId, hit.dmg, hit.acc, hit.crit, hit.pts, hit.usedX2);
+          if (res && res.defeated) defeatedNow = true;
+          return room;
+        }, { deferBroadcast: !defeatedNow });
+      },
       onSelfie: (pid, photo) => {
         selfiePhotoCache.set(pid, photo);
         lastSelfieReqAt.delete(pid);
@@ -1313,6 +1611,7 @@
       }
     });
     if (!Sync.room) {
+      await Sync.create(roomCode);
       await Sync.transact(r => {
         const base = r || Sync.defaultRoom(roomCode);
         base.hostUpdatedAt = Date.now();

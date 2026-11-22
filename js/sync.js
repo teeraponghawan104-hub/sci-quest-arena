@@ -16,7 +16,7 @@
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
 
   function defaultRoom(c) {
@@ -25,7 +25,7 @@ const Sync = (() => {
       code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
       timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false, timerEpoch: 1,
       feverId: '', feverRemainingSec: 0,
-      players: {}, feed: {}, bonus: null, usedBonus: {}
+      players: {}, feed: {}, bonus: null, usedBonus: {}, boss: null
     };
   }
 
@@ -76,6 +76,20 @@ const Sync = (() => {
       if (r.bonus.remainingSec === undefined) r.bonus.remainingSec = r.bonus.durationSec;
     } else {
       r.bonus = null;
+    }
+    if (r.boss && r.boss.id) {
+      r.boss.maxHp = Math.max(100, Number(r.boss.maxHp || 1000));
+      r.boss.hp = Math.max(0, Math.min(r.boss.maxHp, Number(r.boss.hp ?? r.boss.maxHp)));
+      r.boss.durationSec = Number(r.boss.durationSec || 90);
+      r.boss.remainingSec = Math.max(0, Number(r.boss.remainingSec ?? r.boss.durationSec));
+      r.boss.status = r.boss.status || 'active';
+      r.boss.hitCount = Number(r.boss.hitCount || 0);
+      r.boss.coopReward = Number(r.boss.coopReward || 300);
+      r.boss.dmgByPlayer = r.boss.dmgByPlayer || {};
+      r.boss.topDmg = Array.isArray(r.boss.topDmg) ? r.boss.topDmg : [];
+      r.boss.contributorsCount = Number(r.boss.contributorsCount || Object.keys(r.boss.dmgByPlayer).length || r.boss.topDmg.length);
+    } else {
+      r.boss = null;
     }
     for (const p of Object.values(r.players)) {
       normalizePlayer(p, r.roundId);
@@ -162,6 +176,16 @@ const Sync = (() => {
     if (r.status === 'ended' && r.endedAt) wire.en = r.endedAt;
     if (r.usedBonus && Object.keys(r.usedBonus).length) wire.ub = r.usedBonus;
     if (r.bonus) wire.b = r.bonus;
+    if (r.boss && r.boss.id) {
+      const top = (r.boss.topDmg || []).slice(0, 5).map(d => [d.id, d.name, d.avatar || 0, d.dmg || 0, d.hits || 1]);
+      const lh = r.boss.lastHit ? [r.boss.lastHit.id || '', r.boss.lastHit.name || '', r.boss.lastHit.dmg || 0, r.boss.lastHit.crit ? 1 : 0] : 0;
+      wire.bs = [
+        r.boss.id, r.boss.key || 'dr_glitch', r.boss.maxHp, r.boss.hp,
+        r.boss.durationSec || 90, Math.max(0, Math.ceil(r.boss.remainingSec || 0)),
+        r.boss.status || 'active', r.boss.hitCount || 0, r.boss.coopReward || 300,
+        top, lh, r.boss.contributorsCount || top.length
+      ];
+    }
     return wire;
   }
 
@@ -211,6 +235,20 @@ const Sync = (() => {
     for (const e of (raw.f || [])) {
       if (e && e.id) feed[e.id] = e;
     }
+    let boss = null;
+    if (Array.isArray(raw.bs) && raw.bs[0]) {
+      const bs = raw.bs;
+      const topDmg = (bs[9] || []).map(x => ({ id: x[0], name: x[1], avatar: x[2] || 0, dmg: x[3] || 0, hits: x[4] || 1 }));
+      const lh = bs[10] ? { id: bs[10][0], name: bs[10][1], dmg: bs[10][2], crit: !!bs[10][3] } : null;
+      boss = {
+        id: bs[0], key: bs[1] || 'dr_glitch', maxHp: bs[2] || 1000, hp: bs[3] ?? 0,
+        durationSec: bs[4] || 90, remainingSec: bs[5] ?? 0,
+        status: bs[6] || 'active', hitCount: bs[7] || 0, coopReward: bs[8] || 300,
+        topDmg, lastHit: lh, contributorsCount: bs[11] || topDmg.length, dmgByPlayer: {}
+      };
+    } else if (raw.boss) {
+      boss = raw.boss;
+    }
     return normalize({
       code: raw.c,
       status: raw.s || 'lobby',
@@ -226,6 +264,7 @@ const Sync = (() => {
       endedAt: raw.en || null,
       usedBonus: raw.ub || {},
       bonus: raw.b || null,
+      boss,
       players,
       feed
     });
@@ -281,6 +320,7 @@ const Sync = (() => {
         copy.players = {};
         copy.feed = {};
         copy.bonus = null;
+        copy.boss = null;
       } else {
         for (const [pid, p] of Object.entries(copy.players || {})) {
           if (isUnsyncedClient || !p.roundId) p.roundId = roundId;
@@ -315,12 +355,19 @@ const Sync = (() => {
       endedAt: primary.status === 'ended' ? (primary.endedAt || a.endedAt || b.endedAt || null) : null,
       usedBonus: Object.assign({}, a.usedBonus || {}, b.usedBonus || {}),
       bonus: primary.bonus ? clean(primary.bonus) : null,
+      boss: primary.boss ? clean(primary.boss) : null,
       players: {},
       feed: {}
     };
 
     if (out.bonus && a.bonus && b.bonus && a.bonus.id === b.bonus.id) {
       out.bonus.answered = Object.assign({}, a.bonus.answered || {}, b.bonus.answered || {});
+    }
+    if (out.boss && a.boss && b.boss && a.boss.id === b.boss.id) {
+      // เก็บตารางดาเมจเต็มฝั่ง Host ไว้ไม่ให้หายเมื่อผสาน Compact State
+      const keepMap = Object.keys(a.boss.dmgByPlayer || {}).length >= Object.keys(b.boss.dmgByPlayer || {}).length
+        ? a.boss.dmgByPlayer : b.boss.dmgByPlayer;
+      out.boss.dmgByPlayer = Object.assign({}, keepMap || {}, out.boss.dmgByPlayer || {});
     }
 
     const allPids = new Set([...Object.keys(a.players || {}), ...Object.keys(b.players || {})]);
@@ -548,6 +595,9 @@ const Sync = (() => {
             if (r.feverId && typeof lt.feverRemainingSec === 'number') {
               r.feverRemainingSec = lt.feverRemainingSec;
             }
+            if (r.boss && r.boss.status === 'active' && typeof lt.bossRemainingSec === 'number') {
+              r.boss.remainingSec = lt.bossRemainingSec;
+            }
           }
         }
         const wire = encodeWireState(r);
@@ -627,6 +677,15 @@ const Sync = (() => {
       if (this.bc) { try { this.bc.postMessage({ t: 'react', k: msg.k, n: msg.n }); } catch (e) {} }
       if (this.client && this.client.connected) {
         try { this.client.publish(this.topicReact(code), JSON.stringify(msg), { qos: 0, retain: false }); } catch (e) {}
+      }
+    },
+
+    sendBossHit(hit) {
+      if (!hit || !hit.bossId || !hit.pid) return;
+      const payload = { code, roundId: (this.cur && this.cur.roundId) || 1, bossHit: hit };
+      if (this.bc) { try { this.bc.postMessage({ t: 'bossHit', hit }); } catch (e) {} }
+      if (this.client && this.client.connected) {
+        try { this.client.publish(this.topicPatch(code), JSON.stringify(payload), { qos: 0, retain: false }); } catch (e) {}
       }
     },
 
@@ -730,6 +789,10 @@ const Sync = (() => {
             try {
               const patch = JSON.parse(payload.toString());
               if (patch && patch.code === code) {
+                if (patch.bossHit && bossHitCb) {
+                  bossHitCb(patch.bossHit);
+                  return;
+                }
                 this.cur = applyPatchInPlace(this.cur, patch);
                 this.scheduleWriteLocal(false);
                 emit(this.cur, true);
@@ -804,6 +867,14 @@ const Sync = (() => {
           }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId) {
             if (selfieReqCb) selfieReqCb();
+            return;
+          }
+          if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) {
+            bossHitCb(d.hit);
+            return;
+          }
+          if (d && d.t === 'react' && isHostRole && d.k && reactCb) {
+            reactCb(d.k, d.n || '');
             return;
           }
           const loc = normalize(this.readLocal());
@@ -917,6 +988,7 @@ const Sync = (() => {
           const d = ev && ev.data;
           if (d && d.t === 'selfie' && isHostRole && selfieCb) { selfieCb(d.pid, d.photo); return; }
           if (d && d.t === 'react' && isHostRole && reactCb) { reactCb(d.k, d.n || ''); return; }
+          if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) { bossHitCb(d.hit); return; }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId && selfieReqCb) { selfieReqCb(); return; }
           emit(this.read());
         };
@@ -934,6 +1006,18 @@ const Sync = (() => {
     },
     sendReaction(kind, senderName) {
       if (this.bc) { try { this.bc.postMessage({ t: 'react', k: kind, n: String(senderName || '').slice(0, 16) }); } catch (e) {} }
+    },
+    sendBossHit(hit) {
+      if (!hit || !hit.bossId || !hit.pid) return;
+      if (typeof Game !== 'undefined' && Game.applyBossHit) {
+        this.transact(r => {
+          if (!r) return;
+          Game.applyBossHit(r, hit.pid, hit.bossId, hit.dmg, hit.acc, hit.crit, hit.pts, hit.usedX2);
+          return r;
+        });
+      } else if (this.bc) {
+        try { this.bc.postMessage({ t: 'bossHit', hit }); } catch (e) {}
+      }
     },
     async exists(c) { return !!this.read(c); },
     async transact(fn, allowCreate) {
@@ -1186,6 +1270,7 @@ const Sync = (() => {
       selfieReqCb = opts.onSelfieRequest || null;
       brokerChangeCb = opts.onBrokerChange || null;
       reactCb = opts.onReaction || null;
+      bossHitCb = opts.onBossHit || null;
       pinnedBrokerIdx = Number(opts.brokerIdx || 0) || 0;
       myPlayerId = opts.playerId || null;
       adapter = pick();
@@ -1198,9 +1283,10 @@ const Sync = (() => {
     requestSelfie: pid => adapter && adapter.requestSelfie && adapter.requestSelfie(pid),
     sendDirectPlayer: (pid, pObj) => adapter && adapter.sendDirectPlayer && adapter.sendDirectPlayer(pid, pObj),
     sendReaction: (kind, senderName) => adapter && adapter.sendReaction && adapter.sendReaction(kind, senderName),
+    sendBossHit: hit => adapter && adapter.sendBossHit && adapter.sendBossHit(hit),
     disconnect() {
       if (adapter) adapter.disconnect();
-      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null; reactCb = null;
+      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null; reactCb = null; bossHitCb = null;
       myPlayerId = null; last = null;
     },
     defaultRoom,
