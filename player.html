@@ -30,12 +30,11 @@
 
   <!-- ===================== VIEW 1: LOGIN (สไตล์ kahoot.it แท้) ===================== -->
   <main id="loginView" class="relative z-10 max-w-md mx-auto min-h-screen px-4 py-4 flex flex-col justify-between">
-    <div class="flex items-center justify-between gap-1.5">
+    <div class="flex items-center justify-between gap-2">
       <a href="index.html" class="btn-3d k-btn-dark px-2.5 py-1.5 text-xs flex items-center gap-1 shrink-0">
         <i data-lucide="arrow-left" class="w-4 h-4"></i>
         <span>หน้าแรก</span>
       </a>
-      <span id="loginModeBadge" class="bg-[#25076b] border border-white/15 px-2 py-1 rounded-[5px] text-[10px] font-extrabold uppercase whitespace-nowrap"></span>
       <div class="flex items-center gap-1.5 shrink-0">
         <button type="button" data-fullscreen-btn class="btn-3d k-btn-dark w-8 h-8 grid place-items-center" title="เปิดโหมดเต็มจอ">
           <span data-fs-icon class="sqa-ico"></span>
@@ -49,15 +48,21 @@
           <button type="button" data-vol-up class="vol-step-btn !w-6 !h-6" title="เพิ่มเสียง">
             <span data-art-ui="plus" data-art-size="13" class="sqa-ico"></span>
           </button>
+          <button type="button" data-vol-mixer class="vol-step-btn !w-6 !h-6 border-l border-white/15 !rounded-l-none text-[#ffa602]" title="ปรับเสียงแยกช่อง">
+            <span data-art-ui="sliders" data-art-size="13" class="sqa-ico"></span>
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="my-auto py-4">
-      <div class="text-center mb-4 pop-in">
+    <div class="my-auto py-3">
+      <div class="text-center mb-3.5 pop-in">
         <div class="inline-flex items-center justify-center gap-2.5">
-          <span data-art-hero="brandSpark" data-art-size="48" class="sqa-ico floaty drop-shadow-[0_4px_0_rgba(0,0,0,0.28)]"></span>
+          <span data-art-hero="brandSpark" data-art-size="46" class="sqa-ico floaty drop-shadow-[0_4px_0_rgba(0,0,0,0.28)]"></span>
           <h1 class="k-logo text-5xl sm:text-6xl leading-none">Sci-Quest!</h1>
+        </div>
+        <div class="mt-1.5">
+          <span id="loginModeBadge" class="inline-block bg-[#25076b] border border-white/15 px-2.5 py-0.5 rounded-[5px] text-[10px] font-extrabold uppercase"></span>
         </div>
       </div>
 
@@ -144,6 +149,9 @@
             <span data-art-ui="plus" data-art-size="13" class="sqa-ico"></span>
           </button>
           <span data-vol-label class="font-display font-black text-[11px] text-[#ffa602] w-8 text-right tabular shrink-0">75%</span>
+          <button type="button" data-vol-mixer class="w-6 h-6 rounded-[4px] bg-[#ffa602] text-[#1e1b2e] grid place-items-center shrink-0 shadow-[0_2px_0_#9c7200]" title="ปรับเสียงแยกช่อง (เพลง / เอฟเฟกต์ / พากย์)">
+            <span data-art-ui="sliders" data-art-size="13" class="sqa-ico"></span>
+          </button>
         </div>
       </div>
 

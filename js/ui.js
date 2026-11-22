@@ -250,6 +250,113 @@ function speakerIconName() {
   return SFX.volumePct < 50 ? 'speakerLow' : 'speakerOn';
 }
 
+function ensureAudioMixerModal() {
+  let modal = document.getElementById('audioMixerModal');
+  if (modal) return modal;
+  const rows = [
+    { ch: 'master', title: 'เสียงรวมทั้งหมด (Master)', sub: 'ควบคุมความดังรวมทุกช่อง', color: '#46178f', icon: 'speakerOn' },
+    { ch: 'bgm',    title: 'เพลงประกอบ (BGM)',        sub: 'เพลงฉากหลัก / โบนัส / โพเดียม', color: '#1368ce', icon: 'music' },
+    { ch: 'sfx',    title: 'เสียงเอฟเฟกต์ (SFX)',      sub: 'ปุ่มกด / ตอบถูก / ไอเทมป่วนเพื่อน', color: '#26890c', icon: 'bolt' },
+    { ch: 'voice',  title: 'เสียงพากย์พิธีกร (Voice)', sub: 'เสียงพากย์สดบรรยายจังหวะสำคัญ', color: '#c026d3', icon: 'mic' }
+  ];
+  modal = document.createElement('div');
+  modal.id = 'audioMixerModal';
+  modal.className = 'overlay dim z-[240] hidden';
+  modal.innerHTML = `
+    <div class="k-box max-w-md w-full p-5 pop-in border-t-8 border-[#ffa602]">
+      <div class="flex items-center justify-between gap-2 pb-3 mb-3.5 border-b-2 border-neutral-200">
+        <div class="flex items-center gap-2.5">
+          <span class="w-10 h-10 rounded-[8px] bg-[#46178f] text-[#ffa602] grid place-items-center shadow-[0_3px_0_#25076b]">${uiIconHtml('sliders', 20)}</span>
+          <div>
+            <h3 class="font-display text-lg sm:text-xl font-black text-[#333] leading-tight">ปรับระดับเสียงแยกช่อง</h3>
+            <p class="text-[11px] font-bold text-neutral-500">แตะไอคอนด้านซ้ายเพื่อเปิด/ปิดเฉพาะช่อง หรือเลื่อนปรับความดัง</p>
+          </div>
+        </div>
+        <button type="button" data-mixer-close class="btn-3d k-btn-dark w-9 h-9 grid place-items-center text-sm shrink-0">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        ${rows.map(r => `
+          <div class="rounded-[8px] bg-neutral-100 border-2 border-neutral-200 p-2.5 space-y-2" data-mixer-row="${r.ch}">
+            <div class="flex items-center justify-between gap-2">
+              <button type="button" data-ch-toggle="${r.ch}" class="flex items-center gap-2 text-left min-w-0 group" title="เปิด/ปิด ${r.title}">
+                <span data-ch-badge="${r.ch}" class="w-8 h-8 rounded-[6px] text-white grid place-items-center shrink-0 shadow-[0_3px_0_rgba(0,0,0,0.25)] transition" style="background:${r.color}">
+                  ${uiIconHtml(r.icon, 16)}
+                </span>
+                <div class="min-w-0">
+                  <div class="font-display font-extrabold text-sm text-[#333] leading-tight truncate">${r.title}</div>
+                  <div class="text-[11px] font-semibold text-neutral-500 truncate">${r.sub}</div>
+                </div>
+              </button>
+              <span data-ch-pct="${r.ch}" class="px-2 py-0.5 rounded-[4px] bg-[#241f35] text-[#ffa602] font-display font-black text-xs tabular shrink-0 min-w-[46px] text-center">75%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" data-ch-down="${r.ch}" class="btn-3d k-btn-white w-8 h-8 grid place-items-center shrink-0" title="ลดเสียง ${r.title}">
+                ${uiIconHtml('minus', 14)}
+              </button>
+              <input type="range" min="0" max="100" step="5" value="75" data-ch-slider="${r.ch}" aria-label="${r.title}"
+                class="mixer-range flex-1" style="--thumb-color:${r.color}" />
+              <button type="button" data-ch-up="${r.ch}" class="btn-3d k-btn-white w-8 h-8 grid place-items-center shrink-0" title="เพิ่มเสียง ${r.title}">
+                ${uiIconHtml('plus', 14)}
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t-2 border-neutral-200">
+        <button type="button" data-mixer-test-sfx class="btn-3d k-btn-green py-2 px-2 text-xs inline-flex items-center justify-center gap-1">
+          ${uiIconHtml('bolt', 13)}<span>ทดสอบ SFX</span>
+        </button>
+        <button type="button" data-mixer-test-vo class="btn-3d k-btn-blue py-2 px-2 text-xs inline-flex items-center justify-center gap-1">
+          ${uiIconHtml('mic', 13)}<span>ทดสอบพากย์</span>
+        </button>
+        <button type="button" data-mixer-reset class="btn-3d k-btn-dark py-2 px-2 text-xs inline-flex items-center justify-center gap-1">
+          ${uiIconHtml('refresh', 13)}<span>ค่าเริ่มต้น</span>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+  modal.querySelector('[data-mixer-close]').addEventListener('click', () => { SFX.click(); modal.classList.add('hidden'); });
+  modal.querySelector('[data-mixer-reset]').addEventListener('click', () => SFX.resetVolumes());
+  modal.querySelector('[data-mixer-test-sfx]').addEventListener('click', () => SFX.correct());
+  modal.querySelector('[data-mixer-test-vo]').addEventListener('click', () => SFX.speak('voice_on.mp3', 'ทดสอบเสียงพากย์พิธีกรสนามค่ะ!', true));
+
+  modal.querySelectorAll('[data-ch-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ch = btn.dataset.chToggle;
+      if (ch === 'master') SFX.toggleMute();
+      else if (ch === 'bgm') { SFX.click(); SFX.toggleBgm(); }
+      else if (ch === 'sfx') SFX.toggleSfx();
+      else if (ch === 'voice') { SFX.click(); SFX.toggleVoice(); }
+    });
+  });
+  modal.querySelectorAll('[data-ch-down]').forEach(btn => {
+    btn.addEventListener('click', () => SFX.channelDown(btn.dataset.chDown, 0.1));
+  });
+  modal.querySelectorAll('[data-ch-up]').forEach(btn => {
+    btn.addEventListener('click', () => SFX.channelUp(btn.dataset.chUp, 0.1));
+  });
+  modal.querySelectorAll('[data-ch-slider]').forEach(inp => {
+    const ch = inp.dataset.chSlider;
+    inp.addEventListener('input', () => SFX.setChannelVolume(ch, Number(inp.value) / 100, true));
+    inp.addEventListener('change', () => {
+      if (ch === 'sfx' || ch === 'master') SFX.click();
+    });
+  });
+  return modal;
+}
+
+function openAudioMixer() {
+  if (!window.SFX) return;
+  SFX.click();
+  const modal = ensureAudioMixerModal();
+  syncVolumeControls();
+  modal.classList.remove('hidden');
+}
+
 function syncVolumeControls() {
   if (!window.SFX) return;
   const pct = SFX.volumePct;
@@ -272,6 +379,27 @@ function syncVolumeControls() {
   document.querySelectorAll('[data-vol-up]').forEach(btn => {
     btn.disabled = pct >= 100 && !SFX.muted;
   });
+
+  // ซิงก์แถบแยกปรับเสียง 4 ช่อง (Master / BGM / SFX / Voice)
+  const modal = document.getElementById('audioMixerModal');
+  if (modal) {
+    ['master', 'bgm', 'sfx', 'voice'].forEach(ch => {
+      const chPct = SFX.getChannelPct(ch);
+      const pctEl = modal.querySelector(`[data-ch-pct="${ch}"]`);
+      const slEl = modal.querySelector(`[data-ch-slider="${ch}"]`);
+      const dnEl = modal.querySelector(`[data-ch-down="${ch}"]`);
+      const upEl = modal.querySelector(`[data-ch-up="${ch}"]`);
+      const badgeEl = modal.querySelector(`[data-ch-badge="${ch}"]`);
+      if (pctEl) pctEl.textContent = `${chPct}%`;
+      if (slEl && document.activeElement !== slEl) slEl.value = String(chPct);
+      if (dnEl) dnEl.disabled = chPct <= 0;
+      if (upEl) upEl.disabled = chPct >= 100;
+      if (badgeEl) {
+        badgeEl.style.opacity = chPct > 0 ? '1' : '0.4';
+        if (ch === 'master') badgeEl.innerHTML = uiIconHtml(speakerIconName(), 16);
+      }
+    });
+  }
 }
 
 function initVolumeControls() {
@@ -296,6 +424,18 @@ function initVolumeControls() {
     inp.dataset.volBound = '1';
     inp.addEventListener('input', () => SFX.setVolume(Number(inp.value) / 100, true));
     inp.addEventListener('change', () => { if (SFX.volumePct > 0) SFX.click(); });
+  });
+  document.querySelectorAll('[data-vol-mixer]').forEach(btn => {
+    if (btn.dataset.volBound) return;
+    btn.dataset.volBound = '1';
+    btn.addEventListener('click', openAudioMixer);
+  });
+  document.querySelectorAll('[data-vol-label]').forEach(el => {
+    if (el.dataset.volBound) return;
+    el.dataset.volBound = '1';
+    el.style.cursor = 'pointer';
+    el.title = 'คลิกเพื่อปรับเสียงแยกช่อง (เพลง / เอฟเฟกต์ / พากย์)';
+    el.addEventListener('click', openAudioMixer);
   });
   SFX.onChange(syncVolumeControls);
   syncVolumeControls();

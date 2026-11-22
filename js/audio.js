@@ -13,15 +13,21 @@
  * ========================================================= */
 const SFX = (() => {
   let ctx = null, master = null, bgmGain = null;
+  function readStoredVol(key, fallback) {
+    const str = localStorage.getItem(key);
+    if (str === null || str === '') return fallback;
+    const raw = Number(str);
+    return Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : fallback;
+  }
+
   let muted = localStorage.getItem('sqa_muted') === '1';
   let bgmOn = localStorage.getItem('sqa_bgm') !== '0';
+  let sfxOn = localStorage.getItem('sqa_sfx') !== '0';
   let voiceOn = localStorage.getItem('sqa_voice') !== '0';
-  let volume = (() => {
-    const str = localStorage.getItem('sqa_volume');
-    if (str === null || str === '') return 0.75;
-    const raw = Number(str);
-    return Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : 0.75;
-  })();
+  let volume = readStoredVol('sqa_volume', 0.75);
+  let bgmVolume = readStoredVol('sqa_vol_bgm', 0.70);
+  let sfxVolume = readStoredVol('sqa_vol_sfx', 0.85);
+  let voiceVolume = readStoredVol('sqa_vol_voice', 0.95);
   let isDucked = false;
 
   let bgmMode = 'none'; // 'none' | 'play' | 'bonus' | 'podium'
@@ -45,12 +51,13 @@ const SFX = (() => {
   ];
 
   const effVol = () => (muted ? 0 : volume);
-  const bgmWebGain = () => (isDucked ? 0.12 : 0.38) * effVol();
-  const bgmElVol = () => Math.max(0, Math.min(1, (isDucked ? 0.10 : 0.34) * effVol()));
-  const voElVol = () => Math.max(0, Math.min(1, effVol() * 1.15));
+  const sfxBusGain = () => (sfxOn ? 1 : 0) * effVol() * sfxVolume;
+  const bgmWebGain = () => (bgmOn ? 1 : 0) * (isDucked ? 0.14 : 0.48) * effVol() * bgmVolume;
+  const bgmElVol = () => Math.max(0, Math.min(1, (bgmOn ? 1 : 0) * (isDucked ? 0.12 : 0.44) * effVol() * bgmVolume));
+  const voElVol = () => Math.max(0, Math.min(1, (voiceOn ? 1 : 0) * effVol() * voiceVolume * 1.15));
 
   function applyGains() {
-    if (master) master.gain.value = effVol();
+    if (master) master.gain.value = sfxBusGain();
     if (bgmGain) bgmGain.gain.value = bgmWebGain();
     if (bgmAudioEl) bgmAudioEl.volume = bgmElVol();
     if (currentVo) currentVo.volume = voElVol();
@@ -67,7 +74,7 @@ const SFX = (() => {
   }
 
   function showUnlockHint() {
-    if (muted || !bgmOn || volume <= 0 || bgmMode === 'none') return;
+    if (muted || !bgmOn || volume <= 0 || bgmVolume <= 0 || bgmMode === 'none') return;
     autoplayBlocked = true;
     if (!document.body || document.getElementById('audioUnlockHint')) return;
     const box = document.createElement('button');
@@ -120,7 +127,7 @@ const SFX = (() => {
   }
 
   function playSfx(name, vol = 0.85, rate = 1.0) {
-    if (muted || volume <= 0) return;
+    if (muted || !sfxOn || volume <= 0 || sfxVolume <= 0) return;
     // กันเสียงซ้อนถี่เกินไปเมื่อมีผู้เล่น 200 เครื่องเข้าห้องหรือได้คะแนนพร้อมกัน
     const now = Date.now();
     const minGap = (name === 'crack' || name === 'click') ? 35 : 130;
@@ -178,7 +185,7 @@ const SFX = (() => {
     if (bgmMode === mode && isPlayingNow) return;
     bgmMode = mode;
     stopBgmNode();
-    if (mode === 'none' || !bgmOn || muted || volume <= 0) {
+    if (mode === 'none' || !bgmOn || muted || volume <= 0 || bgmVolume <= 0) {
       hideUnlockHint();
       return;
     }
@@ -195,7 +202,7 @@ const SFX = (() => {
       }
       if (c && c.state === 'running') {
         const buf = await loadBuffer(url);
-        if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0) return;
+        if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0 || bgmVolume <= 0) return;
         if (buf) {
           try {
             stopBgmNode();
@@ -222,7 +229,7 @@ const SFX = (() => {
         const p = a.play();
         if (p && typeof p.then === 'function') {
           p.then(() => {
-            if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0) {
+            if (reqId !== bgmReqId || bgmMode !== mode || !bgmOn || muted || volume <= 0 || bgmVolume <= 0) {
               try { a.pause(); } catch (e) {}
               return;
             }
@@ -232,7 +239,7 @@ const SFX = (() => {
             hideUnlockHint();
           }).catch(() => {
             try { a.pause(); } catch (e) {}
-            if (reqId === bgmReqId && bgmMode === mode && bgmOn && !muted && volume > 0) {
+            if (reqId === bgmReqId && bgmMode === mode && bgmOn && !muted && volume > 0 && bgmVolume > 0) {
               showUnlockHint();
             }
           });
@@ -282,7 +289,7 @@ const SFX = (() => {
 
   function playVoClip(filename, bubbleText, priority = false) {
     if (bubbleText) showMcBubble(bubbleText);
-    if (muted || volume <= 0 || !voiceOn || !filename || typeof Audio === 'undefined') return;
+    if (muted || volume <= 0 || voiceVolume <= 0 || !voiceOn || !filename || typeof Audio === 'undefined') return;
     const now = Date.now();
     if (!priority && now - lastVoAt < 1800) return;
     lastVoAt = now;
@@ -557,11 +564,88 @@ const SFX = (() => {
     onChange(fn) { if (typeof fn === 'function') listeners.add(fn); },
 
     get muted() { return muted || volume <= 0; },
-    get bgmOn() { return bgmOn; },
-    get voiceOn() { return voiceOn; },
+    get bgmOn() { return bgmOn && bgmVolume > 0; },
+    get sfxOn() { return sfxOn && sfxVolume > 0; },
+    get voiceOn() { return voiceOn && voiceVolume > 0; },
     get volume() { return volume; },
     get volumePct() { return muted ? 0 : Math.round(volume * 100); },
     get autoplayBlocked() { return autoplayBlocked; },
+
+    getChannelVolume(ch = 'master') {
+      if (ch === 'bgm') return bgmVolume;
+      if (ch === 'sfx') return sfxVolume;
+      if (ch === 'voice') return voiceVolume;
+      return volume;
+    },
+    getChannelPct(ch = 'master') {
+      if (ch === 'master') return muted ? 0 : Math.round(volume * 100);
+      if (ch === 'bgm') return (!bgmOn || muted) ? 0 : Math.round(bgmVolume * 100);
+      if (ch === 'sfx') return (!sfxOn || muted) ? 0 : Math.round(sfxVolume * 100);
+      if (ch === 'voice') return (!voiceOn || muted) ? 0 : Math.round(voiceVolume * 100);
+      return 0;
+    },
+
+    setChannelVolume(ch, v, silent = false) {
+      const next = Math.max(0, Math.min(1, Math.round(Number(v) * 100) / 100));
+      if (ch === 'master') return this.setVolume(next, silent);
+
+      if (next > 0 && (muted || volume <= 0)) {
+        muted = false;
+        if (volume <= 0) { volume = 0.75; localStorage.setItem('sqa_volume', String(volume)); }
+        localStorage.setItem('sqa_muted', '0');
+      }
+
+      if (ch === 'bgm') {
+        bgmVolume = next;
+        localStorage.setItem('sqa_vol_bgm', String(bgmVolume));
+        if (bgmVolume > 0 && !bgmOn) { bgmOn = true; localStorage.setItem('sqa_bgm', '1'); }
+        applyGains();
+        if (bgmVolume <= 0) { stopBgmNode(); hideUnlockHint(); }
+        else if (bgmMode !== 'none' && !bgmSource && !(bgmAudioEl && !bgmAudioEl.paused)) {
+          const m = bgmMode; bgmMode = 'none'; startBgm(m, true);
+        }
+      } else if (ch === 'sfx') {
+        sfxVolume = next;
+        localStorage.setItem('sqa_vol_sfx', String(sfxVolume));
+        if (sfxVolume > 0 && !sfxOn) { sfxOn = true; localStorage.setItem('sqa_sfx', '1'); }
+        applyGains();
+        if (!silent && sfxVolume > 0) this.click();
+      } else if (ch === 'voice') {
+        voiceVolume = next;
+        localStorage.setItem('sqa_vol_voice', String(voiceVolume));
+        if (voiceVolume > 0 && !voiceOn) { voiceOn = true; localStorage.setItem('sqa_voice', '1'); }
+        applyGains();
+        if (voiceVolume <= 0 && currentVo) currentVo.pause();
+      }
+      notifyChange();
+      return next;
+    },
+    channelUp(ch, step = 0.1) {
+      const base = this.getChannelPct(ch) / 100;
+      return this.setChannelVolume(ch, Math.min(1, Math.round((base + step) * 20) / 20));
+    },
+    channelDown(ch, step = 0.1) {
+      const base = this.getChannelPct(ch) / 100;
+      return this.setChannelVolume(ch, Math.max(0, Math.round((base - step) * 20) / 20));
+    },
+    resetVolumes() {
+      muted = false; bgmOn = true; sfxOn = true; voiceOn = true;
+      volume = 0.75; bgmVolume = 0.70; sfxVolume = 0.85; voiceVolume = 0.95;
+      localStorage.setItem('sqa_muted', '0');
+      localStorage.setItem('sqa_bgm', '1');
+      localStorage.setItem('sqa_sfx', '1');
+      localStorage.setItem('sqa_voice', '1');
+      localStorage.setItem('sqa_volume', String(volume));
+      localStorage.setItem('sqa_vol_bgm', String(bgmVolume));
+      localStorage.setItem('sqa_vol_sfx', String(sfxVolume));
+      localStorage.setItem('sqa_vol_voice', String(voiceVolume));
+      applyGains();
+      this.click();
+      if (bgmMode !== 'none' && !bgmSource && !(bgmAudioEl && !bgmAudioEl.paused)) {
+        const m = bgmMode; bgmMode = 'none'; startBgm(m, true);
+      }
+      notifyChange();
+    },
 
     setVolume(v, silent = false) {
       const next = Math.max(0, Math.min(1, Math.round(Number(v) * 100) / 100));
@@ -576,7 +660,7 @@ const SFX = (() => {
         stopBgmNode();
         if (currentVo) currentVo.pause();
         hideUnlockHint();
-      } else if (bgmMode !== 'none' && bgmOn && !bgmSource && !(bgmAudioEl && !bgmAudioEl.paused)) {
+      } else if (bgmMode !== 'none' && bgmOn && bgmVolume > 0 && !bgmSource && !(bgmAudioEl && !bgmAudioEl.paused)) {
         const m = bgmMode; bgmMode = 'none'; startBgm(m, true);
       }
       if (!silent && volume > 0) this.click();
@@ -602,7 +686,7 @@ const SFX = (() => {
         localStorage.setItem('sqa_muted', '0');
         applyGains();
         this.click();
-        if (bgmMode !== 'none' && bgmOn) { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
+        if (bgmMode !== 'none' && bgmOn && bgmVolume > 0) { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
       } else {
         muted = true;
         localStorage.setItem('sqa_muted', '1');
@@ -615,18 +699,49 @@ const SFX = (() => {
       return muted;
     },
     toggleBgm() {
-      bgmOn = !bgmOn;
-      localStorage.setItem('sqa_bgm', bgmOn ? '1' : '0');
-      if (!bgmOn) { stopBgmNode(); hideUnlockHint(); }
-      else if (bgmMode !== 'none') { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
+      if (!bgmOn || bgmVolume <= 0) {
+        bgmOn = true;
+        if (bgmVolume <= 0) { bgmVolume = 0.70; localStorage.setItem('sqa_vol_bgm', String(bgmVolume)); }
+        localStorage.setItem('sqa_bgm', '1');
+        applyGains();
+        if (bgmMode !== 'none' && !muted && volume > 0) { const m = bgmMode; bgmMode = 'none'; startBgm(m, true); }
+      } else {
+        bgmOn = false;
+        localStorage.setItem('sqa_bgm', '0');
+        stopBgmNode();
+        hideUnlockHint();
+      }
       notifyChange();
       return bgmOn;
     },
+    toggleSfx() {
+      if (!sfxOn || sfxVolume <= 0) {
+        sfxOn = true;
+        if (sfxVolume <= 0) { sfxVolume = 0.85; localStorage.setItem('sqa_vol_sfx', String(sfxVolume)); }
+        localStorage.setItem('sqa_sfx', '1');
+        applyGains();
+        this.click();
+      } else {
+        sfxOn = false;
+        localStorage.setItem('sqa_sfx', '0');
+        applyGains();
+      }
+      notifyChange();
+      return sfxOn;
+    },
     toggleVoice() {
-      voiceOn = !voiceOn;
-      localStorage.setItem('sqa_voice', voiceOn ? '1' : '0');
-      if (!voiceOn && currentVo) currentVo.pause();
-      else if (voiceOn) playVoClip('voice_on.mp3', 'เปิดเสียงพากย์พิธีกรสนามแล้วค่ะ!', true);
+      if (!voiceOn || voiceVolume <= 0) {
+        voiceOn = true;
+        if (voiceVolume <= 0) { voiceVolume = 0.95; localStorage.setItem('sqa_vol_voice', String(voiceVolume)); }
+        localStorage.setItem('sqa_voice', '1');
+        applyGains();
+        playVoClip('voice_on.mp3', 'เปิดเสียงพากย์พิธีกรสนามแล้วค่ะ!', true);
+      } else {
+        voiceOn = false;
+        localStorage.setItem('sqa_voice', '0');
+        if (currentVo) currentVo.pause();
+        applyGains();
+      }
       notifyChange();
       return voiceOn;
     }

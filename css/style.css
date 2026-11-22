@@ -606,6 +606,33 @@ html, body {
   border: 2px solid #ffffff;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
+.mixer-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+}
+.mixer-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--thumb-color, #46178f);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.32), 0 0 0 2px rgba(30, 27, 46, 0.25);
+}
+.mixer-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--thumb-color, #46178f);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.32), 0 0 0 2px rgba(30, 27, 46, 0.25);
+}
 
 /* ---------- Scanner ---------- */
 #reader video { border-radius: 6px; }
