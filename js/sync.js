@@ -675,11 +675,24 @@ const Sync = (() => {
 
     sendReaction(kind, senderName) {
       if (!kind) return;
-      const msg = { k: kind, n: String(senderName || '').slice(0, 16) };
-      if (this.bc) { try { this.bc.postMessage({ t: 'react', k: msg.k, n: msg.n }); } catch (e) {} }
+      const msg = { id: Math.random().toString(36).slice(2, 10), k: kind, n: String(senderName || '').slice(0, 16) };
+      if (this.bc) { try { this.bc.postMessage({ t: 'react', id: msg.id, k: msg.k, n: msg.n }); } catch (e) {} }
       if (this.client && this.client.connected) {
         try { this.client.publish(this.topicReact(code), JSON.stringify(msg), { qos: 0, retain: false }); } catch (e) {}
       }
+    },
+
+    emitReactOnce(k, n, id) {
+      if (!isHostRole || !reactCb || !k) return;
+      if (id) {
+        this._seenReacts = this._seenReacts || new Set();
+        if (this._seenReacts.has(id)) return;
+        this._seenReacts.add(id);
+        if (this._seenReacts.size > 80) {
+          this._seenReacts.delete(this._seenReacts.values().next().value);
+        }
+      }
+      reactCb(k, n || '');
     },
 
     sendBossHit(hit) {
@@ -759,7 +772,7 @@ const Sync = (() => {
             if (isHostRole && reactCb) {
               try {
                 const m = JSON.parse(payload.toString());
-                if (m && m.k) reactCb(m.k, m.n || '');
+                if (m && m.k) this.emitReactOnce(m.k, m.n || '', m.id);
               } catch (e) {}
             }
             return;
@@ -876,7 +889,7 @@ const Sync = (() => {
             return;
           }
           if (d && d.t === 'react' && isHostRole && d.k && reactCb) {
-            reactCb(d.k, d.n || '');
+            this.emitReactOnce(d.k, d.n || '', d.id);
             return;
           }
           const loc = normalize(this.readLocal());
