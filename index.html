@@ -171,21 +171,27 @@
     document.getElementById('modeBadge').innerHTML = modeBadgeHtml();
     SFX.startBgm('play');
 
-    // เช็กว่าเครื่องนี้มีห้องที่ยังเล่นไม่จบหรือไม่ -> แสดงปุ่มกลับเข้าเกมเดิม 1 คลิกทันที!
+    // เช็กว่าเครื่องนี้มีห้องที่ยังเล่นไม่จบหรือไม่ -> แสดงปุ่มกลับเข้าเกมเดิม 1 คลิกทันที (รองรับทั้ง localStorage และ Cookie สำรอง)!
     (() => {
       try {
+        let s = null;
         const raw = localStorage.getItem('sqa_active_session');
-        if (!raw) return;
-        const s = JSON.parse(raw);
+        if (raw) s = JSON.parse(raw);
+        if (!s || !s.code || !s.id) {
+          const m = document.cookie.match(/(?:^|; )sqa_active_sess=([^;]*)/);
+          if (m) s = JSON.parse(decodeURIComponent(m[1]));
+        }
         if (!s || !s.code || !s.id) return;
         if (s.savedAt && Date.now() - s.savedAt > 12 * 3600 * 1000) return;
-        const myPhoto = localStorage.getItem('sqa_my_photo') || '';
-        if (myPhoto && myPhoto.startsWith('data:image/')) SQA_PHOTOS.set(s.id, myPhoto);
         const snap = s.snapshot || {};
+        const myPhoto = localStorage.getItem('sqa_my_photo') || '';
+        if (!snap.photoBlocked && myPhoto && myPhoto.startsWith('data:image/')) SQA_PHOTOS.set(s.id, myPhoto);
         const bParam = s.brokerIdx > 0 ? `&b=${s.brokerIdx}` : '';
+        const dispName = snap.name || s.name || 'ผู้เล่น';
+        const dispAv = snap.avatar ?? s.avatar ?? 0;
         document.getElementById('resumeMatchLink').href = `player.html?room=${encodeURIComponent(s.code)}${bParam}`;
-        document.getElementById('resumeMatchAvatar').innerHTML = avatarHtml(snap.avatar || 0, 48, '', s.id);
-        document.getElementById('resumeMatchTitle').textContent = `${snap.name || 'ผู้เล่น'} • ห้อง PIN ${s.code}`;
+        document.getElementById('resumeMatchAvatar').innerHTML = avatarHtml(dispAv, 48, '', snap.photoBlocked ? '' : s.id);
+        document.getElementById('resumeMatchTitle').textContent = `${dispName} • ห้อง PIN ${s.code}`;
         document.getElementById('resumeMatchSub').textContent = `คะแนนสะสมล่าสุด: ${Number(snap.score || 0).toLocaleString()} แต้ม — กดเพื่อกลับเข้าห้องเดิมทันที`;
         document.getElementById('resumeMatchBanner').classList.remove('hidden');
       } catch (e) {}

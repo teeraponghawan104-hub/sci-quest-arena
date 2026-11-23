@@ -157,6 +157,7 @@
   <script>
     const qs = new URLSearchParams(location.search);
     const roomFromUrl = (qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const brokerFromUrl = Number(qs.get('b') || 0) || 0;
 
     const qrRoomInput = document.getElementById('qrRoomInput');
     const qrFormat = document.getElementById('qrFormat');
@@ -200,6 +201,7 @@
         const r = qrRoomInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         const p = new URLSearchParams();
         if (r) p.set('room', r);
+        if (brokerFromUrl > 0) p.set('b', String(brokerFromUrl));
         p.set('card', cardId);
         p.set('openExternalBrowser', '1');
         return `${baseUrl()}player.html?${p.toString()}`;

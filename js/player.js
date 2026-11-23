@@ -55,7 +55,6 @@
     gradeTierLabel: $('gradeTierLabel'),
     gradePctText: $('gradePctText'),
     gradeBar: $('gradeBar'),
-    gradeKeywords: $('gradeKeywords'),
     gradeOutcomeBox: $('gradeOutcomeBox'),
     modelAnswerBox: $('modelAnswerBox'),
     modelAnswerText: $('modelAnswerText'),
@@ -83,7 +82,6 @@
     bonusGradeLabel: $('bonusGradeLabel'),
     bonusGradePct: $('bonusGradePct'),
     bonusGradeBar: $('bonusGradeBar'),
-    bonusGradeKw: $('bonusGradeKw'),
     mysteryTitle: $('mysteryTitle'),
     mysteryBoxVisual: $('mysteryBoxVisual'),
     mysteryReward: $('mysteryReward'),
@@ -913,9 +911,13 @@
     }
   });
 
+  let answerBusy = false;
+  let bonusBusy = false;
+  let bossBusy = false;
+
   el.answerForm.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!currentQ) return;
+    if (!currentQ || answerBusy) return;
     const ans = el.answerInput.value.trim();
     if (!ans) {
       SFX.wrong();
@@ -924,75 +926,80 @@
       return;
     }
 
-    const res = Grader.grade(ans, currentQ);
-    el.gradeResult.classList.remove('hidden');
-    el.gradeTierLabel.textContent = res.label;
-    el.gradeTierLabel.style.color = res.color;
-    el.gradePctText.textContent = `${res.accuracy}%`;
-    el.gradePctText.style.color = res.color;
+    answerBusy = true;
+    try {
+      const res = Grader.grade(ans, currentQ);
+      el.gradeResult.classList.remove('hidden');
+      el.gradeTierLabel.textContent = res.label;
+      el.gradeTierLabel.style.color = res.color;
+      el.gradePctText.textContent = `${res.accuracy}%`;
+      el.gradePctText.style.color = res.color;
 
-    el.gradeBar.style.transition = 'none';
-    el.gradeBar.style.width = '0%';
-    el.gradeBar.style.background = res.color;
-    requestAnimationFrame(() => {
-      el.gradeBar.style.transition = '';
-      el.gradeBar.style.width = `${res.accuracy}%`;
-    });
+      el.gradeBar.style.transition = 'none';
+      el.gradeBar.style.width = '0%';
+      el.gradeBar.style.background = res.color;
+      requestAnimationFrame(() => {
+        el.gradeBar.style.transition = '';
+        el.gradeBar.style.width = `${res.accuracy}%`;
+      });
 
-    // ส่งสถิติการตอบตรงให้ Host สำหรับสรุปประเด็นความรู้หลังเกม (Teacher Debrief — ไม่กระจายไปหาเพื่อนอีก 199 คน!)
-    Sync.sendAnswerStat({ qid: currentQ.id, film: currentQ.film, acc: res.accuracy, pass: res.multiplier > 0 });
+      // ส่งสถิติการตอบตรงให้ Host สำหรับสรุปประเด็นความรู้หลังเกม (Teacher Debrief — ไม่กระจายไปหาเพื่อนอีก 199 คน!)
+      Sync.sendAnswerStat({ qid: currentQ.id, film: currentQ.film, acc: res.accuracy, pass: res.multiplier > 0 });
 
-    if (res.multiplier === 0) {
-      SFX.wrong();
-      SFX.announce('gradeMiss');
-      bump(el.gradeResult, 'shake');
-      Sync.transact(r => { if (r) Game.resetStreak(r, myId); return r; });
-      el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#e21b3c] text-white font-extrabold';
-      el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองอธิบายเหตุผลให้ชัดเจนขึ้นแล้วส่งใหม่ได้เลย!';
-      return;
-    }
+      if (res.multiplier === 0) {
+        SFX.wrong();
+        SFX.announce('gradeMiss');
+        bump(el.gradeResult, 'shake');
+        await Sync.transact(r => { if (r) Game.resetStreak(r, myId); return r; });
+        el.gradeOutcomeBox.className = 'rounded-[4px] p-3 text-sm bg-[#e21b3c] text-white font-extrabold';
+        el.gradeOutcomeBox.textContent = 'ความแม่นยำยังไม่ถึง 25% — ลองอธิบายเหตุผลให้ชัดเจนขึ้นแล้วส่งใหม่ได้เลย!';
+        return;
+      }
 
-    el.answerInput.disabled = true;
-    el.submitAnswerBtn.disabled = true;
-    el.submitAnswerBtn.classList.add('hidden');
+      el.answerInput.disabled = true;
+      el.submitAnswerBtn.disabled = true;
+      el.submitAnswerBtn.classList.add('hidden');
 
-    const luckyItem = (currentQ.color === 'red' && Math.random() < Game.cfg.redItemChance)
-      ? Game.randomItem() : null;
+      const luckyItem = (currentQ.color === 'red' && Math.random() < Game.cfg.redItemChance)
+        ? Game.randomItem() : null;
 
-    let applied = null;
-    await Sync.transact(room => {
-      if (!room) return;
-      applied = Game.applyAnswer(room, myId, currentQ, res.multiplier, res.accuracy, luckyItem);
-      return room;
-    });
+      let applied = null;
+      await Sync.transact(room => {
+        if (!room) return;
+        applied = Game.applyAnswer(room, myId, currentQ, res.multiplier, res.accuracy, luckyItem);
+        return room;
+      });
 
-    const pts = applied ? applied.pts : Math.round(COLORS[currentQ.color].points * res.multiplier);
-    const doubled = applied ? applied.doubled : false;
-    const streak = applied ? (applied.streak || 0) : 0;
-    const streakBonus = applied ? (applied.streakBonus || 0) : 0;
-    const finalItem = (applied && applied.rewardItem) || luckyItem;
-    const fromStreak = !!(applied && applied.fromStreak);
-    if (res.accuracy >= 80) { SFX.correct(); SFX.announce('gradePerfect'); }
-    else if (res.accuracy >= 50) { SFX.partial(); SFX.announce('gradeClose'); }
-    else { SFX.partial(); SFX.announce('gradePartial'); }
+      const pts = applied ? applied.pts : Math.round(COLORS[currentQ.color].points * res.multiplier);
+      const doubled = applied ? applied.doubled : false;
+      const streak = applied ? (applied.streak || 0) : 0;
+      const streakBonus = applied ? (applied.streakBonus || 0) : 0;
+      const finalItem = (applied && applied.rewardItem) || luckyItem;
+      const fromStreak = !!(applied && applied.fromStreak);
+      if (res.accuracy >= 80) { SFX.correct(); SFX.announce('gradePerfect'); }
+      else if (res.accuracy >= 50) { SFX.partial(); SFX.announce('gradeClose'); }
+      else { SFX.partial(); SFX.announce('gradePartial'); }
 
-    el.gradeOutcomeBox.className = 'rounded-[5px] p-3 text-sm bg-[#26890c] text-white font-extrabold flex items-center justify-between gap-2';
-    const streakTag = streak >= 2
-      ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#f97316] text-white text-[11px] font-black ml-1">${uiIconHtml('flameMini', 12, 'text-[#fde047]')} ${streak}× (+${streakBonus})</span>`
-      : '';
-    el.gradeOutcomeBox.innerHTML = `
-      <span>ถูกต้อง! คะแนนที่ได้รับ${streakTag}</span>
-      <span class="font-display text-xl font-black shrink-0">+${pts}${doubled ? ' <span class="x2tag text-xs">x2!</span>' : ''}</span>`;
+      el.gradeOutcomeBox.className = 'rounded-[5px] p-3 text-sm bg-[#26890c] text-white font-extrabold flex items-center justify-between gap-2';
+      const streakTag = streak >= 2
+        ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#f97316] text-white text-[11px] font-black ml-1">${uiIconHtml('flameMini', 12, 'text-[#fde047]')} ${streak}× (+${streakBonus})</span>`
+        : '';
+      el.gradeOutcomeBox.innerHTML = `
+        <span>ถูกต้อง! คะแนนที่ได้รับ${streakTag}</span>
+        <span class="font-display text-xl font-black shrink-0">+${pts}${doubled ? ' <span class="x2tag text-xs">x2!</span>' : ''}</span>`;
 
-    el.modelAnswerText.textContent = currentQ.model;
-    el.modelAnswerBox.classList.remove('hidden');
-    el.nextCardBtn.classList.remove('hidden');
+      el.modelAnswerText.textContent = currentQ.model;
+      el.modelAnswerBox.classList.remove('hidden');
+      el.nextCardBtn.classList.remove('hidden');
 
-    if (finalItem) {
-      const boxTitle = fromStreak
-        ? `คอมโบไฟลุก ${streak} ข้อติด! รับกล่องสุ่มฟรี!`
-        : 'โบนัสพิเศษจากการ์ดสีแดง!';
-      setTimeout(() => showMysteryBox(finalItem, boxTitle), 650);
+      if (finalItem) {
+        const boxTitle = fromStreak
+          ? `คอมโบไฟลุก ${streak} ข้อติด! รับกล่องสุ่มฟรี!`
+          : 'โบนัสพิเศษจากการ์ดสีแดง!';
+        setTimeout(() => showMysteryBox(finalItem, boxTitle), 650);
+      }
+    } finally {
+      answerBusy = false;
     }
   });
 
@@ -1012,7 +1019,9 @@
 
   function openMysteryBoxNow() {
     if (!mysteryItemPending) return;
-    const it = ITEMS[mysteryItemPending];
+    const itemKey = mysteryItemPending;
+    mysteryItemPending = null; // กันแตะกล่องรัวซ้ำสองรอบในช่วงแอนิเมชัน 380ms
+    const it = ITEMS[itemKey];
     el.mysteryBoxVisual.className = 'select-none inline-flex items-center justify-center my-2 box-open';
     el.openMysteryBtn.classList.add('hidden');
     SFX.item();
@@ -1039,6 +1048,7 @@
 
   el.bonusForm.addEventListener('submit', async e => {
     e.preventDefault();
+    if (bonusBusy) return;
     if (bonusExpiredLocal) {
       SFX.wrong();
       toast(`${uiIconHtml('clock', 16)}<span>หมดเวลาคำถามโบนัสแล้ว!</span>`, 'error');
@@ -1051,34 +1061,43 @@
     const ans = el.bonusInput.value.trim();
     if (!ans) { SFX.wrong(); return; }
 
-    const res = Grader.grade(ans, bq);
-    el.bonusGradeBox.classList.remove('hidden');
-    el.bonusGradeLabel.textContent = res.label;
-    el.bonusGradeLabel.style.color = res.color;
-    el.bonusGradePct.textContent = `${res.accuracy}%`;
-    el.bonusGradePct.style.color = res.color;
-    el.bonusGradeBar.style.width = `${res.accuracy}%`;
-    el.bonusGradeBar.style.background = res.color;
+    bonusBusy = true;
+    try {
+      const res = Grader.grade(ans, bq);
+      const passed = res.accuracy >= Game.cfg.bonusPassThreshold;
+      Sync.sendAnswerStat({ qid: bq.id, film: bq.film, acc: res.accuracy, pass: passed });
 
-    if (res.accuracy < Game.cfg.bonusPassThreshold) {
-      SFX.wrong();
-      toast(`ต้องแม่นยำอย่างน้อย ${Game.cfg.bonusPassThreshold}% ลองอธิบายให้ชัดเจนขึ้นอีกนิด!`, 'warn');
-      return;
-    }
+      el.bonusGradeBox.classList.remove('hidden');
+      el.bonusGradeLabel.textContent = res.label;
+      el.bonusGradeLabel.style.color = res.color;
+      el.bonusGradePct.textContent = `${res.accuracy}%`;
+      el.bonusGradePct.style.color = res.color;
+      el.bonusGradeBar.style.width = `${res.accuracy}%`;
+      el.bonusGradeBar.style.background = res.color;
 
-    const reward = Game.randomItem();
-    const bid = room.bonus.id;
-    let ok = false;
-    await Sync.transact(r => {
-      ok = Game.applyBonusWin(r, myId, bid, res.accuracy, reward);
-      return r;
-    });
-    if (ok) {
-      SFX.correct();
-      showMysteryBox(reward, 'ตอบโบนัสผ่าน! เปิดกล่องสุ่มเลย!');
-    } else {
-      el.bonusOverlay.classList.add('hidden');
-      toast('คุณรับรางวัลโบนัสรอบนี้ไปแล้ว', 'info');
+      if (!passed) {
+        SFX.wrong();
+        toast(`ต้องแม่นยำอย่างน้อย ${Game.cfg.bonusPassThreshold}% ลองอธิบายให้ชัดเจนขึ้นอีกนิด!`, 'warn');
+        return;
+      }
+
+      if (el.bonusSubmitBtn) el.bonusSubmitBtn.disabled = true;
+      const reward = Game.randomItem();
+      const bid = room.bonus.id;
+      let ok = false;
+      await Sync.transact(r => {
+        ok = Game.applyBonusWin(r, myId, bid, res.accuracy, reward);
+        return r;
+      });
+      if (ok) {
+        SFX.correct();
+        showMysteryBox(reward, 'ตอบโบนัสผ่าน! เปิดกล่องสุ่มเลย!');
+      } else {
+        el.bonusOverlay.classList.add('hidden');
+        toast('คุณรับรางวัลโบนัสรอบนี้ไปแล้ว', 'info');
+      }
+    } finally {
+      bonusBusy = false;
     }
   });
 
@@ -1166,6 +1185,11 @@
       let res = null;
       await Sync.transact(r => { res = Game.applyAttack(r, myId, tid, kind); return r; });
       if (!res) return;
+      if (res.result === 'sameTeam') {
+        SFX.wrong();
+        toast('ห้ามโจมตีเพื่อนร่วมทีมเดียวกัน! (ไอเทมไม่ถูกใช้)', 'warn');
+        return;
+      }
       if (res.result === 'blocked') {
         SFX.block();
         SFX.announce('block', { a: me.name, b: targetName });
@@ -1242,13 +1266,13 @@
     bump(el.smashIceBtn, 'shake');
 
     if (iceHits >= Game.cfg.freezeHits) {
+      wasFrozen = false; // ล็อกทันทีกันแตะรัวซ้ำยิง transaction ซ้ำ!
       SFX.shatter();
       el.iceOverlay.classList.add('shatter-out');
       await Sync.transact(r => { Game.unfreeze(r, myId); return r; });
       setTimeout(() => {
         el.iceOverlay.classList.add('hidden');
         el.iceOverlay.classList.remove('shatter-out');
-        wasFrozen = false;
       }, 320);
     }
   });
@@ -1265,13 +1289,13 @@
     bump(el.wipeBlindBtn, 'shake');
 
     if (blindWipes >= Game.cfg.blindWipes) {
+      wasBlinded = false;
       SFX.correct();
       el.blindOverlay.classList.add('shatter-out');
       await Sync.transact(r => { Game.unblind(r, myId); return r; });
       setTimeout(() => {
         el.blindOverlay.classList.add('hidden');
         el.blindOverlay.classList.remove('shatter-out');
-        wasBlinded = false;
       }, 300);
     }
   });
@@ -1286,9 +1310,9 @@
     bump(el.repairFlipBtn, 'shake');
 
     if (flipRepairs >= Game.cfg.flipRepairs) {
+      wasFlipped = false;
       SFX.correct();
       await Sync.transact(r => { Game.unflip(r, myId); return r; });
-      wasFlipped = false;
       el.gameView.classList.remove('flipped-screen');
       $('playerBossCard')?.classList.remove('flipped-screen');
       el.flipOverlay.classList.add('hidden');
@@ -1582,6 +1606,7 @@
 
   $('bossAttackForm')?.addEventListener('submit', async e => {
     e.preventDefault();
+    if (bossBusy) return;
     const room = Sync.room;
     const me = room && room.players[myId];
     if (!room || !me || !room.boss || room.boss.status !== 'active' || !currentBossQ) return;
@@ -1594,79 +1619,84 @@
       return;
     }
 
-    const grade = Grader.grade(ans, currentBossQ);
-    const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
-    const hasBoost = !!(me.x2Active || isFever);
-    const calc = Game.calcBossDamage(grade.accuracy, hasBoost);
-    Sync.sendAnswerStat({ qid: currentBossQ.id, film: currentBossQ.film, acc: grade.accuracy, pass: calc.dmg > 0 });
+    bossBusy = true;
+    try {
+      const grade = Grader.grade(ans, currentBossQ);
+      const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
+      const hasBoost = !!(me.x2Active || isFever);
+      const calc = Game.calcBossDamage(grade.accuracy, hasBoost);
+      Sync.sendAnswerStat({ qid: currentBossQ.id, film: currentBossQ.film, acc: grade.accuracy, pass: calc.dmg > 0 });
 
-    const resBox = $('bossHitResult');
-    const tierEl = $('bossHitTier');
-    const pctEl = $('bossHitPct');
-    const barEl = $('bossHitBar');
-    const outEl = $('bossHitOutcome');
-    const nextBtn = $('bossNextWaveBtn');
-    const atkBtn = $('bossAttackBtn');
+      const resBox = $('bossHitResult');
+      const tierEl = $('bossHitTier');
+      const pctEl = $('bossHitPct');
+      const barEl = $('bossHitBar');
+      const outEl = $('bossHitOutcome');
+      const nextBtn = $('bossNextWaveBtn');
+      const atkBtn = $('bossAttackBtn');
 
-    if (resBox) resBox.classList.remove('hidden');
-    if (tierEl) { tierEl.textContent = calc.dmg > 0 ? calc.tier : 'ป้องกันได้! ลองใหม่!'; tierEl.style.color = calc.dmg > 0 ? (calc.crit ? '#d89e00' : '#26890c') : '#e21b3c'; }
-    if (pctEl) { pctEl.textContent = `${grade.accuracy}%`; pctEl.style.color = grade.color; }
-    if (barEl) { barEl.style.width = `${grade.accuracy}%`; barEl.style.background = grade.color; }
+      if (resBox) resBox.classList.remove('hidden');
+      if (tierEl) { tierEl.textContent = calc.dmg > 0 ? calc.tier : 'ป้องกันได้! ลองใหม่!'; tierEl.style.color = calc.dmg > 0 ? (calc.crit ? '#d89e00' : '#26890c') : '#e21b3c'; }
+      if (pctEl) { pctEl.textContent = `${grade.accuracy}%`; pctEl.style.color = grade.color; }
+      if (barEl) { barEl.style.width = `${grade.accuracy}%`; barEl.style.background = grade.color; }
 
-    if (calc.dmg <= 0) {
-      SFX.wrong();
-      SFX.announce('bossCounter');
-      // บอสสวนกลับทันทีเมื่อตอบพลาด! (-25 แต้ม + แอนิเมชันบอสพุ่งโจมตี)
-      const bSprite = $('playerBossArt');
-      if (bSprite) {
-        bSprite.classList.remove('boss-lunge', 'boss-hit');
-        void bSprite.offsetWidth;
-        bSprite.classList.add('boss-lunge');
+      if (calc.dmg <= 0) {
+        SFX.wrong();
+        SFX.announce('bossCounter');
+        // บอสสวนกลับทันทีเมื่อตอบพลาด! (-25 แต้ม + แอนิเมชันบอสพุ่งโจมตี)
+        const bSprite = $('playerBossArt');
+        if (bSprite) {
+          bSprite.classList.remove('boss-lunge', 'boss-hit');
+          void bSprite.offsetWidth;
+          bSprite.classList.add('boss-lunge');
+        }
+        const bCard = $('playerBossCard');
+        if (bCard) bump(bCard, 'shake');
+        let counterRes = null;
+        const bossIdNow = room.boss.id;
+        bossCounterLocalUntil = Date.now() + 2500;
+        await Sync.transact(r => {
+          if (!r) return;
+          counterRes = Game.applyBossCounter(r, myId, bossIdNow);
+          return r;
+        });
+        const lostTxt = (counterRes && counterRes.loss > 0) ? ` บอสสวนกลับ -${counterRes.loss} แต้ม!` : ' บอสบล็อกไว้ได้!';
+        if (outEl) {
+          outEl.className = 'rounded-[5px] p-2.5 text-xs sm:text-sm bg-[#e21b3c] text-white font-extrabold';
+          outEl.textContent = `ความแม่นยำยังไม่ถึง 35%${lostTxt} ลองอธิบายให้ตรงประเด็นขึ้นแล้วโจมตีใหม่!`;
+        }
+        return;
       }
-      const bCard = $('playerBossCard');
-      if (bCard) bump(bCard, 'shake');
-      let counterRes = null;
-      const bossIdNow = room.boss.id;
-      bossCounterLocalUntil = Date.now() + 2500;
-      await Sync.transact(r => {
-        if (!r) return;
-        counterRes = Game.applyBossCounter(r, myId, bossIdNow);
-        return r;
-      });
-      const lostTxt = (counterRes && counterRes.loss > 0) ? ` บอสสวนกลับ -${counterRes.loss} แต้ม!` : ' บอสบล็อกไว้ได้!';
+
+      if (inp) inp.disabled = true;
+      if (atkBtn) { atkBtn.disabled = true; atkBtn.classList.add('hidden'); }
+      if (nextBtn) nextBtn.classList.remove('hidden');
+
+      bossMyLocalDmg += calc.dmg;
+      const myDmgEl = $('playerBossMyDmg');
+      if (myDmgEl) myDmgEl.textContent = bossMyLocalDmg.toLocaleString();
+
+      spawnPlayerBossDmgPop(calc.dmg, calc.crit);
+      if (calc.crit) SFX.zap(); else SFX.correct();
+
       if (outEl) {
-        outEl.className = 'rounded-[5px] p-2.5 text-xs sm:text-sm bg-[#e21b3c] text-white font-extrabold';
-        outEl.textContent = `ความแม่นยำยังไม่ถึง 35%${lostTxt} ลองอธิบายให้ตรงประเด็นขึ้นแล้วโจมตีใหม่!`;
+        outEl.className = 'rounded-[5px] p-2.5 text-sm font-extrabold flex items-center justify-between gap-2 ' + (calc.crit ? 'bg-[#d89e00] text-white' : 'bg-[#26890c] text-white');
+        outEl.innerHTML = `<span>โจมตีบอสสำเร็จ! (+${calc.pts} แต้มทันที)</span><span class="font-display text-lg font-black shrink-0">-${calc.dmg} HP!</span>`;
       }
-      return;
+
+      Sync.sendBossHit({
+        hitId: uid(),
+        bossId: room.boss.id,
+        pid: myId,
+        dmg: calc.dmg,
+        acc: grade.accuracy,
+        crit: calc.crit,
+        pts: calc.pts,
+        usedX2: !!me.x2Active
+      });
+    } finally {
+      bossBusy = false;
     }
-
-    if (inp) inp.disabled = true;
-    if (atkBtn) { atkBtn.disabled = true; atkBtn.classList.add('hidden'); }
-    if (nextBtn) nextBtn.classList.remove('hidden');
-
-    bossMyLocalDmg += calc.dmg;
-    const myDmgEl = $('playerBossMyDmg');
-    if (myDmgEl) myDmgEl.textContent = bossMyLocalDmg.toLocaleString();
-
-    spawnPlayerBossDmgPop(calc.dmg, calc.crit);
-    if (calc.crit) SFX.zap(); else SFX.correct();
-
-    if (outEl) {
-      outEl.className = 'rounded-[5px] p-2.5 text-sm font-extrabold flex items-center justify-between gap-2 ' + (calc.crit ? 'bg-[#d89e00] text-white' : 'bg-[#26890c] text-white');
-      outEl.innerHTML = `<span>โจมตีบอสสำเร็จ! (+${calc.pts} แต้มทันที)</span><span class="font-display text-lg font-black shrink-0">-${calc.dmg} HP!</span>`;
-    }
-
-    Sync.sendBossHit({
-      hitId: uid(),
-      bossId: room.boss.id,
-      pid: myId,
-      dmg: calc.dmg,
-      acc: grade.accuracy,
-      crit: calc.crit,
-      pts: calc.pts,
-      usedX2: !!me.x2Active
-    });
   });
 
   function renderPlayerBoss(room, me) {

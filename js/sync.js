@@ -309,7 +309,7 @@ const Sync = (() => {
     newer.answered = Object.assign({}, older.answered || {}, newer.answered || {});
     newer.answeredCount = Math.max(Number(newer.answeredCount || 0), Number(older.answeredCount || 0), Object.keys(newer.answered).length);
 
-    // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่/ซ่อนรูปโปรไฟล์)
+    // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่/ซ่อนรูป/เปลี่ยนชื่อ/ย้ายทีม)
     if (hA !== hB) {
       const hWin = hB > hA ? pb : pa;
       newer.selfieLocked = !!hWin.selfieLocked;
@@ -318,6 +318,8 @@ const Sync = (() => {
       newer.selfiePhoto = hWin.selfiePhoto || '';
       newer.photoBlocked = !!hWin.photoBlocked;
       if (newer.photoBlocked) newer.hasPhoto = false;
+      if (hWin.name) newer.name = hWin.name;
+      if (hWin.team) newer.team = hWin.team;
     }
     newer.hostRev = Math.max(hA, hB);
     newer.rev = Math.max(revA, revB);

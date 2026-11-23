@@ -84,6 +84,7 @@
     joinUrl = withExternalBrowser(`${baseUrl()}player.html?room=${encodeURIComponent(roomCode)}${bParam}`);
     el.qrModalUrl.textContent = joinUrl;
     el.openPlayerLink.href = joinUrl;
+    if (el.openCardsLink) el.openCardsLink.href = `${baseUrl()}cards.html?room=${encodeURIComponent(roomCode)}${bParam}`;
     renderQr(el.qrPreview, joinUrl, 120);
     renderQr(el.qrModalBox, joinUrl, 300);
   }
@@ -478,6 +479,8 @@
   let bossLastSyncAt = 0;
   let bossEnding = false;
   let bossChargeMs = 0;
+  let lastBossBeepSec = -1;
+  let bossAttackBusy = false;
   let lastBossHitRenderId = '';
   let lastBossAttackRenderId = '';
   let bossEnragedAnnouncedId = '';
@@ -492,18 +495,24 @@
   }
 
   async function fireBossAttackNow() {
+    if (bossAttackBusy) return;
     const cur = Sync.room;
     if (!cur || !cur.boss || cur.boss.status !== 'active') return;
+    bossAttackBusy = true;
     bossChargeMs = 0;
-    let res = null;
-    await Sync.transact(room => {
-      if (!room || !room.boss || room.boss.status !== 'active') return;
-      res = Game.triggerBossAttack(room);
-      return room;
-    });
-    if (res && res.affected && res.affected.length) {
-      triggerBossLungeVisual();
-      res.affected.forEach(p => Sync.sendDirectPlayer(p.id, p));
+    try {
+      let res = null;
+      await Sync.transact(room => {
+        if (!room || !room.boss || room.boss.status !== 'active') return;
+        res = Game.triggerBossAttack(room);
+        return room;
+      });
+      if (res && res.affected && res.affected.length) {
+        triggerBossLungeVisual();
+        res.affected.forEach(p => Sync.sendDirectPlayer(p.id, p));
+      }
+    } finally {
+      bossAttackBusy = false;
     }
   }
 
@@ -556,6 +565,7 @@
       bossLastSyncAt = Date.now();
       bossEnding = b.status !== 'active';
       bossChargeMs = 0;
+      lastBossBeepSec = -1;
       lastBossHitRenderId = b.lastHit ? b.lastHit.id : '';
       lastBossAttackRenderId = b.lastAttack ? b.lastAttack.id : '';
     }
@@ -642,7 +652,7 @@
         <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[5px] bg-white/10 text-white">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="sqa-ico shrink-0">${heroIconHtml(medals[idx] || 'trophy', 20)}</span>
-            ${avatarHtml(m.avatar, 24, '', m.id)}
+            ${avatarHtml(m.avatar, 24, '', (room.players[m.id] && room.players[m.id].photoBlocked) ? '' : m.id)}
             <span class="font-display font-extrabold truncate">${esc(safeName(m.name))}</span>
           </div>
           <span class="font-display font-black text-[#fde047] tabular shrink-0">${Number(m.dmg || 0).toLocaleString()}</span>
@@ -754,6 +764,9 @@
           r.timerRemainingMs = 0;
           r.timerRunning = false;
           r.bonus = null;
+          r.boss = null;
+          r.feverId = '';
+          r.feverRemainingSec = 0;
           r.hostUpdatedAt = Date.now();
           Sync.pushFeed(r, { type: 'info', text: 'หมดเวลาการแข่งขัน! สรุปผลโพเดียม 1–2–3!' });
           return r;
@@ -854,8 +867,8 @@
       const tEl = $('hostBossTimer');
       if (tEl) tEl.textContent = formatClock(bossRemainingMs);
       const bSec = Math.ceil(bossRemainingMs / 1000);
-      if (bSec > 0 && bSec <= 10 && bSec !== lastBonusBeepSec) {
-        lastBonusBeepSec = bSec;
+      if (bSec > 0 && bSec <= 10 && bSec !== lastBossBeepSec) {
+        lastBossBeepSec = bSec;
         SFX.click();
       }
       // ชาร์จเกจท่าไม้ตายของบอส (16 วิปกติ / 11 วิเมื่อคลั่ง HP <= 35%) -> ปล่อยโจมตีผู้เล่นอัตโนมัติ!
@@ -1047,7 +1060,7 @@
           <div class="flex items-center justify-between text-sm bg-white text-[#333] font-bold rounded-[4px] px-3 py-1.5">
             <div class="flex items-center gap-2">
               <span class="font-black text-neutral-500">#${i + 4}</span>
-              ${avatarHtml(p.avatar, 26, '', p.id)}
+              ${avatarHtml(p.avatar, 26, '', p.photoBlocked ? '' : p.id)}
               <span>${esc(safeName(p.name))}</span>
             </div>
             <span class="font-display font-black text-[#333] tabular">${p.score.toLocaleString()}</span>
@@ -1125,7 +1138,7 @@
     const imgSrc = selfiePhotoCache.get(target.id) || target.selfiePhoto;
 
     $('selfieQueueBadge').textContent = `รอตรวจ 1 / ${pending.length}`;
-    $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54, '', target.id);
+    $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54, '', target.photoBlocked ? '' : target.id);
     $('selfieReviewName').textContent = safeName(target.name);
     $('selfieReviewFrom').textContent = `โดนสั่งถ่ายหน้าตลกโดย: ${safeName(target.selfieFrom || 'เพื่อน')}`;
     $('selfieReviewImg').src = imgSrc;
@@ -1897,6 +1910,7 @@
         if (room.timerTotalSec > 0) room.timerRunning = true;
       }
       room.usedBonus[qid] = true;
+      room.boss = null; // ปิดบอสเดิมไม่ให้หน้าต่างโบนัสกับบอสซ้อนทับกันบนมือถือ!
       room.bonus = { id: uid(), qid, durationSec, remainingSec: durationSec, startedAt: Date.now(), answered: {} };
       room.hostUpdatedAt = Date.now();
       Sync.pushFeed(room, { type: 'bonus', qid, sec: durationSec });
@@ -1933,6 +1947,8 @@
       room.endedAt = Date.now();
       room.bonus = null;
       room.boss = null;
+      room.feverId = '';
+      room.feverRemainingSec = 0;
       room.hostUpdatedAt = Date.now();
       return room;
     });
@@ -1952,9 +1968,15 @@
     if (!silent) SFX.pop();
     stopSim();
     matchEnding = false;
+    lastMatchBeepSec = -1;
+    lastBonusBeepSec = -1;
+    lastBossBeepSec = -1;
     trackedBonusId = null;
+    trackedFeverId = '';
     trackedBossId = '';
     trackedBossArtKey = '';
+    bossChargeMs = 0;
+    bossEnragedAnnouncedId = '';
     seenBossHitIds.clear();
     await Sync.transact(room => {
       const now = Date.now();
