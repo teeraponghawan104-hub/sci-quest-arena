@@ -152,11 +152,62 @@
   $('gameVoiceBtn')?.addEventListener('click', () => { SFX.click(); SFX.toggleVoice(); syncMute(); });
 
   let selectedAv = rand(AVATARS.length);
+  let myCustomPhoto = (() => {
+    try {
+      const saved = localStorage.getItem('sqa_my_photo') || '';
+      return saved.startsWith('data:image/') ? saved : '';
+    } catch (e) { return ''; }
+  })();
+
+  function updatePhotoPickerUI() {
+    const thumb = $('photoThumbBox');
+    const st = $('photoStatusText');
+    const clr = $('clearAvatarPhotoBtn');
+    if (thumb) {
+      thumb.innerHTML = myCustomPhoto
+        ? `<img src="${myCustomPhoto}" alt="Profile" class="w-full h-full object-cover" />`
+        : uiIconHtml('camera', 18);
+    }
+    if (st) st.textContent = myCustomPhoto ? 'ใช้รูปโปรไฟล์ของคุณแล้ว!' : 'ใส่รูปถ่าย / รูปในเครื่องได้!';
+    if (clr) clr.classList.toggle('hidden', !myCustomPhoto);
+    renderAvatarPicker();
+  }
+
+  function compressAvatarFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const side = Math.min(img.width, img.height);
+          const sx = Math.round((img.width - side) / 2);
+          const sy = Math.round((img.height - side) / 2);
+          const canvas = document.createElement('canvas');
+          canvas.width = 112;
+          canvas.height = 112;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, sx, sy, side, side, 0, 0, 112, 112);
+          let out = canvas.toDataURL('image/jpeg', 0.72);
+          if (out.length > 9000) out = canvas.toDataURL('image/jpeg', 0.52);
+          resolve(out);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   function renderAvatarPicker() {
     const cur = AVATARS[selectedAv] || AVATARS[0];
-    el.pickedAvPreview.innerHTML = `${avatarHtml(selectedAv, 22)}<span>${esc(cur.name)}</span>`;
+    if (myCustomPhoto) {
+      el.pickedAvPreview.innerHTML = `<span class="w-5 h-5 rounded-[4px] overflow-hidden border border-[#1e1b2e] inline-block align-middle"><img src="${myCustomPhoto}" class="w-full h-full object-cover" /></span><span>รูปของฉัน</span>`;
+    } else {
+      el.pickedAvPreview.innerHTML = `${avatarHtml(selectedAv, 22)}<span>${esc(cur.name)}</span>`;
+    }
     el.avatarGrid.innerHTML = AVATARS.map((a, i) => `
-      <button type="button" data-av="${i}" title="${esc(a.name)}" class="av-btn ${i === selectedAv ? 'selected' : ''}" style="background:${a.bg}">
+      <button type="button" data-av="${i}" title="${esc(a.name)}" class="av-btn ${!myCustomPhoto && i === selectedAv ? 'selected' : ''}" style="background:${a.bg}">
         ${SQA_ART.avatarSvg(i, 54)}
       </button>
     `).join('');
@@ -164,11 +215,55 @@
       btn.addEventListener('click', () => {
         SFX.click();
         selectedAv = Number(btn.dataset.av);
-        renderAvatarPicker();
+        if (myCustomPhoto) {
+          myCustomPhoto = '';
+          try { localStorage.removeItem('sqa_my_photo'); } catch (e) {}
+          updatePhotoPickerUI();
+        } else {
+          renderAvatarPicker();
+        }
       });
     });
   }
-  renderAvatarPicker();
+  updatePhotoPickerUI();
+
+  $('avatarPhotoInput')?.addEventListener('change', async ev => {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await compressAvatarFile(file);
+      myCustomPhoto = dataUrl;
+      try { localStorage.setItem('sqa_my_photo', dataUrl); } catch (e) {}
+      SFX.pop();
+      updatePhotoPickerUI();
+      toast(`${uiIconHtml('check', 16)}<span>ตั้งรูปโปรไฟล์ของคุณเรียบร้อยแล้ว!</span>`, 'success', 2200);
+    } catch (e) {
+      SFX.wrong();
+      toast('ไม่สามารถอ่านไฟล์รูปนี้ได้ ลองเลือกรูปอื่นนะ', 'error');
+    }
+  });
+  $('clearAvatarPhotoBtn')?.addEventListener('click', () => {
+    SFX.click();
+    myCustomPhoto = '';
+    try { localStorage.removeItem('sqa_my_photo'); } catch (e) {}
+    updatePhotoPickerUI();
+  });
+
+  // ตรวจคำหยาบ / 18+ แบบเรียลไทม์ขณะพิมพ์ชื่อเล่น
+  el.joinNameInput?.addEventListener('input', () => {
+    const errEl = $('joinNameError');
+    if (!errEl || !window.NameFilter) return;
+    const val = el.joinNameInput.value.trim();
+    if (!val) { errEl.classList.add('hidden'); return; }
+    const chk = NameFilter.check(val);
+    if (!chk.ok) {
+      errEl.textContent = chk.reason;
+      errEl.classList.remove('hidden');
+    } else {
+      errEl.classList.add('hidden');
+    }
+  });
 
   let roomCode = initRoom;
   let myId = null;
@@ -212,6 +307,7 @@
   let prevScore = null;
   let prevShields = null;
   let prevZappedAt = 0;
+  let bossCounterLocalUntil = 0;
   let wasFrozen = false;
   let iceHits = 0;
   let wasBlinded = false;
@@ -232,15 +328,55 @@
   let mysteryOpen = false;
   let qrScanner = null;
 
+  /* ---------- รหัสเครื่องถาวร + ระบบฝัง Session กลับเข้าเกมเดิมเสมอตราบใดที่ยังไม่จบเกม ---------- */
+  function readCookie(name) {
+    try {
+      const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch (e) { return ''; }
+  }
+  function writeCookie(name, val, hours = 12) {
+    try {
+      const exp = new Date(Date.now() + hours * 3600 * 1000).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(val)}; expires=${exp}; path=/; SameSite=Lax`;
+    } catch (e) {}
+  }
+  function clearCookie(name) {
+    try { document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`; } catch (e) {}
+  }
+  function getDeviceId() {
+    try {
+      let id = localStorage.getItem('sqa_device_id') || readCookie('sqa_device_id');
+      if (!id) {
+        id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      }
+      localStorage.setItem('sqa_device_id', id);
+      writeCookie('sqa_device_id', id, 24 * 365);
+      return id;
+    } catch (e) {
+      return 'dev_' + uid();
+    }
+  }
+  const myDeviceId = getDeviceId();
+
   let lastSavedKey = '';
   function savePlayerSession(code, pid, roundId, snapshot, force = false) {
-    const key = `${pid}|${roundId}|${snapshot ? (snapshot.rev || 0) : 0}|${snapshot ? (snapshot.score || 0) : 0}|${snapshot ? (snapshot.updatedAt || 0) : 0}`;
+    if (!code || !pid) return;
+    const key = `${code}|${pid}|${roundId}|${snapshot ? (snapshot.rev || 0) : 0}|${snapshot ? (snapshot.score || 0) : 0}|${snapshot ? (snapshot.updatedAt || 0) : 0}`;
     if (!force && key === lastSavedKey) return;
     lastSavedKey = key;
+    const rec = {
+      code, id: pid, deviceId: myDeviceId, roundId: roundId || 1,
+      brokerIdx: brokerIdx || 0,
+      snapshot: snapshot || null, savedAt: Date.now()
+    };
     try {
-      localStorage.setItem('sqa_session_' + code, JSON.stringify({
-        id: pid, roundId: roundId || 1, snapshot: snapshot || null, savedAt: Date.now()
-      }));
+      localStorage.setItem('sqa_session_' + code, JSON.stringify(rec));
+      localStorage.setItem('sqa_active_session', JSON.stringify(rec));
+      writeCookie('sqa_active_sess', JSON.stringify({
+        code, id: pid, roundId: roundId || 1, brokerIdx: brokerIdx || 0,
+        name: snapshot ? snapshot.name : '', avatar: snapshot ? snapshot.avatar : 0, savedAt: rec.savedAt
+      }), 12);
     } catch (e) {}
   }
   function handleSelfieResend() {
@@ -252,21 +388,48 @@
       Sync.sendSelfie(myId, photo);
     }
   }
+  function handleAvatarResend() {
+    if (!myId || !myCustomPhoto) return;
+    SQA_PHOTOS.set(myId, myCustomPhoto);
+    Sync.sendAvatar(myId, myCustomPhoto);
+  }
   function readPlayerSession(code) {
     try {
-      const raw = localStorage.getItem('sqa_session_' + code);
-      if (raw) return JSON.parse(raw);
-      const old = sessionStorage.getItem('sqa_pid_' + code);
-      if (old) return { id: old, roundId: 1, snapshot: null };
+      if (code) {
+        const raw = localStorage.getItem('sqa_session_' + code);
+        if (raw) return JSON.parse(raw);
+      }
+      const actRaw = localStorage.getItem('sqa_active_session');
+      if (actRaw) {
+        const act = JSON.parse(actRaw);
+        if (act && act.code && (!code || act.code === code)) return act;
+      }
+      const ckRaw = readCookie('sqa_active_sess');
+      if (ckRaw) {
+        const ck = JSON.parse(ckRaw);
+        if (ck && ck.code && (!code || ck.code === code)) return ck;
+      }
+      if (code) {
+        const old = sessionStorage.getItem('sqa_pid_' + code);
+        if (old) return { code, id: old, roundId: 1, snapshot: null };
+      }
     } catch (e) {}
     return null;
   }
-  function clearPlayerSession(code) {
+  function clearPlayerSession(code, clearRoomRecord = true) {
     try {
-      if (code) {
+      if (clearRoomRecord && code) {
         localStorage.removeItem('sqa_session_' + code);
         sessionStorage.removeItem('sqa_pid_' + code);
       }
+      const actRaw = localStorage.getItem('sqa_active_session');
+      if (actRaw) {
+        const act = JSON.parse(actRaw);
+        if (!code || !act || act.code === code) {
+          localStorage.removeItem('sqa_active_session');
+        }
+      }
+      clearCookie('sqa_active_sess');
     } catch (e) {}
   }
 
@@ -279,6 +442,7 @@
     if (st === 'connected' && myId) {
       Sync.setPlayerId(myId);
       handleSelfieResend();
+      handleAvatarResend();
     }
   }
 
@@ -287,17 +451,19 @@
     el.gameView.classList.toggle('hidden', view !== 'game');
   }
 
-  function leaveRoomToLogin(notice = '') {
+  function leaveRoomToLogin(notice = '', keepRoomSession = false) {
     stopScanner();
     stopSelfieCamera();
     SFX.startBgm('play');
-    clearPlayerSession(roomCode);
+    clearPlayerSession(roomCode, !keepRoomSession);
     Sync.disconnect();
     myId = null;
     myLastSnapshot = null;
     joinedRoundId = 1;
     prevScore = null;
     prevShields = null;
+    prevHostRev = null;
+    prevItemTotal = null;
     prevZappedAt = 0;
     wasFrozen = false;
     wasBlinded = false;
@@ -315,6 +481,9 @@
     el.flipOverlay.classList.add('hidden');
     el.selfieOverlay.classList.add('hidden');
     el.gameView.classList.remove('flipped-screen');
+    $('playerBossCard')?.classList.remove('flipped-screen');
+    $('bossOverlay')?.classList.add('hidden');
+    $('playerBossBanner')?.classList.add('hidden');
     el.bonusOverlay.classList.add('hidden');
     el.stateOverlay.classList.add('hidden');
     el.questionPanel.classList.add('hidden');
@@ -326,25 +495,44 @@
     playerMatchSyncedOnce = false;
     playerTimerEpoch = 0;
     showView('login');
-    if (notice) toast(notice, 'info', 3200);
+    if (notice) toast(notice, 'info', 3400);
+  }
+
+  function pinRoomInUrl(code, bIdx = 0) {
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('room', code);
+      if (bIdx > 0) u.searchParams.set('b', String(bIdx));
+      history.replaceState(null, '', u.pathname + u.search);
+    } catch (e) {}
   }
 
   async function tryRestoreSession() {
-    if (!initRoom) return;
-    const saved = readPlayerSession(initRoom);
+    // อ่าน Session ทั้งกรณีมี ?room=XXXX และกรณีเปิดหน้า player.html เปล่าๆ (ฝังติดเครื่องจนกว่าเกมจะจบ!)
+    const saved = readPlayerSession(initRoom || '');
     if (!saved || !saved.id) return;
-    // หากบันทึกไว้นานเกิน 6 ชั่วโมงแล้ว ให้ล็อกอินใหม่สะอาดๆ
-    if (saved.savedAt && Date.now() - saved.savedAt > 6 * 3600 * 1000) {
-      clearPlayerSession(initRoom);
+    const targetCode = initRoom || saved.code;
+    if (!targetCode) return;
+    if (saved.savedAt && Date.now() - saved.savedAt > 12 * 3600 * 1000) {
+      clearPlayerSession(targetCode, true);
       return;
     }
+    const useBroker = qs.has('b') ? brokerIdx : (Number(saved.brokerIdx || 0) || 0);
     try {
-      const ok = await Sync.exists(initRoom);
+      const ok = await Sync.exists(targetCode);
       if (!ok) return;
-      roomCode = initRoom;
-      await Sync.connect(roomCode, onRoomUpdate, { isHost: false, brokerIdx, playerId: saved.id, onConn: onPlayerConn, onSelfieRequest: handleSelfieResend });
+      roomCode = targetCode;
+      el.joinRoomInput.value = targetCode;
+      await Sync.connect(roomCode, onRoomUpdate, {
+        isHost: false,
+        brokerIdx: useBroker,
+        playerId: saved.id,
+        onConn: onPlayerConn,
+        onSelfieRequest: handleSelfieResend,
+        onAvatarRequest: handleAvatarResend
+      });
       const r = Sync.room;
-      // หากห้องเล่นจบไปแล้ว หรือครูเริ่มรอบใหม่ (roundId สูงขึ้น) ให้เริ่มล็อกอินใหม่
+      // เคลียร์ Session เฉพาะเมื่อเกมจบแล้วจริงๆ หรือครูสั่งเริ่มรอบใหม่ (roundId สูงขึ้น) เท่านั้น!
       if (r && (r.status === 'ended' || (r.roundId || 1) > (saved.roundId || 1))) {
         leaveRoomToLogin();
         return;
@@ -353,12 +541,29 @@
         myId = saved.id;
         Sync.setPlayerId(myId);
         joinedRoundId = r.roundId || saved.roundId || 1;
+        // ผสานประวัติการ์ดที่ตอบแล้วจาก Snapshot ในเครื่องคืนเข้าตัวละคร (กันตอบซ้ำหลังปิดแอป/เปิดใหม่!)
+        if (saved.snapshot && saved.snapshot.answered) {
+          r.players[saved.id].answered = Object.assign({}, saved.snapshot.answered, r.players[saved.id].answered || {});
+          r.players[saved.id].answeredCount = Math.max(
+            Number(r.players[saved.id].answeredCount || 0),
+            Object.keys(r.players[saved.id].answered).length
+          );
+        }
         myLastSnapshot = JSON.parse(JSON.stringify(r.players[saved.id]));
+        savePlayerSession(roomCode, myId, joinedRoundId, myLastSnapshot, true);
+        if (myCustomPhoto) {
+          SQA_PHOTOS.set(myId, myCustomPhoto);
+          Sync.sendAvatar(myId, myCustomPhoto);
+        }
+        pinRoomInUrl(roomCode, useBroker);
         showView('game');
         applyPlayerRoomRender(r);
+        toast(`${uiIconHtml('check', 16)}<span>กลับเข้าเกมเดิมอัตโนมัติ! กู้คืนคะแนนและไอเทมครบถ้วน</span>`, 'success', 2600);
       } else if (saved.snapshot) {
-        // กู้คืนผู้เล่นกลับเข้าห้องเดิมอัตโนมัติ (กรณีมือถือรีโหลดหน้าจาก LINE / ล็อกจอ)
+        // กู้คืนผู้เล่นกลับเข้าห้องเดิมอัตโนมัติ 100% (กรณีปัดปิดแอป / หลุดเน็ต / สลับเบราว์เซอร์)
         const restored = Object.assign({}, saved.snapshot, {
+          hasPhoto: !!myCustomPhoto || !!saved.snapshot.hasPhoto,
+          deviceId: myDeviceId,
           roundId: (r && r.roundId) || saved.roundId || 1,
           rev: (saved.snapshot.rev || 0) + 1,
           updatedAt: Math.max((saved.snapshot.updatedAt || 0) + 1, Date.now())
@@ -372,13 +577,21 @@
         Sync.setPlayerId(myId);
         joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
         myLastSnapshot = restored;
+        if (myCustomPhoto) {
+          SQA_PHOTOS.set(myId, myCustomPhoto);
+          Sync.sendAvatar(myId, myCustomPhoto);
+        }
+        pinRoomInUrl(roomCode, useBroker);
         showView('game');
         applyPlayerRoomRender(Sync.room);
+        toast(`${uiIconHtml('check', 16)}<span>กลับเข้าเกมเดิมอัตโนมัติ! แต้มและไอเทมยังอยู่ครบ!</span>`, 'success', 2600);
       } else {
-        leaveRoomToLogin();
+        // ไม่ลบ session ทิ้งหากแค่เน็ตสะดุด ให้พรีฟิลรหัสห้องกับชื่อไว้เพื่อให้กดเข้าต่อได้ทันที
+        if (saved.name) el.joinNameInput.value = saved.name;
       }
     } catch (e) {
-      leaveRoomToLogin();
+      // ห้ามลบ session ทิ้งเมื่อเน็ตสะดุดชั่วคราว! ให้ผู้ใช้รีเฟรชหรือกดเข้าใหม่ได้เสมอ
+      toast('สัญญาณเน็ตสะดุดชั่วคราว กดรีเฟรชหรือกด OK, go! เพื่อกลับเข้าเกมเดิมได้ทันที', 'warn', 3500);
     }
   }
 
@@ -390,6 +603,20 @@
       SFX.wrong();
       toast('กรุณากรอก Game PIN และชื่อเล่น', 'error');
       return;
+    }
+
+    // ตรวจเซ็นเซอร์ชื่อ 18+ / คำไม่เหมาะสมก่อนเข้าห้องทุกครั้ง!
+    if (window.NameFilter) {
+      const chk = NameFilter.check(name);
+      const errEl = $('joinNameError');
+      if (!chk.ok) {
+        SFX.wrong();
+        bump(el.joinNameInput, 'shake');
+        if (errEl) { errEl.textContent = chk.reason; errEl.classList.remove('hidden'); }
+        toast(chk.reason, 'error', 3600);
+        return;
+      }
+      if (errEl) errEl.classList.add('hidden');
     }
 
     const btn = $('joinSubmitBtn');
@@ -404,28 +631,82 @@
         return;
       }
 
+      // เช็กว่าเครื่องนี้เคยเข้าห้องนี้ไว้ในรอบที่ยังไม่จบหรือไม่ -> ถ้าใช่ ดึงตัวเดิมกลับมา (แต้มไม่หาย!)
+      const existingSaved = readPlayerSession(code);
+      const reclaimId = (existingSaved && existingSaved.id && existingSaved.code === code) ? existingSaved.id : '';
+      const targetPid = reclaimId || ('p_' + uid());
+
       roomCode = code;
       myId = null;
-      const newId = 'p_' + uid();
-      await Sync.connect(code, onRoomUpdate, { isHost: false, brokerIdx, playerId: newId, onConn: onPlayerConn, onSelfieRequest: handleSelfieResend });
+      await Sync.connect(code, onRoomUpdate, {
+        isHost: false,
+        brokerIdx,
+        playerId: targetPid,
+        onConn: onPlayerConn,
+        onSelfieRequest: handleSelfieResend,
+        onAvatarRequest: handleAvatarResend
+      });
+
+      let finalPid = targetPid;
+      let reclaimed = false;
       await Sync.transact(room => {
         const base = room || Sync.defaultRoom(code);
-        // ผู้เล่นจะไม่แก้ roundId หรือลบเพื่อนคนอื่นเด็ดขาด (ให้ Host เป็นผู้ควบคุมรอบเท่านั้น)
-        const p = Game.newPlayer(newId, name, selectedAv, false);
-        p.roundId = base.roundId || 1;
+        const curRound = base.roundId || 1;
+        // 1) ถ้าตัวเดิมยังอยู่ในห้อง (และเกมยังไม่จบ + รอบเดิม) -> กู้คืนตัวเดิม!
+        if (reclaimId && base.status !== 'ended' && base.players[reclaimId] && (existingSaved.roundId || 1) === curRound) {
+          const ex = base.players[reclaimId];
+          ex.name = name;
+          ex.avatar = selectedAv;
+          ex.hasPhoto = !!myCustomPhoto;
+          ex.deviceId = myDeviceId;
+          if (existingSaved.snapshot && existingSaved.snapshot.answered) {
+            ex.answered = Object.assign({}, existingSaved.snapshot.answered, ex.answered || {});
+            ex.answeredCount = Math.max(Number(ex.answeredCount || 0), Object.keys(ex.answered).length);
+          }
+          Game.touch(ex, false);
+          finalPid = reclaimId;
+          reclaimed = true;
+          return base;
+        }
+        // 2) ถ้ามี snapshot เดิมในเครื่องรอบเดียวกันที่ยังไม่จบ -> กู้คืนคะแนนเดิมกลับเข้าห้อง!
+        if (reclaimId && base.status !== 'ended' && existingSaved.snapshot && (existingSaved.roundId || 1) === curRound) {
+          const rest = Object.assign({}, existingSaved.snapshot, {
+            name, avatar: selectedAv, hasPhoto: !!myCustomPhoto, deviceId: myDeviceId,
+            roundId: curRound,
+            rev: (existingSaved.snapshot.rev || 0) + 1,
+            updatedAt: Math.max((existingSaved.snapshot.updatedAt || 0) + 1, Date.now())
+          });
+          base.players[reclaimId] = rest;
+          finalPid = reclaimId;
+          reclaimed = true;
+          return base;
+        }
+        // 3) ผู้เล่นใหม่ (หรือเริ่มรอบใหม่แล้ว)
+        const newId = 'p_' + uid();
+        const p = Game.newPlayer(newId, name, selectedAv, false, { hasPhoto: !!myCustomPhoto, deviceId: myDeviceId });
+        p.roundId = curRound;
         base.players[newId] = p;
+        finalPid = newId;
         Sync.pushFeed(base, { type: 'join', a: name, ai: newId, av: selectedAv });
         return base;
       });
-      myId = newId;
+      myId = finalPid;
       Sync.setPlayerId(myId);
       joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
       myLastSnapshot = Sync.room && Sync.room.players[myId]
         ? JSON.parse(JSON.stringify(Sync.room.players[myId])) : null;
+      if (myCustomPhoto) {
+        SQA_PHOTOS.set(myId, myCustomPhoto);
+        Sync.sendAvatar(myId, myCustomPhoto);
+      }
       savePlayerSession(code, myId, joinedRoundId, myLastSnapshot, true);
+      pinRoomInUrl(code, brokerIdx);
       SFX.join();
       showView('game');
       applyPlayerRoomRender(Sync.room);
+      if (reclaimed) {
+        toast(`${uiIconHtml('check', 16)}<span>กู้คืนโปรไฟล์และคะแนนเดิมในห้องนี้กลับมาแล้ว!</span>`, 'success', 3000);
+      }
     } catch (err) {
       SFX.wrong();
       toast('เชื่อมต่อห้องไม่สำเร็จ กรุณาลองใหม่', 'error');
@@ -436,7 +717,9 @@
 
   $('leaveBtn').addEventListener('click', () => {
     SFX.click();
-    leaveRoomToLogin();
+    const ok = window.confirm('ต้องการออกจากหน้าจอนี้ชั่วคราวหรือไม่?\n(ถ้าเกมยังไม่จบ คุณสามารถกรอก PIN เดิมหรือกลับเข้ามาด้วยเครื่องนี้เพื่อเล่นต่อคะแนนเดิมได้เสมอ)');
+    if (!ok) return;
+    leaveRoomToLogin('ออกจากห้องชั่วคราวแล้ว — ถ้าเกมยังไม่จบ กรอก PIN เดิมกลับมาคะแนนยังอยู่ครบ!', true);
   });
 
   function openQuestion(rawCode) {
@@ -972,6 +1255,7 @@
       await Sync.transact(r => { Game.unflip(r, myId); return r; });
       wasFlipped = false;
       el.gameView.classList.remove('flipped-screen');
+      $('playerBossCard')?.classList.remove('flipped-screen');
       el.flipOverlay.classList.add('hidden');
       toast(`${uiIconHtml('wrench', 16)}<span>ซ่อมหน้าจอกลับมาตั้งตรงแล้ว!</span>`, 'success');
     }
@@ -1261,7 +1545,7 @@
     $('bossAnswerInput')?.focus();
   });
 
-  $('bossAttackForm')?.addEventListener('submit', e => {
+  $('bossAttackForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const room = Sync.room;
     const me = room && room.players[myId];
@@ -1295,9 +1579,27 @@
 
     if (calc.dmg <= 0) {
       SFX.wrong();
+      // บอสสวนกลับทันทีเมื่อตอบพลาด! (-25 แต้ม + แอนิเมชันบอสพุ่งโจมตี)
+      const bSprite = $('playerBossArt');
+      if (bSprite) {
+        bSprite.classList.remove('boss-lunge', 'boss-hit');
+        void bSprite.offsetWidth;
+        bSprite.classList.add('boss-lunge');
+      }
+      const bCard = $('playerBossCard');
+      if (bCard) bump(bCard, 'shake');
+      let counterRes = null;
+      const bossIdNow = room.boss.id;
+      bossCounterLocalUntil = Date.now() + 2500;
+      await Sync.transact(r => {
+        if (!r) return;
+        counterRes = Game.applyBossCounter(r, myId, bossIdNow);
+        return r;
+      });
+      const lostTxt = (counterRes && counterRes.loss > 0) ? ` บอสสวนกลับ -${counterRes.loss} แต้ม!` : ' บอสบล็อกไว้ได้!';
       if (outEl) {
         outEl.className = 'rounded-[5px] p-2.5 text-xs sm:text-sm bg-[#e21b3c] text-white font-extrabold';
-        outEl.textContent = 'ความแม่นยำยังไม่ถึง 35% บอสบล็อกไว้ได้! ลองอธิบายให้ตรงประเด็นขึ้นแล้วโจมตีใหม่!';
+        outEl.textContent = `ความแม่นยำยังไม่ถึง 35%${lostTxt} ลองอธิบายให้ตรงประเด็นขึ้นแล้วโจมตีใหม่!`;
       }
       return;
     }
@@ -1589,9 +1891,10 @@
     const ranked = Game.ranking(room);
     const rankIdx = ranked.findIndex(p => p.id === myId);
 
-    if (el.hdrAvatar.dataset.avIdx !== String(me.avatar)) {
-      el.hdrAvatar.dataset.avIdx = String(me.avatar);
-      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 36);
+    const myAvSig = `${me.avatar}_${SQA_PHOTOS.has(myId) ? 1 : 0}`;
+    if (el.hdrAvatar.dataset.avIdx !== myAvSig) {
+      el.hdrAvatar.dataset.avIdx = myAvSig;
+      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 36, '', myId);
     }
     el.hdrName.textContent = me.name;
     el.hdrRoom.textContent = room.code;
@@ -1600,9 +1903,14 @@
 
     if (prevScore !== null && me.score !== prevScore) {
       bump(el.hdrScore);
-      if (me.score < prevScore) {
+      if (me.score < prevScore && Date.now() >= bossCounterLocalUntil) {
         SFX.stolen();
-        toast(`${itemIconHtml('steal', 18)}<span>โดนเพื่อนลดแต้มไป ${prevScore - me.score} แต้ม!</span>`, 'error', 3200);
+        const isBossZap = (me.zappedAt || 0) > prevZappedAt && Object.values(BOSSES || {}).some(b => b.name === me.zappedBy);
+        if (isBossZap) {
+          toast(`${heroIconHtml('bossRaid', 20)}<span>บอส ${esc(me.zappedBy)} ฟาดสายฟ้าลดแต้ม -${prevScore - me.score} แต้ม!</span>`, 'error', 3400);
+        } else {
+          toast(`${itemIconHtml('steal', 18)}<span>โดนลดแต้มไป ${prevScore - me.score} แต้ม!</span>`, 'error', 3200);
+        }
       }
     }
     const curShields = me.items?.shield || 0;
@@ -1610,7 +1918,7 @@
     const curHostRev = Number(me.hostRev || 0);
     if (prevShields !== null && curShields < prevShields) {
       SFX.block();
-      toast(`${itemIconHtml('shield', 18)}<span>โล่ป้องกันช่วยสกัดการโจมตีของเพื่อนไว้ได้!</span>`, 'info', 3200);
+      toast(`${itemIconHtml('shield', 18)}<span>โล่ป้องกันช่วยสกัดการโจมตีไว้ได้!</span>`, 'info', 3200);
     } else if (prevHostRev !== null && curHostRev > prevHostRev && !me.frozen && !me.selfieLocked) {
       if (prevScore !== null && me.score >= prevScore + 150 && curItemTotal > (prevItemTotal ?? curItemTotal)) {
         SFX.item();
@@ -1687,19 +1995,21 @@
       el.blindOverlay.classList.add('hidden');
     }
 
-    // ตรวจสถานะโดนไวรัสจอตีลังกา 180°
+    // ตรวจสถานะโดนไวรัสจอตีลังกา 180° (รองรับทั้งหน้าปกติและหน้าสู้บอส!)
     if (me.flipped && room.status === 'playing' && !wasFlipped) {
       wasFlipped = true;
       flipRepairs = 0;
       el.flippedByText.textContent = me.flippedBy || 'เพื่อน';
       el.flipLeftText.textContent = String(Game.cfg.flipRepairs);
       el.gameView.classList.add('flipped-screen');
+      $('playerBossCard')?.classList.add('flipped-screen');
       el.flipOverlay.classList.remove('hidden');
       SFX.dizzy();
       SFX.announce('flip', { a: me.flippedBy || 'เพื่อน', b: me.name });
     } else if ((!me.flipped || room.status !== 'playing') && wasFlipped) {
       wasFlipped = false;
       el.gameView.classList.remove('flipped-screen');
+      $('playerBossCard')?.classList.remove('flipped-screen');
       el.flipOverlay.classList.add('hidden');
     }
 
@@ -1753,6 +2063,12 @@
       el.gameView.classList.remove('zap-flash');
       void el.gameView.offsetWidth;
       el.gameView.classList.add('zap-flash');
+      const bCard = $('playerBossCard');
+      if (bCard) {
+        bCard.classList.remove('zap-flash');
+        void bCard.offsetWidth;
+        bCard.classList.add('zap-flash');
+      }
       SFX.announce('zap', { a: me.zappedBy || 'เพื่อน', b: me.name, pts: Game.cfg.zapAmount });
     }
     prevZappedAt = me.zappedAt || Date.now();
@@ -1772,7 +2088,7 @@
       el.stateIcon.innerHTML = heroIconHtml('party', 80);
       el.stateTitle.textContent = "You're in! เข้าห้องแล้ว!";
       el.stateDesc.textContent = `เห็นชื่อของคุณบนหน้าจอครูไหม? รอครูกดเริ่มเกมสักครู่ (${ranked.length} คนในห้อง)`;
-      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36)}<span>${esc(me.name)}</span></div>${lobbyReactBar}`;
+      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36, '', myId)}<span>${esc(me.name)}</span></div>${lobbyReactBar}`;
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'paused') {
       el.stateIcon.innerHTML = heroIconHtml('pauseIcon', 76);

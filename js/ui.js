@@ -38,7 +38,7 @@ const ITEMS = {
 };
 const ITEM_KEYS = Object.keys(ITEMS);
 
-/* บอสคำถามยักษ์ประจำห้อง 4 ตัว (Co-Op Raid Bosses จับคู่กับภาพยนตร์วิทย์ 4 เรื่อง) */
+/* บอสคำถามยักษ์ประจำห้อง 4 ตัว (Co-Op Raid Bosses จับคู่กับภาพยนตร์วิทย์ 4 เรื่อง + ท่าไม้ตายประจำตัว!) */
 const BOSSES = {
   dr_glitch: {
     key: 'dr_glitch',
@@ -48,6 +48,7 @@ const BOSSES = {
     color: '#e21b3c',
     dark: '#881337',
     accent: '#f472b6',
+    attack: { kind: 'flip', name: 'ไวรัสกลับหัว 180°', desc: 'หมุนจอนักเรียนตีลังกา!' },
     tagline: 'แต่งข้อมูลปลอมขั้นเทพ! ช่วยกันตอบคำถามจับผิด AI ปราบมัน!'
   },
   mirage_queen: {
@@ -58,6 +59,7 @@ const BOSSES = {
     color: '#1368ce',
     dark: '#1e3a8a',
     accent: '#38bdf8',
+    attack: { kind: 'blind', name: 'หมอกมายาลวงตา', desc: 'พ่นหมอกบังจอมืดสนิท!' },
     tagline: 'สร้างภาพลวงตาบนโซเชียล! รวมพลังทั้งห้องเปิดโปงความจริง!'
   },
   echo_colossus: {
@@ -68,6 +70,7 @@ const BOSSES = {
     color: '#d89e00',
     dark: '#92400e',
     accent: '#fb7185',
+    attack: { kind: 'freeze', name: 'พายุแช่แข็งหัวใจ', desc: 'แช่แข็งจอนักเรียนทันที!' },
     tagline: 'เลียนแบบหัวใจมนุษย์ได้แนบเนียน! ตอบคำถามสยบพลังจักรกล!'
   },
   decibel_titan: {
@@ -78,10 +81,116 @@ const BOSSES = {
     color: '#26890c',
     dark: '#14532d',
     accent: '#4ade80',
+    attack: { kind: 'zap', name: 'คลื่นช็อกเวฟสายฟ้า', desc: 'ฟาดช็อตลดแต้ม -50!' },
     tagline: 'ปล่อยคลื่นเสียงสนั่นห้อง! ช่วยกันตอบความรู้คลื่นเสียงหยุดมัน!'
   }
 };
 const BOSS_KEYS = Object.keys(BOSSES);
+
+/* ---------- ระบบเซ็นเซอร์ชื่อ 18+ / คำหยาบ / คำไม่เหมาะสม (ไทย + อังกฤษ + กันหลบจุด/เว้นวรรค/Leetspeak) ---------- */
+const NameFilter = (() => {
+  const TH_BAD = [
+    'ควย', 'ควe', 'ควy', 'หี', 'เย็ด', 'เยด', 'เงี่ยน', 'เงียน', 'แตด', 'จิ๋ม', 'จู๋', 'หำ',
+    'กระดอ', 'ชักว่าว', 'แตกใน', 'เอากัน', 'ซั่ม', 'อมควย', 'เลียหี', 'นมใหญ่', 'หัวนม', 'ร่าน', 'กะหรี่', 'กระหรี่', 'โสเภณี', 'แมงดา', 'ขายตัว',
+    'เหี้ย', 'เหีย', 'เชี่ย', 'เชีย', 'สัส', 'สัด', 'ไอ้สัด', 'ไอสัด', 'อีดอก', 'อิดอก', 'ดอกทอง', 'สถุน', 'จัญไร', 'ระยำ', 'ชาติหมา', 'สันดาน',
+    'พ่อง', 'พ่อมึง', 'แม่มึง', 'แม่ง', 'มึง', 'กู', 'ตอแหล', 'ตอเเหล', 'ส้นตีน', 'ส้นทีน', 'ชิบหาย', 'ฉิบหาย', 'บรรลัย', 'จังไร', 'อัปรีย์', 'สารเลว', 'ชิงหมาเกิด',
+    'อีช้างเย็ด', 'เย็ดแม่', 'เย็ดพ่อ', 'หมาเย็ด', 'ขยะสังคม', 'ปัญญาอ่อน', 'ควาย', 'ไอ้ควาย', 'อีควาย', 'ไอ้โง่', 'อีโง่', 'ไอ้บ้า', 'อีบ้า', 'ตีน', 'แดก',
+    'หนังโป๊', 'โป๊', 'เซ็ก', 'เซ็กซ์', '18+', 'xxx', 'onlyfans', 'avไทย', 'คลิปหลุด'
+  ];
+  // คำที่สั้นมาก (เช่น 'หี', 'กู', 'หำ', 'จู๋') ต้องระวังคำไทยสุภาพ เช่น หีบ, กูเกิล, หำ... (ตรวจคำยกเว้น)
+  const TH_SAFE_ALLOW = [
+    'ฟักทอง', 'ฟักเขียว', 'หีบ', 'สัตว์', 'สัตว', 'สวัสดี', 'กูเกิล', 'กูเกิ้ล', 'กูรู', 'กู้ภัย', 'กู้โลก', 'ผู้กู้', 'สกู๊ตเตอร์', 'สกูตเตอร์', 'กูลิโกะ', 'กู๊ด', 'ออมสิน', 'สตางค์', 'กัปตัน', 'คิว', 'คิวปิด', 'ตีนตุ๊กแก', 'ตีนเป็ด', 'ตีนแมว', 'หมูหัน', 'พ่องาม', 'เชียร์', 'เชียว', 'เขียว', 'เทียน', 'เขียน', 'เรียน', 'เนียน', 'เพียร', 'เกรียน'
+  ];
+  const EN_BAD = [
+    'fuck', 'fuk', 'fck', 'fuxk', 'shit', 'bitch', 'biatch', 'slut', 'whore', 'cunt', 'dick', 'cock', 'pussy', 'penis', 'vagina',
+    'porn', 'p0rn', 'hentai', 'milf', 'bdsm', 'blowjob', 'handjob', 'cumshot', 'dildo', 'vibrator', 'orgasm', 'horny', 'boobs', 'titties', 'tits',
+    'asshole', 'bastard', 'motherfucker', 'nigger', 'nigga', 'faggot', 'retard', 'nazi', 'hitler', 'onlyfans', 'xnxx', 'xvideos', 'pornhub', 'sex', 'sexy69', '6969'
+  ];
+
+  function collapseRepeats(s) {
+    return s.replace(/(.)\1{2,}/g, '$1$1').replace(/([ก-ฮa-z])\1+/g, '$1');
+  }
+  function stripSafeWords(s) {
+    let out = s;
+    for (const w of TH_SAFE_ALLOW) {
+      out = out.split(w).join(' ');
+    }
+    return out;
+  }
+  function normalizeCore(raw) {
+    const low = String(raw || '').toLowerCase();
+    // ลบช่องว่าง จุด ขีด อักขระล่องหน สัญลักษณ์คั่น (จับ ค.ว.ย / f u c k / เ-ย็-ด)
+    const compact = low.replace(/[\s._\-*•|/\\,~`'"!?()\[\]{}\u200B-\u200D\uFEFF]+/g, '');
+    const leet = compact
+      .replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a')
+      .replace(/5/g, 's').replace(/7/g, 't').replace(/@/g, 'a').replace(/\$/g, 's');
+    return { low, compact, leet, collapsed: collapseRepeats(compact), collapsedLeet: collapseRepeats(leet) };
+  }
+
+  function check(raw) {
+    const trimmed = String(raw || '').trim();
+    if (!trimmed) return { ok: false, reason: 'กรุณากรอกชื่อเล่นก่อนเข้าเกม' };
+    if (trimmed.length > 16) return { ok: false, reason: 'ชื่อเล่นต้องไม่เกิน 16 ตัวอักษร' };
+
+    const safeText = stripSafeWords(trimmed.toLowerCase());
+    const n = normalizeCore(safeText);
+    const rawNorm = normalizeCore(trimmed);
+
+    // 1) เช็กคำไทย 18+ / คำหยาบ (รองรับทั้งแบบปกติ, แบบแทรกจุด/เว้นวรรค, และแบบลากเสียงยาว)
+    for (const bad of TH_BAD) {
+      const bNorm = bad.replace(/[\s._-]+/g, '');
+      const bCol = collapseRepeats(bNorm);
+      // กันกรณี 'หี' อยู่ในคำสุภาพ เช่น 'สีหี...' ไม่มีในไทย แต่เช็กกับ safeText ที่ตัด 'หีบ' ออกแล้ว
+      if (n.compact.includes(bNorm) || n.collapsed.includes(bCol)) {
+        return { ok: false, reason: 'ชื่อนี้มีคำไม่เหมาะสมหรือ 18+ กรุณาตั้งชื่อเล่นสุภาพน่ารักๆ นะครับ!' };
+      }
+      // จับการพิมพ์ผสมเช่น ค.ว.ย. หรือ เ ย็ ด ผ่าน rawNorm หลังตัดคำปลอดภัย
+      if (bNorm.length >= 3 && (n.leet.includes(bNorm) || n.collapsedLeet.includes(bCol))) {
+        return { ok: false, reason: 'ชื่อนี้มีคำไม่เหมาะสมหรือ 18+ กรุณาตั้งชื่อเล่นสุภาพน่ารักๆ นะครับ!' };
+      }
+    }
+
+    // 2) เช็กคำอังกฤษ 18+ / คำหยาบ / Leetspeak
+    for (const bad of EN_BAD) {
+      const bCol = collapseRepeats(bad);
+      if (rawNorm.compact.includes(bad) || rawNorm.leet.includes(bad) || rawNorm.collapsedLeet.includes(bCol)) {
+        return { ok: false, reason: 'ชื่อนี้มีคำไม่เหมาะสมหรือ 18+ กรุณาตั้งชื่อเล่นสุภาพน่ารักๆ นะครับ!' };
+      }
+    }
+
+    // 3) เช็กเลข 18+ ล้วน เช่น "69" หรือ "18+"
+    if (/^(69+|18\+|xxx+)$/i.test(rawNorm.compact)) {
+      return { ok: false, reason: 'กรุณาตั้งชื่อเล่นสุภาพน่ารักๆ นะครับ!' };
+    }
+
+    return { ok: true, reason: '' };
+  }
+
+  function sanitize(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return 'ผู้เล่น';
+    return check(s).ok ? s : 'นักเรียนน่ารัก***';
+  }
+
+  return { check, sanitize };
+})();
+window.NameFilter = NameFilter;
+
+/* ---------- คลังรูปโปรไฟล์ผู้เล่นในหน่วยความจำ (อัปโหลดรูปตัวเองได้ ไม่เพิ่มขนาดแพ็กเก็ต 200 คน!) ---------- */
+const SQA_PHOTOS = (() => {
+  const map = new Map();
+  return {
+    set(pid, url) {
+      if (!pid || !url || !String(url).startsWith('data:image/')) return;
+      map.set(pid, url);
+    },
+    get(pid) { return pid ? (map.get(pid) || '') : ''; },
+    has(pid) { return !!(pid && map.has(pid)); },
+    del(pid) { if (pid) map.delete(pid); },
+    clear() { map.clear(); }
+  };
+})();
+window.SQA_PHOTOS = SQA_PHOTOS;
 
 const TONES = {
   sky: '#1368ce', green: '#26890c', yellow: '#d89e00', red: '#e21b3c', violet: '#46178f', amber: '#d89e00',
@@ -124,9 +233,13 @@ function bossArtHtml(key, width = 190, cls = '') {
   return window.SQA_ART ? SQA_ART.bossSvg(key, width, cls) : '';
 }
 
-function avatarHtml(i, size = 48, extra = '') {
+function avatarHtml(i, size = 48, extra = '', pid = '') {
   const idx = (i >= 0 && i < AVATARS.length) ? i : 0;
   const a = AVATARS[idx];
+  const photo = pid && window.SQA_PHOTOS ? SQA_PHOTOS.get(pid) : '';
+  if (photo) {
+    return `<div class="avatar avatar-photo ${extra}" style="width:${size}px;height:${size}px;background:${a.bg}" title="รูปโปรไฟล์"><img src="${photo}" alt="Avatar" class="w-full h-full object-cover rounded-[inherit]" /></div>`;
+  }
   const inner = window.SQA_ART ? SQA_ART.avatarSvg(idx, Math.round(size * 0.88)) : esc(a.name.slice(0, 1));
   return `<div class="avatar ${extra}" style="width:${size}px;height:${size}px;background:${a.bg}" title="${esc(a.name)}">${inner}</div>`;
 }
@@ -167,7 +280,9 @@ function hydrateStaticIcons() {
 document.addEventListener('DOMContentLoaded', hydrateStaticIcons);
 
 function feedView(e) {
-  const A = `<b>${esc(e.a || '')}</b>`, B = `<b>${esc(e.b || '')}</b>`;
+  const safeA = window.NameFilter ? NameFilter.sanitize(e.a || '') : (e.a || '');
+  const safeB = window.NameFilter ? NameFilter.sanitize(e.b || '') : (e.b || '');
+  const A = `<b>${esc(safeA)}</b>`, B = `<b>${esc(safeB)}</b>`;
   const it = ITEMS[e.item] || {};
   const inlineIt = e.item ? `<span class="sqa-ico mr-0.5">${itemIconHtml(e.item, 17)}</span>` : '';
   switch (e.type) {
@@ -214,6 +329,18 @@ function feedView(e) {
     case 'bossFail': {
       const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
       return { emoji: heroIconHtml('bossRaid', 19), tone: 'slate', html: `<b>หมดเวลา Raid!</b> ${esc(bs.name)} หนีไปได้ (รับปลอบใจ +50 แต้มทุกคนที่ร่วมสู้)` };
+    }
+    case 'bossAttack': {
+      const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
+      const atkName = (bs.attack && bs.attack.name) || 'ท่าไม้ตาย';
+      const cnt = Number(e.hitCount || 0);
+      const blk = Number(e.blockedCount || 0);
+      const tail = blk > 0 ? ` (โดน ${cnt} คน • โล่กันได้ ${blk} คน)` : ` โจมตี ${cnt} คน!`;
+      return { emoji: heroIconHtml('bossRaid', 19), tone: 'red', html: `<b>${esc(bs.name)} ปล่อยท่าไม้ตาย "${esc(atkName)}"</b>${tail}`, attack: true };
+    }
+    case 'bossCounter': {
+      const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
+      return { emoji: heroIconHtml('bossRaid', 19), tone: 'red', html: `<b>${esc(bs.name)}</b> สวนกลับ ${A} <b>-${Number(e.pts || 25)}</b> แต้ม!` };
     }
     default: return { emoji: uiIconHtml('sparkles', 14), tone: 'slate', html: esc(e.text || '') };
   }

@@ -29,7 +29,7 @@ const Game = (() => {
     cfg,
     emptyItems,
     touch,
-    newPlayer(id, name, avatar, isBot = false) {
+    newPlayer(id, name, avatar, isBot = false, opts = {}) {
       const now = Date.now();
       const items = emptyItems();
       // แจกไอเทมต้อนรับสุ่ม 1 ชิ้น + แจกไอเทม "แชะหน้าตลก (selfie)" 1 ชิ้นให้ลองเล่นสนุกได้ทันที!
@@ -37,6 +37,8 @@ const Game = (() => {
       items.selfie = (items.selfie || 0) + 1;
       return {
         id, name, avatar, isBot, score: 0, streak: 0, items,
+        hasPhoto: !!opts.hasPhoto,
+        deviceId: opts.deviceId || '',
         x2Active: false,
         frozen: false, frozenBy: '',
         blinded: false, blindedBy: '',
@@ -471,6 +473,109 @@ const Game = (() => {
       room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
       Sync.pushFeed(room, { type: 'bossFail', bossKey: b.key, count: sorted.length });
       return true;
+    },
+
+    /* บอสปล่อยท่าไม้ตายประจำตัวโจมตีผู้เล่นในห้อง! (รองรับโล่ป้องกัน 100%) */
+    triggerBossAttack(room) {
+      if (!room || !room.boss || room.boss.status !== 'active') return null;
+      const b = room.boss;
+      const meta = (typeof BOSSES !== 'undefined' && BOSSES[b.key]) || { name: 'Boss', attack: { kind: 'freeze', name: 'พายุบอส' } };
+      const atk = meta.attack || { kind: 'freeze', name: 'พายุบอส' };
+      const kind = atk.kind;
+
+      const allPlayers = Object.values(room.players || {});
+      if (!allPlayers.length) return null;
+
+      // เลือกเป้าหมายที่ยังไม่โดนท่าซ้ำอยู่ (เน้นสุ่มจากคนที่กำลังตีบอสหรืออันดับต้นๆ เพื่อความตื่นเต้น!)
+      const eligible = allPlayers.filter(p => {
+        if (p.selfieLocked) return false;
+        if (kind === 'freeze' && p.frozen) return false;
+        if (kind === 'blind' && p.blinded) return false;
+        if (kind === 'flip' && p.flipped) return false;
+        return true;
+      });
+      const pool = eligible.length ? eligible : allPlayers;
+
+      // ให้โอกาสคนที่ติด Top Damage หรืออันดับสูงโดนบอสเล็งก่อน
+      const dmgMap = b.dmgByPlayer || {};
+      const sortedPool = [...pool].sort((a, b2) => {
+        const da = (dmgMap[a.id] && dmgMap[a.id].dmg) || 0;
+        const db = (dmgMap[b2.id] && dmgMap[b2.id].dmg) || 0;
+        if (db !== da) return db - da;
+        return (b2.score || 0) - (a.score || 0);
+      });
+      const maxTargets = Math.min(3, Math.max(1, Math.ceil(allPlayers.length * 0.35)));
+      // ผสม Top + สุ่มเล็กน้อยเพื่อไม่ให้โดนคนเดิมซ้ำตลอด
+      const topSlice = sortedPool.slice(0, Math.min(sortedPool.length, maxTargets + 2));
+      for (let i = topSlice.length - 1; i > 0; i--) {
+        const j = rand(i + 1);
+        [topSlice[i], topSlice[j]] = [topSlice[j], topSlice[i]];
+      }
+      const targets = topSlice.slice(0, maxTargets);
+
+      const hitPlayers = [];
+      const blockedPlayers = [];
+      const now = Date.now();
+
+      targets.forEach(p => {
+        if ((p.items.shield || 0) > 0) {
+          p.items.shield--;
+          touch(p, true);
+          blockedPlayers.push(p);
+          Sync.pushFeed(room, { type: 'block', a: meta.name, b: p.name, kind });
+          return;
+        }
+        if (kind === 'flip') {
+          p.flipped = true;
+          p.flippedBy = meta.name;
+        } else if (kind === 'blind') {
+          p.blinded = true;
+          p.blindedBy = meta.name;
+        } else if (kind === 'zap') {
+          const loss = Math.min(50, p.score || 0);
+          p.score = Math.max(0, (p.score || 0) - loss);
+          p.zappedAt = Math.max((p.zappedAt || 0) + 1, now);
+          p.zappedBy = meta.name;
+        } else {
+          p.frozen = true;
+          p.frozenBy = meta.name;
+        }
+        touch(p, true);
+        hitPlayers.push(p);
+      });
+
+      b.attackCount = Number(b.attackCount || 0) + 1;
+      b.lastAttack = {
+        id: uid(),
+        kind,
+        label: atk.name,
+        hitCount: hitPlayers.length,
+        blockedCount: blockedPlayers.length,
+        t: now
+      };
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, now);
+      Sync.pushFeed(room, {
+        type: 'bossAttack',
+        bossKey: b.key,
+        kind,
+        hitCount: hitPlayers.length,
+        blockedCount: blockedPlayers.length
+      });
+      return { kind, label: atk.name, bossName: meta.name, hitPlayers, blockedPlayers, affected: [...hitPlayers, ...blockedPlayers] };
+    },
+
+    /* บอสสวนกลับเมื่อนักเรียนตอบคำถามบอสพลาด (< 35%) */
+    applyBossCounter(room, pid, bossId) {
+      if (!room || !room.boss || room.boss.id !== bossId || room.boss.status !== 'active') return null;
+      const me = room.players[pid];
+      if (!me) return null;
+      const loss = Math.min(25, me.score || 0);
+      me.score = Math.max(0, (me.score || 0) - loss);
+      touch(me, false);
+      if (loss > 0) {
+        Sync.pushFeed(room, { type: 'bossCounter', ...feedBase(me, pid), bossKey: room.boss.key, pts: loss });
+      }
+      return { loss, scoreLeft: me.score };
     }
   };
 })();

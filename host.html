@@ -262,10 +262,30 @@
             </div>
           </div>
 
-          <!-- สถิติร่วมสู้ + ข้อความสรุปผลเมื่อชนะ/หมดเวลา -->
+          <!-- เกจชาร์จท่าไม้ตายของบอส (เต็มเมื่อไร บอสปล่อยสกิลโจมตีผู้เล่นทันที!) -->
+          <div id="hostBossChargeWrap" class="space-y-1">
+            <div class="flex items-center justify-between text-[11px] font-extrabold text-white/90">
+              <span class="inline-flex items-center gap-1">
+                <span data-art-ui="bolt" data-art-size="13" class="sqa-ico text-[#fde047]"></span>
+                <span>ท่าไม้ตายบอส: <b id="hostBossSkillName" class="text-[#fde047]">ไวรัสกลับหัว 180°</b></span>
+              </span>
+              <span id="hostBossChargeSec" class="text-[#fca5a5] tabular">กำลังชาร์จ...</span>
+            </div>
+            <div class="boss-charge-track">
+              <div id="hostBossChargeBar" class="boss-charge-fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- สถิติร่วมสู้ + ปุ่มสั่งบอสโจมตี / ปิดบอส -->
           <div class="flex items-center justify-between gap-2 flex-wrap text-xs font-extrabold text-white/85">
             <span id="hostBossStats" class="inline-flex items-center gap-2"></span>
-            <button id="closeBossBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-1.5 text-xs">ปิดบอส</button>
+            <div class="flex items-center gap-2">
+              <button id="bossAttackNowBtn" type="button" class="btn-3d k-btn-red px-3 py-1.5 text-xs inline-flex items-center gap-1" title="สั่งบอสปล่อยท่าไม้ตายโจมตีนักเรียนทันที!">
+                <span data-art-ui="bolt" data-art-size="13" class="sqa-ico text-[#fde047]"></span>
+                <span>บอสโจมตี!</span>
+              </button>
+              <button id="closeBossBtn" type="button" class="btn-3d k-btn-dark px-3.5 py-1.5 text-xs">ปิดบอส</button>
+            </div>
           </div>
         </div>
 

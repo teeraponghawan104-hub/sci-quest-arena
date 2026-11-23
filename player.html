@@ -80,10 +80,32 @@
               class="input-big text-center font-display text-lg !py-2" />
           </div>
         </div>
+        <div id="joinNameError" class="hidden rounded-[5px] bg-[#fee2e2] border border-[#e21b3c] px-2.5 py-1.5 text-[11px] font-extrabold text-[#b91c1c] text-center"></div>
+
+        <!-- อัปโหลดรูปโปรไฟล์ตัวเอง (ถ่ายรูป / เลือกจากเครื่อง) หรือเลือกมาสคอต 16 แบบ -->
+        <div class="flex items-center justify-between gap-2 bg-neutral-100 border border-neutral-200 rounded-[6px] p-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div id="photoThumbBox" class="w-10 h-10 rounded-[6px] bg-[#46178f] text-white grid place-items-center overflow-hidden border-2 border-[#1e1b2e] shrink-0">
+              <span data-art-ui="camera" data-art-size="18" class="sqa-ico"></span>
+            </div>
+            <div class="min-w-0">
+              <div class="font-display font-black text-xs text-[#333] truncate">รูปโปรไฟล์ตัวเอง</div>
+              <div id="photoStatusText" class="text-[10px] font-bold text-neutral-500 truncate">ใส่รูปถ่าย / รูปในเครื่องได้!</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <label class="btn-3d k-btn-blue px-2.5 py-1.5 text-[11px] cursor-pointer inline-flex items-center gap-1 whitespace-nowrap">
+              <span data-art-ui="camera" data-art-size="13" class="sqa-ico"></span>
+              <span>ใส่รูป</span>
+              <input id="avatarPhotoInput" type="file" accept="image/*" class="hidden" />
+            </label>
+            <button id="clearAvatarPhotoBtn" type="button" class="hidden btn-3d k-btn-dark px-2 py-1.5 text-[11px] whitespace-nowrap" title="กลับไปใช้มาสคอต">ลบ</button>
+          </div>
+        </div>
 
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <label class="text-[11px] font-extrabold uppercase text-neutral-500">เลือกตัวละครมาสคอต</label>
+            <label class="text-[11px] font-extrabold uppercase text-neutral-500">หรือเลือกตัวละครมาสคอต</label>
             <span id="pickedAvPreview" class="text-xs font-extrabold text-[#333] inline-flex items-center gap-1.5"></span>
           </div>
           <div id="avatarGrid" class="grid grid-cols-4 gap-2"></div>

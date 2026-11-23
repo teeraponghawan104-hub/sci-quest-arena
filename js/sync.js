@@ -16,7 +16,7 @@
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, avatarCb = null, avatarReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
 
   function defaultRoom(c) {
@@ -37,6 +37,7 @@ const Sync = (() => {
     p.score = Number(p.score || 0);
     p.streak = Number(p.streak || 0);
     p.isBot = !!p.isBot;
+    p.hasPhoto = !!p.hasPhoto;
     p.x2Active = !!p.x2Active;
     p.frozen = !!p.frozen;
     p.frozenBy = p.frozen ? (p.frozenBy || '') : '';
@@ -136,7 +137,8 @@ const Sync = (() => {
         (p.flipped ? 16 : 0) |
         (p.selfieLocked ? 32 : 0) |
         (p.selfieLocked && p.selfieStatus === 'pending_review' ? 64 : 0) |
-        (p.selfieLocked && p.selfieStatus === 'waiting_photo' ? 128 : 0);
+        (p.selfieLocked && p.selfieStatus === 'waiting_photo' ? 128 : 0) |
+        (p.hasPhoto ? 256 : 0);
 
       let items = null;
       if (p.items) {
@@ -213,6 +215,7 @@ const Sync = (() => {
         rev: t[7] || 0,
         hostRev: t[8] || 0,
         isBot: !!(flags & 1),
+        hasPhoto: !!(flags & 256),
         x2Active: !!(flags & 2),
         frozen: !!(flags & 4),
         blinded: !!(flags & 8),
@@ -521,6 +524,7 @@ const Sync = (() => {
   const cloud = {
     key: c => 'sqa_room_' + c,
     selfieKey: (c, pid) => `sqa_selfie_${c || code}_${pid}`,
+    avatarKey: (c, pid) => `sqa_avphoto_${c || code}_${pid}`,
     readLocal(c) { try { return JSON.parse(localStorage.getItem(this.key(c || code))); } catch (e) { return null; } },
     writeLocalNow(r, c) {
       if (!r) return;
@@ -546,6 +550,7 @@ const Sync = (() => {
     topicPatch(c)  { return `${this.prefix()}/room/${c || code}/patch`; },
     topicPing(c)   { return `${this.prefix()}/room/${c || code}/ping`; },
     topicSelfie(c) { return `${this.prefix()}/room/${c || code}/selfie`; },
+    topicAvatar(c) { return `${this.prefix()}/room/${c || code}/avatar`; },
     topicDirect(pid, c) { return `${this.prefix()}/room/${c || code}/d/${pid}`; },
     topicReact(c)  { return `${this.prefix()}/room/${c || code}/react`; },
 
@@ -658,6 +663,28 @@ const Sync = (() => {
       this.publishDirect(pid, { reqSelfie: true, code });
     },
 
+    sendAvatar(pid, photo) {
+      if (!pid || !photo) return;
+      try { localStorage.setItem(this.avatarKey(code, pid), photo); } catch (e) {}
+      if (this.bc) { try { this.bc.postMessage({ t: 'avatar', pid, photo }); } catch (e) {} }
+      const payload = JSON.stringify({ code, pid, photo, at: Date.now() });
+      if (this.client && this.client.connected) {
+        try { this.client.publish(this.topicAvatar(code), payload, { qos: 0, retain: false }); } catch (e) {}
+      } else {
+        this.pendingAvatar = payload;
+      }
+    },
+
+    requestAvatar(pid) {
+      if (!isHostRole || !pid) return;
+      try {
+        const cached = localStorage.getItem(this.avatarKey(code, pid));
+        if (cached && avatarCb) { avatarCb(pid, cached); return; }
+      } catch (e) {}
+      if (this.bc) { try { this.bc.postMessage({ t: 'reqAvatar', pid }); } catch (e) {} }
+      this.publishDirect(pid, { reqAvatar: true, code });
+    },
+
     sendDirectPlayer(pid, playerObj) {
       if (!pid || !playerObj) return;
       const slim = clean(playerObj);
@@ -716,6 +743,7 @@ const Sync = (() => {
       const tPatch = this.topicPatch(code);
       const tPing = this.topicPing(code);
       const tSelfie = this.topicSelfie(code);
+      const tAvatar = this.topicAvatar(code);
       const tReact = this.topicReact(code);
       this.lastPingReplyAt = 0;
       this.subbedDirectPid = null;
@@ -742,7 +770,7 @@ const Sync = (() => {
           failCount = 0;
           emitConn('connected');
           // Zero Fan-Out Storm: มือถือผู้เล่นรับเฉพาะ /state + ช่องส่วนตัว /d/<pid> (ไม่รับ /patch ของเพื่อนอีก 199 คน!)
-          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie, tReact] : [tState];
+          const subs = isHostRole ? [tState, tPatch, tPing, tSelfie, tAvatar, tReact] : [tState];
           if (!isHostRole && myPlayerId) {
             subs.push(this.topicDirect(myPlayerId));
             this.subbedDirectPid = myPlayerId;
@@ -762,6 +790,10 @@ const Sync = (() => {
               if (this.pendingSelfie) {
                 try { this.client.publish(tSelfie, this.pendingSelfie, { qos: 0, retain: false }); } catch (e) {}
                 this.pendingSelfie = null;
+              }
+              if (this.pendingAvatar) {
+                try { this.client.publish(tAvatar, this.pendingAvatar, { qos: 0, retain: false }); } catch (e) {}
+                this.pendingAvatar = null;
               }
             }
           });
@@ -799,6 +831,17 @@ const Sync = (() => {
             }
             return;
           }
+          if (topic === tAvatar) {
+            if (isHostRole) {
+              try {
+                const msg = JSON.parse(payload.toString());
+                if (msg && msg.pid && msg.photo) {
+                  if (avatarCb) avatarCb(msg.pid, msg.photo);
+                }
+              } catch (e) {}
+            }
+            return;
+          }
           if (topic === tPatch) {
             if (!isHostRole) return;
             try {
@@ -821,6 +864,10 @@ const Sync = (() => {
               const msg = JSON.parse(payload.toString());
               if (msg && msg.reqSelfie) {
                 if (selfieReqCb) selfieReqCb();
+                return;
+              }
+              if (msg && msg.reqAvatar) {
+                if (avatarReqCb) avatarReqCb();
                 return;
               }
               if (msg && msg.patch && msg.patch.code === code) {
@@ -866,6 +913,7 @@ const Sync = (() => {
       this.pendingPatch = null;
       this.pendingDirect = {};
       this.pendingSelfie = null;
+      this.pendingAvatar = null;
       this.activeBrokerIdx = pinnedBrokerIdx || 0;
       this.subbedDirectPid = null;
       try {
@@ -882,6 +930,14 @@ const Sync = (() => {
           }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId) {
             if (selfieReqCb) selfieReqCb();
+            return;
+          }
+          if (d && d.t === 'avatar' && isHostRole && d.pid && d.photo) {
+            if (avatarCb) avatarCb(d.pid, d.photo);
+            return;
+          }
+          if (d && d.t === 'reqAvatar' && !isHostRole && d.pid === myPlayerId) {
+            if (avatarReqCb) avatarReqCb();
             return;
           }
           if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) {
@@ -1002,6 +1058,8 @@ const Sync = (() => {
         this.bc.onmessage = ev => {
           const d = ev && ev.data;
           if (d && d.t === 'selfie' && isHostRole && selfieCb) { selfieCb(d.pid, d.photo); return; }
+          if (d && d.t === 'avatar' && isHostRole && d.pid && d.photo && avatarCb) { avatarCb(d.pid, d.photo); return; }
+          if (d && d.t === 'reqAvatar' && !isHostRole && d.pid === myPlayerId && avatarReqCb) { avatarReqCb(); return; }
           if (d && d.t === 'react' && isHostRole && reactCb) { reactCb(d.k, d.n || ''); return; }
           if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) { bossHitCb(d.hit); return; }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId && selfieReqCb) { selfieReqCb(); return; }
@@ -1018,6 +1076,19 @@ const Sync = (() => {
     },
     requestSelfie(pid) {
       if (this.bc) { try { this.bc.postMessage({ t: 'reqSelfie', pid }); } catch (e) {} }
+    },
+    sendAvatar(pid, photo) {
+      if (!pid || !photo) return;
+      try { localStorage.setItem(`sqa_avphoto_${code}_${pid}`, photo); } catch (e) {}
+      if (this.bc) { try { this.bc.postMessage({ t: 'avatar', pid, photo }); } catch (e) {} }
+    },
+    requestAvatar(pid) {
+      if (!isHostRole || !pid) return;
+      try {
+        const cached = localStorage.getItem(`sqa_avphoto_${code}_${pid}`);
+        if (cached && avatarCb) { avatarCb(pid, cached); return; }
+      } catch (e) {}
+      if (this.bc) { try { this.bc.postMessage({ t: 'reqAvatar', pid }); } catch (e) {} }
     },
     sendReaction(kind, senderName) {
       if (this.bc) { try { this.bc.postMessage({ t: 'react', k: kind, n: String(senderName || '').slice(0, 16) }); } catch (e) {} }
@@ -1283,6 +1354,8 @@ const Sync = (() => {
       connCb = opts.onConn || null;
       selfieCb = opts.onSelfie || null;
       selfieReqCb = opts.onSelfieRequest || null;
+      avatarCb = opts.onAvatar || null;
+      avatarReqCb = opts.onAvatarRequest || null;
       brokerChangeCb = opts.onBrokerChange || null;
       reactCb = opts.onReaction || null;
       bossHitCb = opts.onBossHit || null;
@@ -1296,12 +1369,14 @@ const Sync = (() => {
     transact: (fn, opts) => adapter.transact(fn, false, opts),
     sendSelfie: (pid, photo) => adapter && adapter.sendSelfie && adapter.sendSelfie(pid, photo),
     requestSelfie: pid => adapter && adapter.requestSelfie && adapter.requestSelfie(pid),
+    sendAvatar: (pid, photo) => adapter && adapter.sendAvatar && adapter.sendAvatar(pid, photo),
+    requestAvatar: pid => adapter && adapter.requestAvatar && adapter.requestAvatar(pid),
     sendDirectPlayer: (pid, pObj) => adapter && adapter.sendDirectPlayer && adapter.sendDirectPlayer(pid, pObj),
     sendReaction: (kind, senderName) => adapter && adapter.sendReaction && adapter.sendReaction(kind, senderName),
     sendBossHit: hit => adapter && adapter.sendBossHit && adapter.sendBossHit(hit),
     disconnect() {
       if (adapter) adapter.disconnect();
-      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; brokerChangeCb = null; reactCb = null; bossHitCb = null;
+      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; avatarCb = null; avatarReqCb = null; brokerChangeCb = null; reactCb = null; bossHitCb = null;
       myPlayerId = null; last = null;
     },
     defaultRoom,

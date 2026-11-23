@@ -152,7 +152,9 @@
 
   const MAX_VISIBLE_ROWS = 15;
   const selfiePhotoCache = new Map();
+  const lastAvatarReqAt = new Map();
   let allRanksOpen = false;
+  const safeName = n => (window.NameFilter ? NameFilter.sanitize(n) : String(n || ''));
 
   function renderAllRanksModal() {
     const modal = $('allRanksModal');
@@ -168,9 +170,9 @@
         <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-[4px] bg-neutral-100 border border-neutral-200 text-sm">
           <div class="flex items-center gap-2.5 min-w-0">
             <span class="w-8 h-8 rounded-[4px] bg-[#333] text-white font-display font-black text-xs grid place-items-center shrink-0">#${rank}</span>
-            ${avatarHtml(p.avatar, 32)}
+            ${avatarHtml(p.avatar, 32, '', p.id)}
             <div class="min-w-0">
-              <div class="font-display font-extrabold text-[#333] truncate">${esc(p.name)} ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}</div>
+              <div class="font-display font-extrabold text-[#333] truncate">${esc(safeName(p.name))} ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}</div>
               <div class="text-[11px] font-bold text-neutral-500 inline-flex items-center gap-1">${uiIconHtml('cards', 12)}<span>${ansCnt}/${QUESTIONS.length}</span></div>
             </div>
           </div>
@@ -287,11 +289,20 @@
       }
 
       const avBox = row.querySelector('[data-av]');
-      if (avBox.dataset.avIdx !== String(p.avatar)) {
-        avBox.dataset.avIdx = String(p.avatar);
-        avBox.innerHTML = avatarHtml(p.avatar, 44);
+      const hasPhot = SQA_PHOTOS.has(p.id);
+      if (p.hasPhoto && !hasPhot) {
+        const nowReq = Date.now();
+        if (nowReq - (lastAvatarReqAt.get(p.id) || 0) > 4500) {
+          lastAvatarReqAt.set(p.id, nowReq);
+          Sync.requestAvatar(p.id);
+        }
       }
-      row.querySelector('[data-name]').textContent = p.name;
+      const avSig = `${p.avatar}_${hasPhot ? 1 : 0}`;
+      if (avBox.dataset.avIdx !== avSig) {
+        avBox.dataset.avIdx = avSig;
+        avBox.innerHTML = avatarHtml(p.avatar, 44, '', p.id);
+      }
+      row.querySelector('[data-name]').textContent = safeName(p.name);
       row.querySelector('[data-bot]').classList.toggle('hidden', !p.isBot);
 
       const answeredCount = p.answeredCount ?? Object.keys(p.answered || {}).length;
@@ -372,6 +383,13 @@
         else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('shield', 30)}</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
         else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
         else if (e.type === 'bossStart') { SFX.drum(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.red); SFX.announce('bossStart', e); }
+        else if (e.type === 'bossAttack') {
+          if (e.kind === 'flip') SFX.dizzy();
+          else if (e.kind === 'blind') SFX.splat();
+          else if (e.kind === 'zap') SFX.zap();
+          else SFX.freeze();
+          showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.red);
+        }
         else if (e.type === 'bossWin') { SFX.fanfare(); confetti(3200, 150); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('trophy', 32)}</span><span>${v.html}</span>`, TONES.green); SFX.announce('bossWin', e); }
         else if (e.type === 'bossFail') { SFX.wrong(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.slate); }
       });
@@ -418,8 +436,34 @@
   let bossLastTickAt = 0;
   let bossLastSyncAt = 0;
   let bossEnding = false;
+  let bossChargeMs = 0;
   let lastBossHitRenderId = '';
+  let lastBossAttackRenderId = '';
   const seenBossHitIds = new Set();
+
+  function triggerBossLungeVisual() {
+    const sprite = $('hostBossArt');
+    if (!sprite) return;
+    sprite.classList.remove('boss-lunge', 'boss-hit');
+    void sprite.offsetWidth;
+    sprite.classList.add('boss-lunge');
+  }
+
+  async function fireBossAttackNow() {
+    const cur = Sync.room;
+    if (!cur || !cur.boss || cur.boss.status !== 'active') return;
+    bossChargeMs = 0;
+    let res = null;
+    await Sync.transact(room => {
+      if (!room || !room.boss || room.boss.status !== 'active') return;
+      res = Game.triggerBossAttack(room);
+      return room;
+    });
+    if (res && res.affected && res.affected.length) {
+      triggerBossLungeVisual();
+      res.affected.forEach(p => Sync.sendDirectPlayer(p.id, p));
+    }
+  }
 
   function spawnBossDmgPopup(hit) {
     const layer = $('hostBossDmgLayer');
@@ -469,7 +513,9 @@
       bossLastTickAt = Date.now();
       bossLastSyncAt = Date.now();
       bossEnding = b.status !== 'active';
+      bossChargeMs = 0;
       lastBossHitRenderId = b.lastHit ? b.lastHit.id : '';
+      lastBossAttackRenderId = b.lastAttack ? b.lastAttack.id : '';
     }
 
     stage.style.setProperty('--boss-color', meta.color);
@@ -491,6 +537,17 @@
       spawnBossDmgPopup(b.lastHit);
       if (b.lastHit.crit) SFX.zap(); else SFX.pop();
     }
+    if (b.lastAttack && b.lastAttack.id && b.lastAttack.id !== lastBossAttackRenderId) {
+      lastBossAttackRenderId = b.lastAttack.id;
+      triggerBossLungeVisual();
+    }
+
+    const chargeWrap = $('hostBossChargeWrap');
+    const atkNowBtn = $('bossAttackNowBtn');
+    const skillNameEl = $('hostBossSkillName');
+    if (chargeWrap) chargeWrap.classList.toggle('hidden', b.status !== 'active');
+    if (atkNowBtn) atkNowBtn.classList.toggle('hidden', b.status !== 'active');
+    if (skillNameEl && meta.attack) skillNameEl.textContent = meta.attack.name;
 
     $('hostBossName').textContent = meta.name;
     $('hostBossTitle').textContent = meta.title;
@@ -537,8 +594,8 @@
         <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[5px] bg-white/10 text-white">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="sqa-ico shrink-0">${heroIconHtml(medals[idx] || 'trophy', 20)}</span>
-            ${avatarHtml(m.avatar, 24)}
-            <span class="font-display font-extrabold truncate">${esc(m.name)}</span>
+            ${avatarHtml(m.avatar, 24, '', m.id)}
+            <span class="font-display font-extrabold truncate">${esc(safeName(m.name))}</span>
           </div>
           <span class="font-display font-black text-[#fde047] tabular shrink-0">${Number(m.dmg || 0).toLocaleString()}</span>
         </div>`).join('');
@@ -753,6 +810,23 @@
         lastBonusBeepSec = bSec;
         SFX.click();
       }
+      // ชาร์จเกจท่าไม้ตายของบอส (16 วิปกติ / 11 วิเมื่อคลั่ง HP <= 35%) -> ปล่อยโจมตีผู้เล่นอัตโนมัติ!
+      if (!bossEnding && Object.keys(room.players || {}).length > 0) {
+        const enraged = (room.boss.hp / Math.max(1, room.boss.maxHp)) <= 0.35;
+        const chargeMax = enraged ? 11000 : 16000;
+        bossChargeMs += dt;
+        const cPct = Math.min(100, Math.round((bossChargeMs / chargeMax) * 100));
+        const cBar = $('hostBossChargeBar');
+        const cSec = $('hostBossChargeSec');
+        if (cBar) cBar.style.width = `${cPct}%`;
+        if (cSec) {
+          const leftS = Math.max(0, Math.ceil((chargeMax - bossChargeMs) / 1000));
+          cSec.textContent = leftS <= 3 ? `เตรียมปล่อยท่าไม้ตายใน ${leftS} วิ!` : `โจมตีในอีก ${leftS} วิ`;
+        }
+        if (bossChargeMs >= chargeMax) {
+          fireBossAttackNow();
+        }
+      }
       if (bossRemainingMs <= 0 && !bossEnding) {
         bossEnding = true;
         SFX.wrong();
@@ -864,8 +938,8 @@
           <div class="drop-in relative flex flex-col items-center mb-3" style="animation-delay:${delays[colIdx]}">
             ${isChamp ? `<div class="sunburst-halo" style="top:-62px;left:50%;margin-left:-120px;"></div>` : ''}
             ${isChamp ? `<div class="relative z-10 -mb-2.5 crown-float">${heroIconHtml('crown', 48)}</div>` : ''}
-            <div class="relative z-10">${avatarHtml(p.avatar, isChamp ? 84 : 64, 'border-4 border-white')}</div>
-            <div class="relative z-10 bg-white text-[#333] px-3 py-1 rounded-[6px] font-display font-black text-base sm:text-lg mt-2 shadow">${esc(p.name)}</div>
+            <div class="relative z-10">${avatarHtml(p.avatar, isChamp ? 84 : 64, 'border-4 border-white', p.id)}</div>
+            <div class="relative z-10 bg-white text-[#333] px-3 py-1 rounded-[6px] font-display font-black text-base sm:text-lg mt-2 shadow">${esc(safeName(p.name))}</div>
           </div>
           <div class="podium-col w-full ${heights[colIdx]} flex flex-col items-center justify-start pt-3 px-2 text-white"
                style="background:${blockColors[colIdx]};animation-delay:${delays[colIdx]}">
@@ -888,8 +962,8 @@
           <div class="flex items-center justify-between text-sm bg-white text-[#333] font-bold rounded-[4px] px-3 py-1.5">
             <div class="flex items-center gap-2">
               <span class="font-black text-neutral-500">#${i + 4}</span>
-              ${avatarHtml(p.avatar, 26)}
-              <span>${esc(p.name)}</span>
+              ${avatarHtml(p.avatar, 26, '', p.id)}
+              <span>${esc(safeName(p.name))}</span>
             </div>
             <span class="font-display font-black text-[#333] tabular">${p.score.toLocaleString()}</span>
           </div>`).join('') + '</div>' + moreBtn;
@@ -966,9 +1040,9 @@
     const imgSrc = selfiePhotoCache.get(target.id) || target.selfiePhoto;
 
     $('selfieQueueBadge').textContent = `รอตรวจ 1 / ${pending.length}`;
-    $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54);
-    $('selfieReviewName').textContent = target.name;
-    $('selfieReviewFrom').textContent = `โดนสั่งถ่ายหน้าตลกโดย: ${target.selfieFrom || 'เพื่อน'}`;
+    $('selfieReviewAvatar').innerHTML = avatarHtml(target.avatar, 54, '', target.id);
+    $('selfieReviewName').textContent = safeName(target.name);
+    $('selfieReviewFrom').textContent = `โดนสั่งถ่ายหน้าตลกโดย: ${safeName(target.selfieFrom || 'เพื่อน')}`;
     $('selfieReviewImg').src = imgSrc;
     modal.classList.remove('hidden');
   }
@@ -1125,6 +1199,7 @@
             </div>
             <div class="font-display text-base sm:text-lg font-black leading-tight text-white">${esc(b.name)}</div>
             <div class="text-xs font-extrabold text-[#fde047]">${esc(b.title)}</div>
+            <div class="text-[11px] font-extrabold text-[#fca5a5] inline-flex items-center gap-1">${uiIconHtml('bolt', 12)}<span>ท่าไม้ตาย: ${esc(b.attack ? b.attack.name : '')}</span></div>
             <p class="text-[11px] font-medium text-white/80 leading-snug line-clamp-2">${esc(b.tagline)}</p>
           </div>
         </button>`;
@@ -1180,6 +1255,10 @@
   $('randomBossBtn')?.addEventListener('click', () => {
     const key = BOSS_KEYS[rand(BOSS_KEYS.length)];
     launchBossRaid(key);
+  });
+  $('bossAttackNowBtn')?.addEventListener('click', () => {
+    SFX.pop();
+    fireBossAttackNow();
   });
   $('closeBossBtn')?.addEventListener('click', async () => {
     SFX.click();
@@ -1297,7 +1376,7 @@
     div.style.right = `${rightPct.toFixed(1)}%`;
     div.innerHTML = `
       <div class="drop-shadow-[0_4px_0_rgba(0,0,0,0.3)]">${heroIconHtml(heroName, 54)}</div>
-      ${senderName ? `<span class="mt-0.5 px-2 py-0.5 rounded-full bg-[#241f35]/90 text-white font-display font-extrabold text-[11px] border border-white/25 whitespace-nowrap shadow">${esc(senderName)}</span>` : ''}`;
+      ${senderName ? `<span class="mt-0.5 px-2 py-0.5 rounded-full bg-[#241f35]/90 text-white font-display font-extrabold text-[11px] border border-white/25 whitespace-nowrap shadow">${esc(safeName(senderName))}</span>` : ''}`;
     document.body.appendChild(div);
     setTimeout(() => {
       div.remove();
@@ -1446,6 +1525,8 @@
     matchRemainingMs = ((Sync.room && Sync.room.timerTotalSec) || 0) * 1000;
     seenFeedIds.clear();
     selfiePhotoCache.clear();
+    lastAvatarReqAt.clear();
+    SQA_PHOTOS.clear();
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
     if (!silent) toast(`${uiIconHtml('refresh', 16)}<span>เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว</span>`, 'success');
@@ -1650,6 +1731,15 @@
         selfiePhotoCache.set(pid, photo);
         lastSelfieReqAt.delete(pid);
         if (Sync.room) renderSelfieReview(Sync.room);
+      },
+      onAvatar: (pid, photo) => {
+        SQA_PHOTOS.set(pid, photo);
+        lastAvatarReqAt.delete(pid);
+        if (Sync.room) {
+          renderLeaderboard(Sync.room);
+          renderBossStage(Sync.room);
+          if (Sync.room.status === 'ended') showPodium(Sync.room);
+        }
       }
     });
     if (!Sync.room) {

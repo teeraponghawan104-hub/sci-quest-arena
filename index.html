@@ -13,12 +13,13 @@
 </head>
 <body class="bg-arena min-h-screen flex flex-col justify-between">
   <!-- TOP BAR -->
-  <header class="relative z-10 w-full max-w-6xl mx-auto px-4 pt-4 flex items-center justify-between gap-2">
-    <span id="modeBadge" class="bg-[#25076b] border border-white/15 px-3 py-1.5 rounded-[6px] text-xs font-extrabold tracking-wider uppercase shadow-[0_3px_0_rgba(0,0,0,0.28)]"></span>
-    <div class="flex items-center gap-2">
-      <a href="cards.html" onclick="SFX.click()" class="btn-3d k-btn-white px-3.5 py-2 text-xs sm:text-sm flex items-center gap-1.5">
+  <header class="relative z-10 w-full max-w-6xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-between gap-2">
+    <span id="modeBadge" class="bg-[#25076b] border border-white/15 px-3 py-1.5 rounded-[6px] text-xs font-extrabold tracking-wider uppercase shadow-[0_3px_0_rgba(0,0,0,0.28)] whitespace-nowrap"></span>
+    <div class="flex items-center gap-2 flex-wrap justify-end">
+      <a href="cards.html" onclick="SFX.click()" class="btn-3d k-btn-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
         <span data-art-ui="cards" data-art-size="16" class="sqa-ico text-[#46178f]"></span>
-        <span>พิมพ์การ์ด QR (36 ใบ)</span>
+        <span class="hidden sm:inline">พิมพ์การ์ด QR (36 ใบ)</span>
+        <span class="sm:hidden">การ์ด QR</span>
       </a>
       <button type="button" data-fullscreen-btn class="btn-3d k-btn-white px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5" title="เปิดโหมดเต็มจอ">
         <span data-fs-icon class="sqa-ico"></span>
@@ -60,6 +61,23 @@
         </div>
       </div>
     </div>
+
+    <!-- แถบกลับเข้าเกมเดิมทันที (แสดงอัตโนมัติถ้าเครื่องนี้มีเกมที่ยังเล่นไม่จบ!) -->
+    <section id="resumeMatchBanner" class="hidden mb-5 pop-in">
+      <a id="resumeMatchLink" href="player.html" class="k-box border-4 border-[#26890c] p-4 flex flex-col sm:flex-row items-center justify-between gap-3 hover:brightness-95 transition">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="resumeMatchAvatar" class="shrink-0"></div>
+          <div class="min-w-0 text-left">
+            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-[#26890c] text-white font-display font-black text-[11px] uppercase">
+              <span>เกมเดิมยังไม่จบ!</span>
+            </div>
+            <div id="resumeMatchTitle" class="font-display text-lg font-black text-[#333] leading-tight truncate mt-0.5"></div>
+            <div id="resumeMatchSub" class="text-xs font-bold text-neutral-500"></div>
+          </div>
+        </div>
+        <span class="btn-3d k-btn-green px-5 py-2.5 text-sm sm:text-base whitespace-nowrap shrink-0">กลับเข้าเกมเดิมทันที →</span>
+      </a>
+    </section>
 
     <!-- กล่องเข้าเกม แยกฝั่งผู้เรียน (Player) และ ครู (Host) ชัดเจน -->
     <section class="grid md:grid-cols-2 gap-5 mb-8">
@@ -152,6 +170,26 @@
   <script>
     document.getElementById('modeBadge').innerHTML = modeBadgeHtml();
     SFX.startBgm('play');
+
+    // เช็กว่าเครื่องนี้มีห้องที่ยังเล่นไม่จบหรือไม่ -> แสดงปุ่มกลับเข้าเกมเดิม 1 คลิกทันที!
+    (() => {
+      try {
+        const raw = localStorage.getItem('sqa_active_session');
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (!s || !s.code || !s.id) return;
+        if (s.savedAt && Date.now() - s.savedAt > 12 * 3600 * 1000) return;
+        const myPhoto = localStorage.getItem('sqa_my_photo') || '';
+        if (myPhoto && myPhoto.startsWith('data:image/')) SQA_PHOTOS.set(s.id, myPhoto);
+        const snap = s.snapshot || {};
+        const bParam = s.brokerIdx > 0 ? `&b=${s.brokerIdx}` : '';
+        document.getElementById('resumeMatchLink').href = `player.html?room=${encodeURIComponent(s.code)}${bParam}`;
+        document.getElementById('resumeMatchAvatar').innerHTML = avatarHtml(snap.avatar || 0, 48, '', s.id);
+        document.getElementById('resumeMatchTitle').textContent = `${snap.name || 'ผู้เล่น'} • ห้อง PIN ${s.code}`;
+        document.getElementById('resumeMatchSub').textContent = `คะแนนสะสมล่าสุด: ${Number(snap.score || 0).toLocaleString()} แต้ม — กดเพื่อกลับเข้าห้องเดิมทันที`;
+        document.getElementById('resumeMatchBanner').classList.remove('hidden');
+      } catch (e) {}
+    })();
 
     document.getElementById('hostForm').addEventListener('submit', e => {
       e.preventDefault();
