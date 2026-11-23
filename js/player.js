@@ -558,6 +558,7 @@
         pinRoomInUrl(roomCode, useBroker);
         showView('game');
         applyPlayerRoomRender(r);
+        SFX.announce('reconnect');
         toast(`${uiIconHtml('check', 16)}<span>กลับเข้าเกมเดิมอัตโนมัติ! กู้คืนคะแนนและไอเทมครบถ้วน</span>`, 'success', 2600);
       } else if (saved.snapshot) {
         // กู้คืนผู้เล่นกลับเข้าห้องเดิมอัตโนมัติ 100% (กรณีปัดปิดแอป / หลุดเน็ต / สลับเบราว์เซอร์)
@@ -584,6 +585,7 @@
         pinRoomInUrl(roomCode, useBroker);
         showView('game');
         applyPlayerRoomRender(Sync.room);
+        SFX.announce('reconnect');
         toast(`${uiIconHtml('check', 16)}<span>กลับเข้าเกมเดิมอัตโนมัติ! แต้มและไอเทมยังอยู่ครบ!</span>`, 'success', 2600);
       } else {
         // ไม่ลบ session ทิ้งหากแค่เน็ตสะดุด ให้พรีฟิลรหัสห้องกับชื่อไว้เพื่อให้กดเข้าต่อได้ทันที
@@ -611,6 +613,7 @@
       const errEl = $('joinNameError');
       if (!chk.ok) {
         SFX.wrong();
+        SFX.announce('badName');
         bump(el.joinNameInput, 'shake');
         if (errEl) { errEl.textContent = chk.reason; errEl.classList.remove('hidden'); }
         toast(chk.reason, 'error', 3600);
@@ -705,6 +708,7 @@
       showView('game');
       applyPlayerRoomRender(Sync.room);
       if (reclaimed) {
+        SFX.announce('reconnect');
         toast(`${uiIconHtml('check', 16)}<span>กู้คืนโปรไฟล์และคะแนนเดิมในห้องนี้กลับมาแล้ว!</span>`, 'success', 3000);
       }
     } catch (err) {
@@ -1579,6 +1583,7 @@
 
     if (calc.dmg <= 0) {
       SFX.wrong();
+      SFX.announce('bossCounter');
       // บอสสวนกลับทันทีเมื่อตอบพลาด! (-25 แต้ม + แอนิเมชันบอสพุ่งโจมตี)
       const bSprite = $('playerBossArt');
       if (bSprite) {
@@ -1743,6 +1748,11 @@
           ? `คุณทำดาเมจรวม ${bossMyLocalDmg.toLocaleString()} HP! รับโบนัสร่วมพลัง +${b.coopReward || 300} แต้ม${mvpBonus ? ` + โบนัส MVP #${myRank + 1} (+${mvpBonus} แต้ม!)` : ''} + ไอเทมสุ่ม 1 ชิ้น!`
           : `เพื่อน ๆ ในห้องร่วมพลังปราบบอสสำเร็จแล้ว! รอบหน้ามาร่วมตีชิงโบนัสกันนะ!`;
       } else {
+        if (!ov.dataset.failVo || ov.dataset.failVo !== b.id) {
+          ov.dataset.failVo = b.id;
+          SFX.wrong();
+          SFX.announce('bossFail');
+        }
         iconEl.innerHTML = bossArtHtml(b.key, 118);
         titleEl.textContent = 'หมดเวลา Raid! บอสหนีไปได้!';
         descEl.textContent = bossMyLocalDmg > 0

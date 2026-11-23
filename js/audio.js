@@ -8,8 +8,8 @@
  *    - bgm_play.mp3   : Kahoot!-style Marimba + Rhodes + Funk Bass + Acoustic Drums
  *    - bgm_bonus.mp3  : เพลงเร้าใจ 150 BPM + เสียงนาฬิกาติ๊กต็อกเมื่อปล่อยโจทย์โบนัสพิเศษ
  *    - bgm_podium.mp3 : เพลงฉลองแชมป์บนโพเดียม 1-2-3
- * 3) เสียงพากย์ธรรมชาติ (26 ไฟล์ใน audio/vo/*.mp3):
- *    เสียงพากย์คู่ ชาย-หญิง (NiwatNeural & PremwadeeNeural) พร้อมระบบ Audio Ducking เบาเพลงอัตโนมัติ
+ * 3) เสียงพากย์ธรรมชาติ (65 ไฟล์ใน audio/vo/*.mp3):
+ *    เสียงพากย์พิธีกรสนามสุดมันส์ พร้อมระบบ Audio Ducking เบาเพลงอัตโนมัติ
  * ========================================================= */
 const SFX = (() => {
   let ctx = null, master = null, bgmGain = null;
@@ -555,6 +555,58 @@ const SFX = (() => {
         playVoClip(
           'boss_win.mp3',
           'ปราบบอสสำเร็จแล้วจ้า! สุดยอดมากทั้งห้อง รับโบนัสคะแนนและไอเทมกันแบบจุกๆ!',
+          true
+        );
+        break;
+      case 'bossAttack':
+        playVoClip(
+          pickOne(['boss_attack_1.mp3', 'boss_attack_2.mp3']),
+          pickOne([
+            'ระวังตัวให้ดีแม่! บอสชาร์จพลังเต็มแล้ว ปล่อยท่าไม้ตายโจมตีทั้งห้องเลยจ้า!',
+            'กรี๊ดดด! บอสสวนกลับแล้วคุณน้า ใครมีโล่รีบกันไว้ให้ดี โดนเต็มๆ เลยแม่!'
+          ]),
+          true
+        );
+        break;
+      case 'bossCounter':
+        playVoClip(
+          'boss_counter.mp3',
+          'อุ๊ยต๊าย! ตอบพลาดโดนบอสสวนกลับหักแต้มไปเลยจ้า ตั้งสติแล้วตอบใหม่ให้เป๊ะเด้อ!',
+          true
+        );
+        break;
+      case 'bossEnrage':
+        playVoClip(
+          'boss_enrage.mp3',
+          'บอสคลั่งแล้วแม่! เลือดใกล้หมดแล้วแต่ตีเร็วขึ้นอีก ช่วยกันรุมปิดเกมให้ไวเลย!',
+          true
+        );
+        break;
+      case 'bossFail':
+        playVoClip(
+          'boss_fail.mp3',
+          'แง้! หมดเวลาแล้วคุณน้า บอสหนีไปได้เฉยเลย รอบหน้ามารวมพลังแก้แค้นกันใหม่นะ!',
+          true
+        );
+        break;
+      case 'freezeTop':
+        playVoClip(
+          'freeze_top.mp3',
+          'พายุแช่แข็งจ่าฝูงมาแล้วแม่! อันดับ 1 ถึง 3 แข็งเป็นไอติม ทีมข้างหลังรีบวิ่งแซงด่วน!',
+          true
+        );
+        break;
+      case 'badName':
+        playVoClip(
+          'bad_name.mp3',
+          'หยุดก่อนคุณน้า! ชื่อนี้ไม่ผ่านเซ็นเซอร์นะจ๊ะ ตั้งชื่อเล่นสุภาพๆ น่ารักๆ หน่อยเด้อ!',
+          true
+        );
+        break;
+      case 'reconnect':
+        playVoClip(
+          'reconnect.mp3',
+          'กลับมาแล้วจ้า! กู้คืนคะแนนกับไอเทมเดิมให้ครบทุกแต้ม ลุยต่อได้เลยแม่!',
           true
         );
         break;

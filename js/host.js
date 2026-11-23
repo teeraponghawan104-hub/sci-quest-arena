@@ -378,7 +378,7 @@
         else if (e.type === 'giftAll') { SFX.item(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('giftAll', e); }
         else if (e.type === 'fever') { SFX.fanfare(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('feverBolt', 32)}</span><span>${v.html}</span>`, TONES.red); SFX.announce('fever', e); }
         else if (e.type === 'underdog') { SFX.item(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('rocketBoost', 32)}</span><span>${v.html}</span>`, TONES.green); SFX.announce('underdog', e); }
-        else if (e.type === 'freezeTop') { SFX.freeze(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('freeze', 32)}</span><span>${v.html}</span>`, TONES.cyan); }
+        else if (e.type === 'freezeTop') { SFX.freeze(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('freeze', 32)}</span><span>${v.html}</span>`, TONES.cyan); SFX.announce('freezeTop', e); }
         else if (e.type === 'streak') { SFX.announce('streak', e); }
         else if (e.type === 'block') { SFX.block(); showBattleBanner(`<span class="sqa-ico">${itemIconHtml('shield', 30)}</span><span>${v.html}</span>`, TONES.blue); SFX.announce('block', e); }
         else if (e.type === 'bonus') { SFX.bonus(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('giftBox', 30)}</span><span>${v.html}</span>`, TONES.amber); SFX.announce('bonus', e); }
@@ -389,9 +389,10 @@
           else if (e.kind === 'zap') SFX.zap();
           else SFX.freeze();
           showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.red);
+          SFX.announce('bossAttack', e);
         }
         else if (e.type === 'bossWin') { SFX.fanfare(); confetti(3200, 150); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('trophy', 32)}</span><span>${v.html}</span>`, TONES.green); SFX.announce('bossWin', e); }
-        else if (e.type === 'bossFail') { SFX.wrong(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.slate); }
+        else if (e.type === 'bossFail') { SFX.wrong(); showBattleBanner(`<span class="sqa-ico">${heroIconHtml('bossRaid', 32)}</span><span>${v.html}</span>`, TONES.slate); SFX.announce('bossFail', e); }
       });
     }
 
@@ -439,6 +440,7 @@
   let bossChargeMs = 0;
   let lastBossHitRenderId = '';
   let lastBossAttackRenderId = '';
+  let bossEnragedAnnouncedId = '';
   const seenBossHitIds = new Set();
 
   function triggerBossLungeVisual() {
@@ -521,7 +523,13 @@
     stage.style.setProperty('--boss-color', meta.color);
     stage.style.setProperty('--boss-glow', meta.color + '77');
     stage.classList.remove('hidden', 'boss-enraged', 'boss-defeated');
-    if (isEnraged) stage.classList.add('boss-enraged');
+    if (isEnraged) {
+      stage.classList.add('boss-enraged');
+      if (bossEnragedAnnouncedId !== b.id) {
+        bossEnragedAnnouncedId = b.id;
+        SFX.announce('bossEnrage', { bossKey: b.key });
+      }
+    }
     if (b.status === 'defeated') stage.classList.add('boss-defeated');
 
     const artEl = $('hostBossArt');
