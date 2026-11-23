@@ -153,8 +153,26 @@
   const MAX_VISIBLE_ROWS = 15;
   const selfiePhotoCache = new Map();
   const lastAvatarReqAt = new Map();
+  const hostAnswerStats = new Map();
   let allRanksOpen = false;
+  let modTargetPid = null;
+  let debriefOpen = false;
   const safeName = n => (window.NameFilter ? NameFilter.sanitize(n) : String(n || ''));
+
+  function recordAnswerStat(stat) {
+    if (!stat || !stat.qid) return;
+    const qid = String(stat.qid);
+    const qObj = (typeof QUESTION_MAP !== 'undefined' && QUESTION_MAP[qid]) || (typeof BONUS_MAP !== 'undefined' && BONUS_MAP[qid]) || null;
+    const film = stat.film || (qObj && qObj.film) || 'f1';
+    const acc = Math.max(0, Math.min(100, Math.round(Number(stat.acc || 0))));
+    const pass = !!stat.pass;
+    const cur = hostAnswerStats.get(qid) || { qid, film, attempts: 0, passes: 0, misses: 0, totalAcc: 0 };
+    cur.attempts += 1;
+    if (pass) cur.passes += 1; else cur.misses += 1;
+    cur.totalAcc += acc;
+    hostAnswerStats.set(qid, cur);
+    if (debriefOpen) renderDebriefModal();
+  }
 
   function renderAllRanksModal() {
     const modal = $('allRanksModal');
@@ -162,7 +180,8 @@
     const all = Game.ranking(Sync.room);
     const q = ($('allRanksSearch')?.value || '').trim().toLowerCase();
     const filtered = q ? all.filter(p => (p.name || '').toLowerCase().includes(q)) : all;
-    $('allRanksCount').textContent = `แสดง ${filtered.length} จากผู้เข้าแข่งขันทั้งหมด ${all.length} คน`;
+    const isTeamMode = !!Sync.room.teamMode;
+    $('allRanksCount').textContent = `แสดง ${filtered.length} จากผู้เข้าแข่งขันทั้งหมด ${all.length} คน (คลิก "จัดการ" เพื่อซ่อนรูป/เปลี่ยนชื่อ/เตะออก)`;
     $('allRanksList').innerHTML = filtered.map(p => {
       const rank = all.indexOf(p) + 1;
       const ansCnt = p.answeredCount ?? Object.keys(p.answered || {}).length;
@@ -170,15 +189,25 @@
         <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-[4px] bg-neutral-100 border border-neutral-200 text-sm">
           <div class="flex items-center gap-2.5 min-w-0">
             <span class="w-8 h-8 rounded-[4px] bg-[#333] text-white font-display font-black text-xs grid place-items-center shrink-0">#${rank}</span>
-            ${avatarHtml(p.avatar, 32, '', p.id)}
+            ${avatarHtml(p.avatar, 32, '', p.photoBlocked ? '' : p.id)}
             <div class="min-w-0">
-              <div class="font-display font-extrabold text-[#333] truncate">${esc(safeName(p.name))} ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}</div>
+              <div class="font-display font-extrabold text-[#333] truncate flex items-center gap-1.5 flex-wrap">
+                <span>${esc(safeName(p.name))}</span>
+                ${isTeamMode && p.team ? teamBadgeHtml(p.team, true) : ''}
+                ${p.isBot ? '<span class="text-[10px] bg-neutral-300 px-1 rounded">BOT</span>' : ''}
+              </div>
               <div class="text-[11px] font-bold text-neutral-500 inline-flex items-center gap-1">${uiIconHtml('cards', 12)}<span>${ansCnt}/${QUESTIONS.length}</span></div>
             </div>
           </div>
-          <span class="font-display font-black text-lg text-[#46178f] tabular shrink-0">${p.score.toLocaleString()}</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="font-display font-black text-lg text-[#46178f] tabular">${p.score.toLocaleString()}</span>
+            <button type="button" data-mod-pid="${esc(p.id)}" class="btn-3d k-btn-dark px-2.5 py-1 text-[11px]">จัดการ</button>
+          </div>
         </div>`;
     }).join('') || '<div class="text-center text-neutral-400 font-bold py-6">ไม่พบรายชื่อที่ค้นหา</div>';
+    $('allRanksList').querySelectorAll('[data-mod-pid]').forEach(btn => {
+      btn.addEventListener('click', () => openModModal(btn.dataset.modPid));
+    });
   }
 
   $('openAllRanksBtn')?.addEventListener('click', () => {
@@ -245,7 +274,8 @@
       let row = rowNodes.get(p.id);
       if (!row) {
         row = document.createElement('div');
-        row.className = 'lb-row h-[68px] px-3.5 sm:px-4 flex items-center justify-between gap-3 bg-white text-[#333333]';
+        row.className = 'lb-row can-mod h-[68px] px-3.5 sm:px-4 flex items-center justify-between gap-3 bg-white text-[#333333]';
+        row.title = 'คลิกเพื่อจัดการผู้เล่น (ซ่อนรูป / เปลี่ยนชื่อ / ย้ายทีม / เตะออก)';
         row.style.transform = `translateY(${idx * ROW_STEP}px)`;
         row.innerHTML = `
           <div class="flex items-center gap-3 min-w-0">
@@ -254,6 +284,7 @@
             <div class="min-w-0">
               <div class="flex items-center gap-1.5">
                 <span data-name class="font-display font-extrabold text-base sm:text-lg truncate text-[#333]"></span>
+                <span data-team></span>
                 <span data-bot class="hidden px-1.5 py-0.5 rounded-[3px] bg-neutral-200 text-neutral-700 text-[10px] font-black">BOT</span>
               </div>
               <div data-badges class="flex items-center gap-1.5 flex-wrap text-[11px] font-extrabold mt-0.5"></div>
@@ -262,6 +293,7 @@
           <div class="text-right shrink-0">
             <div data-score class="font-display font-black text-2xl sm:text-3xl text-[#333333] tabular leading-none">0</div>
           </div>`;
+        row.addEventListener('click', () => openModModal(p.id));
         el.lbWrap.appendChild(row);
         rowNodes.set(p.id, row);
       }
@@ -289,20 +321,28 @@
       }
 
       const avBox = row.querySelector('[data-av]');
-      const hasPhot = SQA_PHOTOS.has(p.id);
-      if (p.hasPhoto && !hasPhot) {
+      const hasPhot = !p.photoBlocked && SQA_PHOTOS.has(p.id);
+      if (!p.photoBlocked && p.hasPhoto && !hasPhot) {
         const nowReq = Date.now();
         if (nowReq - (lastAvatarReqAt.get(p.id) || 0) > 4500) {
           lastAvatarReqAt.set(p.id, nowReq);
           Sync.requestAvatar(p.id);
         }
       }
-      const avSig = `${p.avatar}_${hasPhot ? 1 : 0}`;
+      const avSig = `${p.avatar}_${hasPhot ? 1 : 0}_${p.photoBlocked ? 1 : 0}`;
       if (avBox.dataset.avIdx !== avSig) {
         avBox.dataset.avIdx = avSig;
-        avBox.innerHTML = avatarHtml(p.avatar, 44, '', p.id);
+        avBox.innerHTML = avatarHtml(p.avatar, 44, '', p.photoBlocked ? '' : p.id);
       }
       row.querySelector('[data-name]').textContent = safeName(p.name);
+      const teamSlot = row.querySelector('[data-team]');
+      if (teamSlot) {
+        const tSig = room.teamMode ? (p.team || '') : '';
+        if (teamSlot.dataset.t !== tSig) {
+          teamSlot.dataset.t = tSig;
+          teamSlot.innerHTML = tSig ? teamBadgeHtml(tSig, true) : '';
+        }
+      }
       row.querySelector('[data-bot]').classList.toggle('hidden', !p.isBot);
 
       const answeredCount = p.answeredCount ?? Object.keys(p.answered || {}).length;
@@ -925,6 +965,43 @@
 
   function showPodium(room) {
     const ranked = Game.ranking(room);
+    const teamSumEl = $('podiumTeamSummary');
+    if (teamSumEl) {
+      if (room.teamMode) {
+        const tRank = Game.teamRanking(room);
+        const champ = tRank[0];
+        teamSumEl.classList.remove('hidden');
+        teamSumEl.innerHTML = `
+          <div class="rounded-[10px] p-4 border-4 border-[#fde047] shadow-2xl text-white text-left space-y-3" style="background:linear-gradient(135deg,${champ.color} 0%,${champ.dark} 100%)">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                ${heroIconHtml('trophy', 40, 'crown-float')}
+                <div>
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#fde047]">TEAM BATTLE CHAMPION • ทีมแชมป์ประจำห้อง!</div>
+                  <div class="font-display text-2xl sm:text-3xl font-black leading-tight">${champ.shape} ${esc(champ.full)}</div>
+                </div>
+              </div>
+              <div class="bg-black/30 rounded-[8px] px-4 py-1.5 text-right">
+                <div class="font-display text-2xl sm:text-3xl font-black text-[#fde047] tabular leading-none">${champ.score.toLocaleString()}</div>
+                <div class="text-[11px] font-bold text-white/85">คะแนนรวม (${champ.members} คน)</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              ${tRank.map((t, i) => `
+                <div class="rounded-[6px] px-2.5 py-2 flex items-center justify-between gap-1.5 ${i === 0 ? 'bg-white text-[#333] shadow' : 'bg-black/25 text-white'}">
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-black opacity-75">#${i + 1} • ${t.members} คน</div>
+                    <div class="font-display font-black text-xs sm:text-sm truncate">${t.shape} ${esc(t.name)}</div>
+                  </div>
+                  <div class="font-display font-black text-sm sm:text-base tabular shrink-0">${t.score.toLocaleString()}</div>
+                </div>`).join('')}
+            </div>
+          </div>`;
+      } else {
+        teamSumEl.classList.add('hidden');
+      }
+    }
+
     const order = [1, 0, 2]; // ซ้าย #2, กลาง #1, ขวา #3
     const heights = ['h-40', 'h-56', 'h-32'];
     const nums = ['2', '1', '3'];
@@ -946,8 +1023,8 @@
           <div class="drop-in relative flex flex-col items-center mb-3" style="animation-delay:${delays[colIdx]}">
             ${isChamp ? `<div class="sunburst-halo" style="top:-62px;left:50%;margin-left:-120px;"></div>` : ''}
             ${isChamp ? `<div class="relative z-10 -mb-2.5 crown-float">${heroIconHtml('crown', 48)}</div>` : ''}
-            <div class="relative z-10">${avatarHtml(p.avatar, isChamp ? 84 : 64, 'border-4 border-white', p.id)}</div>
-            <div class="relative z-10 bg-white text-[#333] px-3 py-1 rounded-[6px] font-display font-black text-base sm:text-lg mt-2 shadow">${esc(safeName(p.name))}</div>
+            <div class="relative z-10">${avatarHtml(p.avatar, isChamp ? 84 : 64, 'border-4 border-white', p.photoBlocked ? '' : p.id)}</div>
+            <div class="relative z-10 bg-white text-[#333] px-3 py-1 rounded-[6px] font-display font-black text-base sm:text-lg mt-2 shadow inline-flex items-center gap-1.5">${esc(safeName(p.name))}${room.teamMode && p.team ? teamBadgeHtml(p.team, true) : ''}</div>
           </div>
           <div class="podium-col w-full ${heights[colIdx]} flex flex-col items-center justify-start pt-3 px-2 text-white"
                style="background:${blockColors[colIdx]};animation-delay:${delays[colIdx]}">
@@ -1101,6 +1178,372 @@
     });
   }
 
+  // ---------------- โหมดแบ่งทีม 4 สี (Team Scoreboard Strip + Toggle) ----------------
+  function renderTeamStrip(room) {
+    const strip = $('teamScoreStrip');
+    const btn = $('teamModeBtn');
+    const lbl = $('teamModeLabel');
+    const on = !!(room && room.teamMode);
+    if (btn && lbl) {
+      lbl.textContent = on ? 'โหมด: 4 ทีม' : 'โหมด: เดี่ยว';
+      btn.className = `btn-3d ${on ? 'k-btn-yellow' : 'k-btn-dark'} px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0`;
+    }
+    if (!strip) return;
+    if (!on) {
+      strip.classList.add('hidden');
+      return;
+    }
+    strip.classList.remove('hidden');
+    const tRank = Game.teamRanking(room);
+    const maxScore = Math.max(1, tRank[0] ? tRank[0].score : 1);
+    const hasScores = tRank.some(t => t.score > 0);
+    strip.innerHTML = tRank.map((t, idx) => {
+      const pct = hasScores ? Math.max(6, Math.round((t.score / maxScore) * 100)) : 0;
+      const isLead = idx === 0 && t.score > 0;
+      const topTxt = t.topPlayer ? `MVP: ${esc(safeName(t.topPlayer.name))}` : 'รอสมาชิกเข้าทีม';
+      return `
+        <div class="team-strip-card ${isLead ? 'team-leader' : ''} p-3 text-white relative overflow-hidden" style="background:linear-gradient(155deg,${t.color} 0%,${t.dark} 100%)">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded-[4px] bg-black/30 font-display font-black text-[11px]">#${idx + 1}</span>
+                <span class="font-display font-black text-base sm:text-lg truncate">${t.shape} ${esc(t.name)}</span>
+                ${isLead ? uiIconHtml('crownMini', 15, 'text-[#fde047] shrink-0') : ''}
+              </div>
+              <div class="text-[11px] font-bold text-white/85 truncate mt-0.5">${t.members} คน • ${topTxt}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="font-display font-black text-2xl sm:text-3xl leading-none tabular">${t.score.toLocaleString()}</div>
+              <div class="text-[10px] font-bold text-white/75 uppercase">แต้มรวม</div>
+            </div>
+          </div>
+          <div class="w-full h-2 rounded-full bg-black/30 overflow-hidden mt-2.5">
+            <div class="h-full rounded-full bg-white/90 transition-all duration-500" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  $('teamModeBtn')?.addEventListener('click', async () => {
+    SFX.pop();
+    const cur = Sync.room;
+    const nextOn = !(cur && cur.teamMode);
+    let assigned = [];
+    await Sync.transact(room => {
+      if (!room) return;
+      assigned = Game.enableTeamMode(room, nextOn);
+      return room;
+    });
+    if (assigned.length && assigned.length <= 40) {
+      assigned.forEach(p => Sync.sendDirectPlayer(p.id, p));
+    }
+    toast(
+      nextOn
+        ? `${uiIconHtml('users', 16)}<span>เปิดโหมดแบ่งทีม 4 สีแล้ว! จัดทีมสมดุลให้ทุกคนอัตโนมัติ</span>`
+        : `${uiIconHtml('users', 16)}<span>สลับกลับเป็นโหมดแข่งเดี่ยวเรียบร้อย</span>`,
+      'success'
+    );
+  });
+
+  // ---------------- ปุ่มคุมห้องสำหรับครู (Teacher Moderation Modal) ----------------
+  function refreshModModal() {
+    const modal = $('modModal');
+    if (!modal || modal.classList.contains('hidden') || !modTargetPid || !Sync.room) return;
+    const p = Sync.room.players[modTargetPid];
+    if (!p) {
+      modal.classList.add('hidden');
+      modTargetPid = null;
+      return;
+    }
+    $('modPlayerAvatar').innerHTML = avatarHtml(p.avatar, 52, '', p.photoBlocked ? '' : p.id);
+    $('modPlayerName').textContent = safeName(p.name);
+    $('modPlayerTeamPill').innerHTML = Sync.room.teamMode && p.team ? teamBadgeHtml(p.team, true) : '';
+    const ansCnt = p.answeredCount ?? Object.keys(p.answered || {}).length;
+    const photStatus = p.photoBlocked ? 'ถูกซ่อนรูป' : (SQA_PHOTOS.has(p.id) || p.hasPhoto ? 'ใช้รูปตัวเอง' : 'มาสคอต');
+    $('modPlayerMeta').textContent = `${p.score.toLocaleString()} แต้ม • ${ansCnt}/${QUESTIONS.length} การ์ด • โปรไฟล์: ${photStatus}`;
+
+    const hideLbl = $('modHidePhotoLabel');
+    const hideBtn = $('modHidePhotoBtn');
+    if (hideLbl && hideBtn) {
+      hideLbl.textContent = p.photoBlocked ? 'อนุญาตให้ใช้รูปโปรไฟล์อีกครั้ง' : 'ซ่อนรูป (สลับกลับเป็นมาสคอต)';
+      hideBtn.className = `btn-3d ${p.photoBlocked ? 'k-btn-green' : 'k-btn-yellow'} flex-1 py-2.5 text-xs sm:text-sm inline-flex items-center justify-center gap-1.5`;
+    }
+
+    const teamWrap = $('modTeamWrap');
+    const teamGrid = $('modTeamGrid');
+    if (teamWrap && teamGrid) {
+      if (Sync.room.teamMode) {
+        teamWrap.classList.remove('hidden');
+        teamGrid.innerHTML = TEAM_KEYS.map(k => {
+          const t = TEAMS[k];
+          const active = p.team === k;
+          return `<button type="button" data-mod-team="${k}" class="py-2 px-2.5 rounded-[5px] font-display font-black text-xs text-white transition flex items-center justify-center gap-1 ${active ? 'ring-4 ring-[#1e1b2e]' : 'opacity-80 hover:opacity-100'}" style="background:${t.color};box-shadow:0 3px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}${active ? ' ✓' : ''}</span></button>`;
+        }).join('');
+        teamGrid.querySelectorAll('[data-mod-team]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const tKey = btn.dataset.modTeam;
+            let upd = null;
+            await Sync.transact(room => {
+              if (!room) return;
+              upd = Game.setPlayerTeam(room, modTargetPid, tKey, true);
+              return room;
+            });
+            if (upd) Sync.sendDirectPlayer(upd.id, upd);
+            SFX.pop();
+            refreshModModal();
+            toast(`ย้าย ${esc(safeName(p.name))} ไป ${TEAMS[tKey].name} แล้ว`, 'success');
+          });
+        });
+      } else {
+        teamWrap.classList.add('hidden');
+      }
+    }
+  }
+
+  function openModModal(pid) {
+    if (!pid || !Sync.room || !Sync.room.players[pid]) return;
+    SFX.pop();
+    modTargetPid = pid;
+    const p = Sync.room.players[pid];
+    const inp = $('modRenameInput');
+    if (inp) inp.value = p.name || '';
+    $('modModal')?.classList.remove('hidden');
+    refreshModModal();
+  }
+
+  $('closeModModal')?.addEventListener('click', () => { SFX.click(); modTargetPid = null; $('modModal')?.classList.add('hidden'); });
+  $('modModal')?.addEventListener('click', e => { if (e.target === $('modModal')) { modTargetPid = null; $('modModal')?.classList.add('hidden'); } });
+
+  $('modHidePhotoBtn')?.addEventListener('click', async () => {
+    if (!modTargetPid || !Sync.room || !Sync.room.players[modTargetPid]) return;
+    const curBlocked = !!Sync.room.players[modTargetPid].photoBlocked;
+    const nextBlocked = !curBlocked;
+    if (nextBlocked) SQA_PHOTOS.del(modTargetPid);
+    let upd = null;
+    await Sync.transact(room => {
+      if (!room) return;
+      upd = Game.moderateHidePhoto(room, modTargetPid, nextBlocked);
+      return room;
+    });
+    if (upd) Sync.sendDirectPlayer(upd.id, upd);
+    SFX.pop();
+    refreshModModal();
+    toast(nextBlocked ? 'ซ่อนรูปโปรไฟล์แล้ว (สลับกลับเป็นมาสคอตทันที!)' : 'ปลดล็อกอนุญาตให้ผู้เล่นใช้รูปโปรไฟล์ได้แล้ว', 'info');
+  });
+
+  async function applyModRename(newName) {
+    if (!modTargetPid || !Sync.room || !Sync.room.players[modTargetPid]) return;
+    let upd = null;
+    await Sync.transact(room => {
+      if (!room) return;
+      upd = Game.moderateRename(room, modTargetPid, newName);
+      return room;
+    });
+    if (upd) {
+      Sync.sendDirectPlayer(upd.id, upd);
+      const inp = $('modRenameInput');
+      if (inp) inp.value = upd.name;
+    }
+    SFX.pop();
+    refreshModModal();
+    toast(`เปลี่ยนชื่อเป็น "${esc(upd ? upd.name : newName)}" เรียบร้อย`, 'success');
+  }
+  $('modRenameSaveBtn')?.addEventListener('click', () => {
+    const val = ($('modRenameInput')?.value || '').trim();
+    if (!val) { toast('กรุณาพิมพ์ชื่อใหม่ก่อนบันทึก', 'warn'); return; }
+    applyModRename(val);
+  });
+  $('modRenameSafeBtn')?.addEventListener('click', () => applyModRename('นักเรียนน่ารัก'));
+
+  document.querySelectorAll('[data-mod-score]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!modTargetPid || !Sync.room || !Sync.room.players[modTargetPid]) return;
+      const val = btn.dataset.modScore;
+      const isReset = val === 'reset';
+      const delta = isReset ? 0 : Number(val);
+      let upd = null;
+      await Sync.transact(room => {
+        if (!room) return;
+        upd = Game.moderateScore(room, modTargetPid, delta, isReset);
+        return room;
+      });
+      if (upd) Sync.sendDirectPlayer(upd.id, upd);
+      SFX.pop();
+      refreshModModal();
+      toast(isReset ? 'รีเซ็ตคะแนนเป็น 0 แล้ว' : `ปรับคะแนน ${delta > 0 ? '+' : ''}${delta} แต้มแล้ว`, 'info');
+    });
+  });
+
+  $('modKickBtn')?.addEventListener('click', async () => {
+    if (!modTargetPid || !Sync.room || !Sync.room.players[modTargetPid]) return;
+    const pid = modTargetPid;
+    const pName = safeName(Sync.room.players[pid].name);
+    if (!window.confirm(`ยืนยันเตะ "${pName}" ออกจากห้องนี้หรือไม่?`)) return;
+    SQA_PHOTOS.del(pid);
+    selfiePhotoCache.delete(pid);
+    lastAvatarReqAt.delete(pid);
+    await Sync.transact(room => {
+      if (!room) return;
+      Game.moderateKick(room, pid);
+      return room;
+    });
+    Sync.sendKick(pid);
+    modTargetPid = null;
+    $('modModal')?.classList.add('hidden');
+    SFX.wrong();
+    toast(`เตะ "${esc(pName)}" ออกจากห้องเรียบร้อยแล้ว`, 'warn');
+  });
+
+  // ---------------- สรุปประเด็นที่เด็กตอบพลาดบ่อยสุดหลังจบเกม (Teacher Debrief!) ----------------
+  function renderDebriefModal() {
+    const body = $('debriefBody');
+    if (!body) return;
+    const rows = Array.from(hostAnswerStats.values());
+    if (!rows.length) {
+      body.innerHTML = `
+        <div class="text-center py-12 px-4 bg-neutral-100 rounded-[8px] border-2 border-dashed border-neutral-300 space-y-2">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#46178f]/10 text-[#46178f] mb-1">${uiIconHtml('target', 28)}</div>
+          <div class="font-display text-lg font-black text-[#333]">ยังไม่มีสถิติการตอบคำถามในรอบนี้</div>
+          <p class="text-xs sm:text-sm font-semibold text-neutral-500 max-w-md mx-auto">เมื่อนักเรียน (หรือบอทจำลอง) เริ่มส่งคำตอบ ระบบจะเก็บสถิติความแม่นยำและข้อที่ตอบพลาดบ่อยให้อัตโนมัติแบบเรียลไทม์ครับ!</p>
+        </div>`;
+      return;
+    }
+
+    const totalAttempts = rows.reduce((s, r) => s + r.attempts, 0);
+    const totalPasses = rows.reduce((s, r) => s + r.passes, 0);
+    const totalAccSum = rows.reduce((s, r) => s + r.totalAcc, 0);
+    const avgAcc = Math.round(totalAccSum / Math.max(1, totalAttempts));
+    const passRate = Math.round((totalPasses / Math.max(1, totalAttempts)) * 100);
+
+    // สรุปรายภาพยนตร์วิทยาศาสตร์ 4 เรื่อง
+    const filmRows = Object.entries(FILMS).map(([fk, f]) => {
+      const subset = rows.filter(r => r.film === fk);
+      const att = subset.reduce((s, r) => s + r.attempts, 0);
+      const acc = att > 0 ? Math.round(subset.reduce((s, r) => s + r.totalAcc, 0) / att) : null;
+      const mis = subset.reduce((s, r) => s + r.misses, 0);
+      return { key: fk, film: f, attempts: att, avgAcc: acc, misses: mis };
+    });
+    const activeFilms = filmRows.filter(f => f.attempts > 0);
+    const weakestFilm = activeFilms.length ? [...activeFilms].sort((a, b) => a.avgAcc - b.avgAcc)[0] : null;
+
+    // เรียงคำถามจากความแม่นยำเฉลี่ยต่ำสุด + จำนวนคนตอบพลาดมากสุด (Top 5 Misconceptions)
+    const enriched = rows.map(r => {
+      const qObj = (typeof QUESTION_MAP !== 'undefined' && QUESTION_MAP[r.qid]) || (typeof BONUS_MAP !== 'undefined' && BONUS_MAP[r.qid]) || null;
+      const qAvg = Math.round(r.totalAcc / Math.max(1, r.attempts));
+      return { ...r, avgAcc: qAvg, qObj };
+    });
+    const hotspots = [...enriched]
+      .sort((a, b) => a.avgAcc - b.avgAcc || b.misses - a.misses)
+      .slice(0, 5);
+    const strengths = [...enriched]
+      .filter(r => r.avgAcc >= 70)
+      .sort((a, b) => b.avgAcc - a.avgAcc || b.attempts - a.attempts)
+      .slice(0, 3);
+
+    body.innerHTML = `
+      <!-- 4 KPI ภาพรวมทั้งห้อง -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="rounded-[8px] p-3 bg-[#46178f] text-white">
+          <div class="text-[11px] font-extrabold text-white/75 uppercase">คำตอบทั้งหมด</div>
+          <div class="font-display text-2xl font-black tabular mt-0.5">${totalAttempts.toLocaleString()}</div>
+          <div class="text-[10px] font-bold text-white/75">จาก ${rows.length} การ์ดคำถาม</div>
+        </div>
+        <div class="rounded-[8px] p-3 bg-[#1368ce] text-white">
+          <div class="text-[11px] font-extrabold text-white/75 uppercase">ความแม่นยำเฉลี่ย</div>
+          <div class="font-display text-2xl font-black tabular mt-0.5">${avgAcc}%</div>
+          <div class="text-[10px] font-bold text-white/75">ภาพรวมทั้งห้องเรียน</div>
+        </div>
+        <div class="rounded-[8px] p-3 bg-[#26890c] text-white">
+          <div class="text-[11px] font-extrabold text-white/75 uppercase">อัตราตอบผ่าน</div>
+          <div class="font-display text-2xl font-black tabular mt-0.5">${passRate}%</div>
+          <div class="text-[10px] font-bold text-white/75">ผ่าน ${totalPasses} / พลาด ${totalAttempts - totalPasses}</div>
+        </div>
+        <div class="rounded-[8px] p-3 bg-[#e21b3c] text-white">
+          <div class="text-[11px] font-extrabold text-white/75 uppercase">เรื่องที่ควรทบทวน</div>
+          <div class="font-display text-sm font-black leading-tight mt-1 truncate">${weakestFilm ? esc(weakestFilm.film.short) : '-'}</div>
+          <div class="text-[11px] font-bold text-[#fde047] mt-0.5">${weakestFilm ? `เฉลี่ย ${weakestFilm.avgAcc}% (${weakestFilm.misses} พลาด)` : ''}</div>
+        </div>
+      </div>
+
+      <!-- ความเข้าใจแยกตามภาพยนตร์ 4 เรื่อง -->
+      <div class="bg-neutral-100 rounded-[8px] p-3.5 border border-neutral-200 space-y-2.5">
+        <div class="font-display font-black text-sm text-[#333] uppercase">ความเข้าใจแยกตามภาพยนตร์วิทยาศาสตร์ 4 เรื่อง</div>
+        <div class="grid sm:grid-cols-2 gap-2.5">
+          ${filmRows.map(fr => `
+            <div class="bg-white rounded-[6px] p-2.5 border border-neutral-200 space-y-1.5">
+              <div class="flex items-center justify-between gap-2 text-xs font-extrabold">
+                <span class="inline-flex items-center gap-1.5 text-[#333] truncate">${filmIconHtml(fr.key, 16)}<span class="truncate">${esc(fr.film.short)}</span></span>
+                <span class="font-display font-black shrink-0 tabular" style="color:${fr.avgAcc === null ? '#9ca3af' : (fr.avgAcc < 50 ? '#e21b3c' : (fr.avgAcc < 75 ? '#d89e00' : '#26890c'))}">${fr.avgAcc === null ? 'ยังไม่ตอบ' : `${fr.avgAcc}%`}</span>
+              </div>
+              <div class="debrief-bar-track">
+                <div class="debrief-bar-fill" style="width:${fr.avgAcc ?? 0}%;background:${fr.film.color}"></div>
+              </div>
+              <div class="text-[10px] font-bold text-neutral-500 flex justify-between">
+                <span>${esc(fr.film.topic)}</span>
+                <span class="shrink-0 ml-2">${fr.attempts} ครั้ง</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Top 5 คำถามที่พลาดบ่อย / แม่นยำต่ำสุด (พร้อมเฉลยต้นแบบให้ครูชวนคุย!) -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="font-display font-black text-base text-[#e21b3c] inline-flex items-center gap-1.5">
+            ${uiIconHtml('bolt', 16)}<span>Top ${hotspots.length} ประเด็นที่ควรชวนคุยทบทวน (ความแม่นยำต่ำสุด)</span>
+          </div>
+          <span class="text-[11px] font-bold text-neutral-500">แสดงเฉลยต้นแบบสำหรับครูอธิบายหน้าห้อง</span>
+        </div>
+        ${hotspots.map((h, i) => {
+          const f = FILMS[h.film] || FILMS.f1;
+          const colHex = h.avgAcc < 45 ? '#e21b3c' : (h.avgAcc < 70 ? '#d89e00' : '#26890c');
+          return `
+            <div class="rounded-[8px] border-2 bg-white p-3.5 space-y-2 shadow-sm" style="border-color:${colHex}55">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="px-2 py-0.5 rounded-[4px] bg-[#1e1b2e] text-white font-display font-black text-xs">#${i + 1} • ${esc(prettyCode(h.qid) || h.qid)}</span>
+                  <span class="px-2 py-0.5 rounded-[4px] text-white font-extrabold text-[11px] inline-flex items-center gap-1" style="background:${f.color}">${filmIconHtml(h.film, 13)}<span>${esc(f.short)}</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-extrabold">
+                  <span class="px-2 py-0.5 rounded-[4px] text-white font-display font-black tabular" style="background:${colHex}">แม่นยำเฉลี่ย ${h.avgAcc}%</span>
+                  <span class="text-neutral-500">ตอบ ${h.attempts} ครั้ง (พลาด ${h.misses})</span>
+                </div>
+              </div>
+              <div class="font-display font-extrabold text-sm sm:text-base text-[#333] leading-snug">${esc(h.qObj ? h.qObj.q : h.qid)}</div>
+              ${h.qObj && h.qObj.model ? `
+                <div class="rounded-[6px] bg-[#f0fdf4] border border-[#26890c]/40 p-2.5 text-xs sm:text-sm">
+                  <span class="font-display font-black text-[#26890c] uppercase text-[11px] block mb-0.5">เฉลยต้นแบบสำหรับครูชวนคุย:</span>
+                  <span class="font-bold text-[#1e1b2e]">${esc(h.qObj.model)}</span>
+                </div>` : ''}
+            </div>`;
+        }).join('')}
+      </div>
+
+      ${strengths.length ? `
+        <div class="rounded-[8px] bg-[#f0fdf4] border-2 border-[#26890c]/40 p-3.5 space-y-2">
+          <div class="font-display font-black text-sm text-[#26890c] inline-flex items-center gap-1.5">${uiIconHtml('check', 15)}<span>จุดแข็งของห้อง! คำถามที่นักเรียนเข้าใจแม่นยำที่สุด</span></div>
+          <div class="space-y-1.5">
+            ${strengths.map(s => `
+              <div class="bg-white rounded-[5px] px-3 py-2 flex items-center justify-between gap-2 text-xs sm:text-sm font-bold text-[#333] border border-[#26890c]/20">
+                <span class="truncate"><b>${esc(prettyCode(s.qid) || s.qid)}</b> — ${esc(s.qObj ? s.qObj.q : s.qid)}</span>
+                <span class="px-2 py-0.5 rounded bg-[#26890c] text-white font-display font-black text-xs shrink-0 tabular">${s.avgAcc}%</span>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+    `;
+  }
+
+  function openDebriefModal() {
+    SFX.pop();
+    debriefOpen = true;
+    $('debriefModal')?.classList.remove('hidden');
+    renderDebriefModal();
+  }
+  $('openDebriefBtn')?.addEventListener('click', openDebriefModal);
+  $('topDebriefBtn')?.addEventListener('click', openDebriefModal);
+  $('closeDebriefModal')?.addEventListener('click', () => { SFX.click(); debriefOpen = false; $('debriefModal')?.classList.add('hidden'); });
+  $('debriefModal')?.addEventListener('click', e => { if (e.target === $('debriefModal')) { debriefOpen = false; $('debriefModal')?.classList.add('hidden'); } });
+
   function applyRoomRender(room) {
     if (!room) return;
     // ซิงก์ค่าเวลาเกมครั้งแรกที่โหลดห้อง (หรือเมื่อรีเซ็ต)
@@ -1114,12 +1557,14 @@
     }
     renderControls(room);
     renderMatchTimerUI(room);
+    renderTeamStrip(room);
     renderLeaderboard(room);
     renderFeed(room);
     renderBonusBar(room);
     renderFeverBar(room);
     renderBossStage(room);
     renderSelfieReview(room);
+    if (modTargetPid) refreshModModal();
     if (room.status === 'ended') {
       stopSim();
       showPodium(room);
@@ -1523,6 +1968,7 @@
       base.usedBonus = {};
       base.players = {};
       base.feed = {};
+      base.kicked = {};
       base.timerRunning = false;
       base.timerRemainingMs = (base.timerTotalSec || 0) * 1000;
       base.timerEpoch = (base.timerEpoch || 1) + 1;
@@ -1534,7 +1980,12 @@
     seenFeedIds.clear();
     selfiePhotoCache.clear();
     lastAvatarReqAt.clear();
+    hostAnswerStats.clear();
     SQA_PHOTOS.clear();
+    modTargetPid = null;
+    debriefOpen = false;
+    $('modModal')?.classList.add('hidden');
+    $('debriefModal')?.classList.add('hidden');
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
     if (!silent) toast(`${uiIconHtml('refresh', 16)}<span>เริ่มเกมใหม่และล้างข้อมูลเดิมเรียบร้อยแล้ว</span>`, 'success');
@@ -1581,7 +2032,8 @@
         }
         takenAvs.add(av);
         const id = 'bot_' + uid();
-        room.players[id] = Game.newPlayer(id, name, av, true);
+        const team = room.teamMode ? Game.pickBalancedTeam(room) : '';
+        room.players[id] = Game.newPlayer(id, name, av, true, { team });
         Sync.pushFeed(room, { type: 'join', a: name, ai: id, av });
         added++;
       }
@@ -1640,7 +2092,7 @@
         return room;
       }
 
-      const others = players.filter(p => p.id !== bot.id);
+      const others = players.filter(p => p.id !== bot.id && !(room.teamMode && bot.team && p.team === bot.team));
       const atkKinds = ['steal', 'freeze', 'blind', 'flip', 'zap', 'selfie'].filter(k => (bot.items[k] || 0) > 0);
       if (others.length && atkKinds.length && Math.random() < 0.6) {
         const kind = atkKinds[rand(atkKinds.length)];
@@ -1657,6 +2109,7 @@
       const acc = mult === 1 ? 84 + rand(16) : (mult === 0.7 ? 56 + rand(20) : 32 + rand(15));
       const item = (q.color === 'red' && Math.random() < Game.cfg.redItemChance) ? Game.randomItem() : null;
       Game.applyAnswer(room, bot.id, q, mult, acc, item);
+      recordAnswerStat({ qid: q.id, film: q.film, acc, pass: mult > 0 });
       return room;
     });
   }
@@ -1740,12 +2193,17 @@
         lastSelfieReqAt.delete(pid);
         if (Sync.room) renderSelfieReview(Sync.room);
       },
+      onAnswerStat: stat => {
+        recordAnswerStat(stat);
+      },
       onAvatar: (pid, photo) => {
+        if (Sync.room && Sync.room.players[pid] && Sync.room.players[pid].photoBlocked) return;
         SQA_PHOTOS.set(pid, photo);
         lastAvatarReqAt.delete(pid);
         if (Sync.room) {
           renderLeaderboard(Sync.room);
           renderBossStage(Sync.room);
+          if (modTargetPid === pid) refreshModModal();
           if (Sync.room.status === 'ended') showPodium(Sync.room);
         }
       }

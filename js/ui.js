@@ -87,6 +87,20 @@ const BOSSES = {
 };
 const BOSS_KEYS = Object.keys(BOSSES);
 
+/* ---------- โหมดแบ่งทีม 4 สี (Kahoot! Squad Battle) ---------- */
+const TEAMS = {
+  red:    { key: 'red',    name: 'ทีมแดง',    full: 'ทีมอัคคี (แดง)',    shape: '▲', color: '#e21b3c', dark: '#991b1b', soft: '#fee2e2' },
+  blue:   { key: 'blue',   name: 'ทีมน้ำเงิน', full: 'ทีมวารี (น้ำเงิน)',  shape: '◆', color: '#1368ce', dark: '#1e3a8a', soft: '#dbeafe' },
+  yellow: { key: 'yellow', name: 'ทีมเหลือง',  full: 'ทีมสายฟ้า (เหลือง)', shape: '●', color: '#d89e00', dark: '#854d0e', soft: '#fef9c3' },
+  green:  { key: 'green',  name: 'ทีมเขียว',   full: 'ทีมพฤกษา (เขียว)',  shape: '■', color: '#26890c', dark: '#14532d', soft: '#dcfce7' }
+};
+const TEAM_KEYS = ['red', 'blue', 'yellow', 'green'];
+function teamBadgeHtml(teamKey, compact = false) {
+  const t = TEAMS[teamKey];
+  if (!t) return '';
+  return `<span class="inline-flex items-center gap-1 rounded-[4px] font-display font-black text-white shrink-0 ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}</span></span>`;
+}
+
 /* ---------- ระบบเซ็นเซอร์ชื่อ 18+ / คำหยาบ / คำไม่เหมาะสม (ไทย + อังกฤษ + กันหลบจุด/เว้นวรรค/Leetspeak) ---------- */
 const NameFilter = (() => {
   const TH_BAD = [
@@ -342,6 +356,10 @@ function feedView(e) {
       const bs = BOSSES[e.bossKey] || BOSSES.dr_glitch;
       return { emoji: heroIconHtml('bossRaid', 19), tone: 'red', html: `<b>${esc(bs.name)}</b> สวนกลับ ${A} <b>-${Number(e.pts || 25)}</b> แต้ม!` };
     }
+    case 'teamMode':
+      return { emoji: uiIconHtml('users', 15), tone: e.on ? 'violet' : 'slate', html: e.on ? '<b>เปิดโหมดแบ่งทีม 4 สี!</b> ช่วยกันเก็บคะแนนให้ทีมชนะเลิศ!' : '<b>สลับเป็นโหมดแข่งเดี่ยว</b> (เก็บคะแนนรายบุคคล)' };
+    case 'kick':
+      return { emoji: uiIconHtml('shield', 15), tone: 'slate', html: `ครูนำ ${A} ออกจากห้องแข่งขัน` };
     default: return { emoji: uiIconHtml('sparkles', 14), tone: 'slate', html: esc(e.text || '') };
   }
 }

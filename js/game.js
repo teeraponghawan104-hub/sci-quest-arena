@@ -37,7 +37,9 @@ const Game = (() => {
       items.selfie = (items.selfie || 0) + 1;
       return {
         id, name, avatar, isBot, score: 0, streak: 0, items,
+        team: opts.team || '',
         hasPhoto: !!opts.hasPhoto,
+        photoBlocked: false,
         deviceId: opts.deviceId || '',
         x2Active: false,
         frozen: false, frozenBy: '',
@@ -124,6 +126,10 @@ const Game = (() => {
     applyAttack(room, aid, tid, kind) {
       const a = room.players[aid], t = room.players[tid];
       if (!a || !t || aid === tid || (a.items[kind] || 0) <= 0) return null;
+      // ในโหมดแบ่งทีม 4 สี ห้ามโจมตีเพื่อนร่วมทีมเดียวกัน!
+      if (room.teamMode && a.team && t.team && a.team === t.team) {
+        return { result: 'sameTeam' };
+      }
       const now = Date.now();
       a.items[kind]--;
       touch(a, false);
@@ -576,6 +582,113 @@ const Game = (() => {
         Sync.pushFeed(room, { type: 'bossCounter', ...feedBase(me, pid), bossKey: room.boss.key, pts: loss });
       }
       return { loss, scoreLeft: me.score };
+    },
+
+    /* ---------------- โหมดแบ่งทีม 4 สี (Team / Squad Battle) ---------------- */
+    pickBalancedTeam(room) {
+      const counts = { red: 0, blue: 0, yellow: 0, green: 0 };
+      for (const p of Object.values((room && room.players) || {})) {
+        if (p && counts[p.team] !== undefined) counts[p.team]++;
+      }
+      let minC = Infinity;
+      for (const k of TEAM_KEYS) if (counts[k] < minC) minC = counts[k];
+      const tied = TEAM_KEYS.filter(k => counts[k] === minC);
+      return tied[rand(tied.length)] || 'red';
+    },
+
+    enableTeamMode(room, on = true) {
+      if (!room) return [];
+      room.teamMode = !!on;
+      const updated = [];
+      if (room.teamMode) {
+        const list = Object.values(room.players || {}).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+        list.forEach(p => {
+          if (!p.team || !TEAMS[p.team]) {
+            p.team = this.pickBalancedTeam(room);
+            touch(p, true);
+            updated.push(p);
+          }
+        });
+      }
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      Sync.pushFeed(room, { type: 'teamMode', on: room.teamMode });
+      return updated;
+    },
+
+    setPlayerTeam(room, pid, teamKey, isHost = false) {
+      const p = room && room.players && room.players[pid];
+      if (!p || !TEAMS[teamKey]) return null;
+      if (p.team === teamKey) return p;
+      p.team = teamKey;
+      touch(p, !!isHost);
+      if (isHost) room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      return p;
+    },
+
+    teamRanking(room) {
+      const agg = {};
+      TEAM_KEYS.forEach(k => {
+        agg[k] = { ...TEAMS[k], score: 0, members: 0, avgScore: 0, topPlayer: null };
+      });
+      for (const p of Object.values((room && room.players) || {})) {
+        const k = (p && TEAMS[p.team]) ? p.team : null;
+        if (!k) continue;
+        agg[k].score += Number(p.score || 0);
+        agg[k].members += 1;
+        if (!agg[k].topPlayer || (p.score || 0) > (agg[k].topPlayer.score || 0)) {
+          agg[k].topPlayer = p;
+        }
+      }
+      const list = TEAM_KEYS.map(k => {
+        const t = agg[k];
+        t.avgScore = t.members > 0 ? Math.round(t.score / t.members) : 0;
+        return t;
+      });
+      return list.sort((a, b) => b.score - a.score || b.members - a.members);
+    },
+
+    /* ---------------- ปุ่มคุมห้องสำหรับครู (Teacher Moderation) ---------------- */
+    moderateHidePhoto(room, pid, blocked = true) {
+      const p = room && room.players && room.players[pid];
+      if (!p) return null;
+      p.photoBlocked = !!blocked;
+      if (p.photoBlocked) p.hasPhoto = false;
+      touch(p, true);
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      return p;
+    },
+
+    moderateRename(room, pid, newName) {
+      const p = room && room.players && room.players[pid];
+      if (!p) return null;
+      const cleanName = String(newName || '').trim().slice(0, 16) || 'นักเรียนน่ารัก';
+      p.name = cleanName;
+      touch(p, true);
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      return p;
+    },
+
+    moderateScore(room, pid, delta, reset = false) {
+      const p = room && room.players && room.players[pid];
+      if (!p) return null;
+      p.score = reset ? 0 : Math.max(0, Number(p.score || 0) + Number(delta || 0));
+      touch(p, true);
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      return p;
+    },
+
+    moderateKick(room, pid) {
+      if (!room || !pid) return null;
+      const p = room.players && room.players[pid];
+      const name = p ? p.name : 'ผู้เล่น';
+      if (room.players && room.players[pid]) delete room.players[pid];
+      room.kicked = room.kicked || {};
+      room.kicked[pid] = Date.now();
+      const kKeys = Object.keys(room.kicked);
+      while (kKeys.length > 50) delete room.kicked[kKeys.shift()];
+      room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      Sync.pushFeed(room, { type: 'kick', a: name });
+      return { pid, name };
     }
   };
 })();

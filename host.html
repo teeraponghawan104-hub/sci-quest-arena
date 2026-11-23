@@ -125,6 +125,12 @@
             00:00
           </div>
         </div>
+
+        <!-- สวิตช์สลับ โหมดเดี่ยว / โหมดแบ่งทีม 4 สี -->
+        <button id="teamModeBtn" type="button" class="btn-3d k-btn-dark px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิด โหมดแบ่งทีม 4 สี (Team Battle)">
+          <span data-art-ui="users" data-art-size="15" class="sqa-ico text-[#ffa602]"></span>
+          <span id="teamModeLabel">โหมด: เดี่ยว</span>
+        </button>
       </div>
 
       <!-- ปุ่มควบคุมหลักของครู (4 สี Kahoot!) -->
@@ -305,18 +311,27 @@
       </div>
     </section>
 
+    <!-- ===================== แถบคะแนนรวม 4 ทีม (แสดงเมื่อเปิดโหมดแบ่งทีม 4 สี!) ===================== -->
+    <section id="teamScoreStrip" class="hidden grid grid-cols-2 lg:grid-cols-4 gap-3 pop-in"></section>
+
     <!-- ===================== MAIN STAGE: SCOREBOARD + LIVE FEED (ยืดเต็มจอทุกความละเอียด!) ===================== -->
     <main class="grid lg:grid-cols-12 gap-4 flex-1 items-stretch min-h-0">
       <!-- Kahoot! Scoreboard (8 cols) -->
       <section class="lg:col-span-8 k-panel p-4 sm:p-5 flex flex-col min-h-0">
-        <div class="flex items-center justify-between mb-4 pb-2.5 border-b-2 border-white/15">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-2.5 border-b-2 border-white/15">
           <div class="flex items-center gap-2.5">
             <span class="w-8 h-8 rounded-[6px] bg-[#ffa602] text-[#1e1b2e] grid place-items-center shadow-[0_3px_0_#9c7200]">
               <span data-art-ui="trophyMini" data-art-size="18" class="sqa-ico"></span>
             </span>
             <h2 class="font-display text-xl sm:text-2xl xl:text-3xl font-black tracking-wide">Scoreboard (กระดานคะแนนสด)</h2>
           </div>
-          <span class="text-xs sm:text-sm font-bold text-white/75 hidden sm:inline">สลับอันดับอัตโนมัติแบบ Real-time</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-white/75 hidden xl:inline">คลิกชื่อผู้เล่นเพื่อคุมห้อง / ซ่อนรูป / เตะออก</span>
+            <button id="topDebriefBtn" type="button" class="btn-3d k-btn-white px-3 py-1.5 text-xs inline-flex items-center gap-1.5 whitespace-nowrap" title="ดูสรุปประเด็นที่นักเรียนตอบพลาดบ่อย (Teacher Debrief)">
+              <span data-art-ui="target" data-art-size="14" class="sqa-ico text-[#46178f]"></span>
+              <span>สรุปการตอบ</span>
+            </button>
+          </div>
         </div>
 
         <!-- Waiting for players... สไตล์ Kahoot Lobby -->
@@ -583,26 +598,33 @@
   </div>
 
   <!-- OVERLAY: โพเดียมประกาศผู้ชนะ 1-2-3 สไตล์ Kahoot! -->
-  <div id="podiumOverlay" class="overlay dim z-[200] hidden overflow-y-auto">
-    <div class="max-w-5xl w-full text-center py-6 px-4">
-      <div class="inline-flex items-center justify-center gap-3 mb-2 pop-in">
-        <span data-art-hero="trophy" data-art-size="52" class="sqa-ico crown-float"></span>
-        <div class="k-logo text-4xl sm:text-6xl">Sci-Quest! Podium</div>
+  <div id="podiumOverlay" class="overlay dim z-[200] hidden overflow-y-auto !items-start">
+    <div class="max-w-5xl w-full text-center py-4 px-4 my-auto">
+      <div class="inline-flex items-center justify-center gap-3 mb-1.5 pop-in">
+        <span data-art-hero="trophy" data-art-size="48" class="sqa-ico crown-float"></span>
+        <div class="k-logo text-4xl sm:text-5xl">Sci-Quest! Podium</div>
       </div>
       <div>
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-[6px] bg-[#25076b] border border-white/15 text-[#ffa602] font-display font-extrabold text-sm mb-8 shadow-[0_3px_0_rgba(0,0,0,0.3)]">
-          <span data-art-ui="sparkles" data-art-size="15" class="sqa-ico"></span>
+        <div class="inline-flex items-center gap-2 px-4 py-1 rounded-[6px] bg-[#25076b] border border-white/15 text-[#ffa602] font-display font-extrabold text-xs sm:text-sm mb-4 shadow-[0_3px_0_rgba(0,0,0,0.3)]">
+          <span data-art-ui="sparkles" data-art-size="14" class="sqa-ico"></span>
           <span>ผลการแข่งขันอย่างเป็นทางการ</span>
         </div>
       </div>
 
+      <!-- แถบสรุปทีมแชมป์ (แสดงอัตโนมัติเมื่อเล่นโหมด 4 ทีม!) -->
+      <div id="podiumTeamSummary" class="hidden max-w-3xl mx-auto mb-4"></div>
+
       <!-- แท่นโพเดียม 2 - 1 - 3 -->
-      <div id="podiumStage" class="grid grid-cols-3 items-end gap-3 sm:gap-5 max-w-2xl mx-auto mb-6 pt-10"></div>
+      <div id="podiumStage" class="grid grid-cols-3 items-end gap-3 sm:gap-5 max-w-2xl mx-auto mb-5 pt-6"></div>
 
       <!-- อันดับอื่นๆ -->
       <div id="podiumRest" class="k-panel max-w-xl mx-auto p-4 mb-6 hidden text-left"></div>
 
       <div class="flex flex-wrap justify-center gap-3">
+        <button id="openDebriefBtn" type="button" class="btn-3d k-btn-yellow px-6 py-3 text-base inline-flex items-center gap-2">
+          <span data-art-ui="target" data-art-size="18" class="sqa-ico"></span>
+          <span>สรุปความรู้หลังเกม (Teacher Debrief)</span>
+        </button>
         <button id="newMatchBtn" class="btn-3d k-btn-green px-6 py-3 text-base inline-flex items-center gap-2">
           <span data-art-ui="refresh" data-art-size="18" class="sqa-ico"></span>
           <span>เริ่มเกมใหม่ (ล้างข้อมูลเดิม)</span>
@@ -613,6 +635,102 @@
         </button>
         <button id="resumeFromPodiumBtn" class="btn-3d k-btn-white px-5 py-3 text-sm">ดูตารางคะแนน</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ปุ่มคุมห้องสำหรับครู (Teacher Moderation — ซ่อนรูป / เปลี่ยนชื่อ / ย้ายทีม / ปรับแต้ม / เตะออก) -->
+  <div id="modModal" class="overlay dim z-[210] hidden overflow-y-auto">
+    <div class="k-box max-w-md w-full p-5 sm:p-6 pop-in border-t-8 border-[#ffa602] my-auto space-y-4">
+      <div class="flex items-center justify-between gap-2 pb-2.5 border-b-2 border-neutral-200">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-[6px] bg-[#241f35] text-[#ffa602] grid place-items-center">
+            <span data-art-ui="shield" data-art-size="18" class="sqa-ico"></span>
+          </span>
+          <div>
+            <h3 class="font-display text-lg font-black text-[#333] leading-tight">จัดการผู้เล่น (Teacher Moderation)</h3>
+            <p class="text-[11px] font-bold text-neutral-500">สั่งมีผลทันทีทั้งบนจอใหญ่และจอมือถือผู้เล่น</p>
+          </div>
+        </div>
+        <button id="closeModModal" type="button" class="btn-3d k-btn-dark w-8 h-8 grid place-items-center shrink-0">✕</button>
+      </div>
+
+      <div class="flex items-center gap-3 bg-neutral-100 rounded-[8px] p-3 border border-neutral-200">
+        <div id="modPlayerAvatar" class="shrink-0"></div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span id="modPlayerName" class="font-display font-black text-lg text-[#333] truncate"></span>
+            <span id="modPlayerTeamPill"></span>
+          </div>
+          <div id="modPlayerMeta" class="text-xs font-bold text-neutral-500 mt-0.5"></div>
+        </div>
+      </div>
+
+      <!-- 1. จัดการรูปโปรไฟล์ -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-extrabold uppercase text-neutral-500">รูปโปรไฟล์</div>
+        <div class="flex items-center gap-2">
+          <button id="modHidePhotoBtn" type="button" class="btn-3d k-btn-yellow flex-1 py-2.5 text-xs sm:text-sm inline-flex items-center justify-center gap-1.5">
+            <span data-art-ui="camera" data-art-size="15" class="sqa-ico"></span>
+            <span id="modHidePhotoLabel">ซ่อนรูป (สลับกลับเป็นมาสคอต)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. เปลี่ยนชื่อเล่น -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-extrabold uppercase text-neutral-500">เปลี่ยนชื่อเล่น</div>
+        <div class="flex gap-1.5">
+          <input id="modRenameInput" type="text" maxlength="16" placeholder="พิมพ์ชื่อใหม่..." class="input-big text-sm !py-2 flex-1" />
+          <button id="modRenameSaveBtn" type="button" class="btn-3d k-btn-blue px-3.5 py-2 text-xs whitespace-nowrap">บันทึกชื่อ</button>
+        </div>
+        <button id="modRenameSafeBtn" type="button" class="w-full py-1.5 rounded-[5px] bg-neutral-200 hover:bg-neutral-300 text-xs font-extrabold text-[#333] transition">
+          รีเซ็ตด่วนเป็น "นักเรียนน่ารัก"
+        </button>
+      </div>
+
+      <!-- 3. ย้ายทีม (แสดงเมื่อเปิดโหมด 4 ทีม) -->
+      <div id="modTeamWrap" class="hidden space-y-1.5">
+        <div class="text-[11px] font-extrabold uppercase text-neutral-500">ย้ายทีม (4 สี)</div>
+        <div id="modTeamGrid" class="grid grid-cols-2 gap-1.5"></div>
+      </div>
+
+      <!-- 4. ปรับคะแนน -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-extrabold uppercase text-neutral-500">ปรับคะแนนด่วน</div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" data-mod-score="50" class="btn-3d k-btn-green py-2 text-xs">+50 แต้ม</button>
+          <button type="button" data-mod-score="-50" class="btn-3d k-btn-yellow py-2 text-xs">-50 แต้ม</button>
+          <button type="button" data-mod-score="reset" class="btn-3d k-btn-dark py-2 text-xs">รีเซ็ต 0</button>
+        </div>
+      </div>
+
+      <!-- 5. เตะออกจากห้อง -->
+      <div class="pt-2 border-t-2 border-neutral-200">
+        <button id="modKickBtn" type="button" class="btn-3d k-btn-red w-full py-3 text-sm inline-flex items-center justify-center gap-1.5">
+          <span data-art-ui="bolt" data-art-size="15" class="sqa-ico"></span>
+          <span>เตะผู้เล่นนี้ออกจากห้อง (Kick)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: สรุปประเด็นที่เด็กตอบพลาดบ่อยสุดหลังจบเกม (Teacher Debrief!) -->
+  <div id="debriefModal" class="overlay dim z-[215] hidden overflow-y-auto">
+    <div class="k-box max-w-4xl w-full p-5 sm:p-6 pop-in border-t-8 border-[#46178f] my-auto max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between gap-2 mb-4 pb-3 border-b-2 border-neutral-200 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span class="w-10 h-10 rounded-[8px] bg-[#46178f] text-[#ffa602] grid place-items-center shadow-[0_3px_0_#25076b]">
+            <span data-art-ui="target" data-art-size="22" class="sqa-ico"></span>
+          </span>
+          <div>
+            <h3 class="font-display text-xl sm:text-2xl font-black text-[#333] leading-tight">สรุปประเด็นความรู้หลังเกม (Teacher Debrief)</h3>
+            <p class="text-xs font-bold text-neutral-500">วิเคราะห์ความเข้าใจทั้งห้อง แยกตามภาพยนตร์ 4 เรื่อง และข้อที่ตอบพลาดบ่อยสุดสำหรับชวนคุยสรุป</p>
+          </div>
+        </div>
+        <button id="closeDebriefModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center shrink-0">✕</button>
+      </div>
+
+      <div id="debriefBody" class="overflow-y-auto space-y-4 pr-1 flex-1"></div>
     </div>
   </div>
 

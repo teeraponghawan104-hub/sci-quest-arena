@@ -301,13 +301,26 @@
   }
   document.addEventListener('click', e => {
     const btn = e.target && e.target.closest ? e.target.closest('[data-react]') : null;
-    if (btn) sendQuickReaction(btn.dataset.react);
+    if (btn) { sendQuickReaction(btn.dataset.react); return; }
+    const tBtn = e.target && e.target.closest ? e.target.closest('[data-switch-team]') : null;
+    if (tBtn && myId && Sync.room && Sync.room.status === 'lobby' && Sync.room.teamMode) {
+      const tKey = tBtn.dataset.switchTeam;
+      if (TEAMS[tKey]) {
+        SFX.pop();
+        Sync.transact(r => {
+          if (r && r.status === 'lobby' && r.teamMode) Game.setPlayerTeam(r, myId, tKey, false);
+          return r;
+        });
+        toast(`สลับไปอยู่ ${TEAMS[tKey].name} เรียบร้อย!`, 'success', 1600);
+      }
+    }
   });
 
   let prevScore = null;
   let prevShields = null;
   let prevZappedAt = 0;
   let bossCounterLocalUntil = 0;
+  let wasPhotoBlocked = false;
   let wasFrozen = false;
   let iceHits = 0;
   let wasBlinded = false;
@@ -390,8 +403,14 @@
   }
   function handleAvatarResend() {
     if (!myId || !myCustomPhoto) return;
+    if (Sync.room && Sync.room.players[myId] && Sync.room.players[myId].photoBlocked) return;
     SQA_PHOTOS.set(myId, myCustomPhoto);
     Sync.sendAvatar(myId, myCustomPhoto);
+  }
+  function handleKickedByHost() {
+    if (!myId) return;
+    SFX.wrong();
+    leaveRoomToLogin('ครูนำคุณออกจากห้องแข่งขันนี้แล้ว', false);
   }
   function readPlayerSession(code) {
     try {
@@ -469,6 +488,7 @@
     wasBlinded = false;
     wasFlipped = false;
     wasSelfieLocked = false;
+    wasPhotoBlocked = false;
     prevSelfieStatus = '';
     localSubmittedSelfieUrl = '';
     lastRenderedCardsKey = '';
@@ -529,11 +549,12 @@
         playerId: saved.id,
         onConn: onPlayerConn,
         onSelfieRequest: handleSelfieResend,
-        onAvatarRequest: handleAvatarResend
+        onAvatarRequest: handleAvatarResend,
+        onKicked: handleKickedByHost
       });
       const r = Sync.room;
-      // เคลียร์ Session เฉพาะเมื่อเกมจบแล้วจริงๆ หรือครูสั่งเริ่มรอบใหม่ (roundId สูงขึ้น) เท่านั้น!
-      if (r && (r.status === 'ended' || (r.roundId || 1) > (saved.roundId || 1))) {
+      // หากถูกครูเตะออกจากห้องในรอบนี้ หรือเกมจบ/เริ่มรอบใหม่ -> ล้าง Session ทันที!
+      if (r && ((r.kicked && r.kicked[saved.id]) || r.status === 'ended' || (r.roundId || 1) > (saved.roundId || 1))) {
         leaveRoomToLogin();
         return;
       }
@@ -647,7 +668,8 @@
         playerId: targetPid,
         onConn: onPlayerConn,
         onSelfieRequest: handleSelfieResend,
-        onAvatarRequest: handleAvatarResend
+        onAvatarRequest: handleAvatarResend,
+        onKicked: handleKickedByHost
       });
 
       let finalPid = targetPid;
@@ -655,12 +677,14 @@
       await Sync.transact(room => {
         const base = room || Sync.defaultRoom(code);
         const curRound = base.roundId || 1;
-        // 1) ถ้าตัวเดิมยังอยู่ในห้อง (และเกมยังไม่จบ + รอบเดิม) -> กู้คืนตัวเดิม!
-        if (reclaimId && base.status !== 'ended' && base.players[reclaimId] && (existingSaved.roundId || 1) === curRound) {
+        const wasKickedOld = !!(reclaimId && base.kicked && base.kicked[reclaimId]);
+        // 1) ถ้าตัวเดิมยังอยู่ในห้อง (และเกมยังไม่จบ + รอบเดิม + ไม่ถูกเตะ) -> กู้คืนตัวเดิม!
+        if (reclaimId && !wasKickedOld && base.status !== 'ended' && base.players[reclaimId] && (existingSaved.roundId || 1) === curRound) {
           const ex = base.players[reclaimId];
           ex.name = name;
           ex.avatar = selectedAv;
-          ex.hasPhoto = !!myCustomPhoto;
+          if (!ex.photoBlocked) ex.hasPhoto = !!myCustomPhoto;
+          if (base.teamMode && (!ex.team || !TEAMS[ex.team])) ex.team = Game.pickBalancedTeam(base);
           ex.deviceId = myDeviceId;
           if (existingSaved.snapshot && existingSaved.snapshot.answered) {
             ex.answered = Object.assign({}, existingSaved.snapshot.answered, ex.answered || {});
@@ -671,10 +695,13 @@
           reclaimed = true;
           return base;
         }
-        // 2) ถ้ามี snapshot เดิมในเครื่องรอบเดียวกันที่ยังไม่จบ -> กู้คืนคะแนนเดิมกลับเข้าห้อง!
-        if (reclaimId && base.status !== 'ended' && existingSaved.snapshot && (existingSaved.roundId || 1) === curRound) {
+        // 2) ถ้ามี snapshot เดิมในเครื่องรอบเดียวกันที่ยังไม่จบ (และไม่ถูกเตะ) -> กู้คืนคะแนนเดิมกลับเข้าห้อง!
+        if (reclaimId && !wasKickedOld && base.status !== 'ended' && existingSaved.snapshot && (existingSaved.roundId || 1) === curRound) {
           const rest = Object.assign({}, existingSaved.snapshot, {
-            name, avatar: selectedAv, hasPhoto: !!myCustomPhoto, deviceId: myDeviceId,
+            name, avatar: selectedAv,
+            hasPhoto: existingSaved.snapshot.photoBlocked ? false : !!myCustomPhoto,
+            team: base.teamMode ? (existingSaved.snapshot.team || Game.pickBalancedTeam(base)) : (existingSaved.snapshot.team || ''),
+            deviceId: myDeviceId,
             roundId: curRound,
             rev: (existingSaved.snapshot.rev || 0) + 1,
             updatedAt: Math.max((existingSaved.snapshot.updatedAt || 0) + 1, Date.now())
@@ -686,7 +713,8 @@
         }
         // 3) ผู้เล่นใหม่ (หรือเริ่มรอบใหม่แล้ว)
         const newId = 'p_' + uid();
-        const p = Game.newPlayer(newId, name, selectedAv, false, { hasPhoto: !!myCustomPhoto, deviceId: myDeviceId });
+        const assignedTeam = base.teamMode ? Game.pickBalancedTeam(base) : '';
+        const p = Game.newPlayer(newId, name, selectedAv, false, { hasPhoto: !!myCustomPhoto, deviceId: myDeviceId, team: assignedTeam });
         p.roundId = curRound;
         base.players[newId] = p;
         finalPid = newId;
@@ -911,6 +939,9 @@
       el.gradeBar.style.width = `${res.accuracy}%`;
     });
 
+    // ส่งสถิติการตอบตรงให้ Host สำหรับสรุปประเด็นความรู้หลังเกม (Teacher Debrief — ไม่กระจายไปหาเพื่อนอีก 199 คน!)
+    Sync.sendAnswerStat({ qid: currentQ.id, film: currentQ.film, acc: res.accuracy, pass: res.multiplier > 0 });
+
     if (res.multiplier === 0) {
       SFX.wrong();
       SFX.announce('gradeMiss');
@@ -1116,10 +1147,10 @@
       return;
     }
 
-    const others = Game.ranking(room).filter(p => p.id !== myId);
+    const others = Game.ranking(room).filter(p => p.id !== myId && !(room.teamMode && me.team && p.team === me.team));
     if (!others.length) {
       SFX.wrong();
-      toast('ยังไม่มีเพื่อนคนอื่นในห้องให้ใช้ไอเทมนี้', 'warn');
+      toast(room.teamMode ? 'ยังไม่มีผู้เล่นทีมฝั่งตรงข้ามให้ใช้ไอเทมนี้ (ห้ามยิงเพื่อนร่วมทีม!)' : 'ยังไม่มีเพื่อนคนอื่นในห้องให้ใช้ไอเทมนี้', 'warn');
       return;
     }
     SFX.pop();
@@ -1175,7 +1206,7 @@
           <div class="flex items-center gap-2.5 min-w-0">
             ${avatarHtml(t.avatar, 38)}
             <div class="min-w-0">
-              <div class="font-display font-extrabold text-[#333] truncate inline-flex items-center gap-1">${!q && idx === 0 ? uiIconHtml('crownMini', 14, 'text-[#d89e00]') : ''}<span>${esc(t.name)}</span></div>
+              <div class="font-display font-extrabold text-[#333] truncate inline-flex items-center gap-1">${!q && idx === 0 ? uiIconHtml('crownMini', 14, 'text-[#d89e00]') : ''}<span>${esc(t.name)}</span>${room.teamMode && t.team ? teamBadgeHtml(t.team, true) : ''}</div>
               <div class="text-xs font-bold text-neutral-500 inline-flex items-center gap-1">${t.score.toLocaleString()} แต้ม ${t.frozen ? itemIconHtml('freeze', 14) : ''} ${t.blinded ? itemIconHtml('blind', 14) : ''} ${t.flipped ? itemIconHtml('flip', 14) : ''}</div>
             </div>
           </div>
@@ -1567,6 +1598,7 @@
     const isFever = !!(room.feverId && (room.feverRemainingSec || 0) > 0);
     const hasBoost = !!(me.x2Active || isFever);
     const calc = Game.calcBossDamage(grade.accuracy, hasBoost);
+    Sync.sendAnswerStat({ qid: currentBossQ.id, film: currentBossQ.film, acc: grade.accuracy, pass: calc.dmg > 0 });
 
     const resBox = $('bossHitResult');
     const tierEl = $('bossHitTier');
@@ -1827,6 +1859,10 @@
 
   function applyPlayerRoomRender(room) {
     if (!room || !myId) return;
+    if (room.kicked && room.kicked[myId]) {
+      handleKickedByHost();
+      return;
+    }
     const me = room.players[myId];
     if (!me) {
       // เฉพาะกรณีที่ครูสั่งล้างห้อง/เริ่มรอบใหม่จริง (roundId สูงขึ้น) เท่านั้นจึงกลับหน้าล็อกอิน!
@@ -1901,12 +1937,32 @@
     const ranked = Game.ranking(room);
     const rankIdx = ranked.findIndex(p => p.id === myId);
 
-    const myAvSig = `${me.avatar}_${SQA_PHOTOS.has(myId) ? 1 : 0}`;
+    if (me.photoBlocked && !wasPhotoBlocked) {
+      wasPhotoBlocked = true;
+      SQA_PHOTOS.del(myId);
+      toast(`${uiIconHtml('shield', 16)}<span>ครูซ่อนรูปโปรไฟล์ของคุณแล้ว (สลับกลับเป็นตัวละครมาสคอต)</span>`, 'warn', 3400);
+    } else if (!me.photoBlocked && wasPhotoBlocked) {
+      wasPhotoBlocked = false;
+      if (myCustomPhoto) {
+        SQA_PHOTOS.set(myId, myCustomPhoto);
+        Sync.sendAvatar(myId, myCustomPhoto);
+      }
+    }
+
+    const myAvSig = `${me.avatar}_${!me.photoBlocked && SQA_PHOTOS.has(myId) ? 1 : 0}_${me.photoBlocked ? 1 : 0}`;
     if (el.hdrAvatar.dataset.avIdx !== myAvSig) {
       el.hdrAvatar.dataset.avIdx = myAvSig;
-      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 36, '', myId);
+      el.hdrAvatar.innerHTML = avatarHtml(me.avatar, 36, '', me.photoBlocked ? '' : myId);
     }
     el.hdrName.textContent = me.name;
+    const hdrTeamPill = $('hdrTeamPill');
+    if (hdrTeamPill) {
+      const tSig = room.teamMode ? (me.team || '') : '';
+      if (hdrTeamPill.dataset.t !== tSig) {
+        hdrTeamPill.dataset.t = tSig;
+        hdrTeamPill.innerHTML = tSig ? teamBadgeHtml(tSig, true) : '';
+      }
+    }
     el.hdrRoom.textContent = room.code;
     el.hdrRank.textContent = `#${rankIdx + 1}/${ranked.length}`;
     el.hdrScore.textContent = me.score.toLocaleString();
@@ -2098,7 +2154,18 @@
       el.stateIcon.innerHTML = heroIconHtml('party', 80);
       el.stateTitle.textContent = "You're in! เข้าห้องแล้ว!";
       el.stateDesc.textContent = `เห็นชื่อของคุณบนหน้าจอครูไหม? รอครูกดเริ่มเกมสักครู่ (${ranked.length} คนในห้อง)`;
-      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36, '', myId)}<span>${esc(me.name)}</span></div>${lobbyReactBar}`;
+      const lobbyTeamBar = room.teamMode ? `
+        <div class="pt-2 border-t border-neutral-200 mt-2">
+          <div class="text-[11px] font-extrabold text-neutral-500 mb-1.5">โหมดแบ่งทีม 4 สี — เลือกทีมของคุณได้เลย!</div>
+          <div class="grid grid-cols-2 gap-1.5">
+            ${TEAM_KEYS.map(k => {
+              const t = TEAMS[k];
+              const act = me.team === k;
+              return `<button type="button" data-switch-team="${k}" class="py-2 px-2.5 rounded-[5px] font-display font-black text-xs text-white transition flex items-center justify-center gap-1 ${act ? 'ring-4 ring-[#1e1b2e]' : 'opacity-75 hover:opacity-100'}" style="background:${t.color};box-shadow:0 3px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}${act ? ' ✓' : ''}</span></button>`;
+            }).join('')}
+          </div>
+        </div>` : '';
+      el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36, '', me.photoBlocked ? '' : myId)}<span>${esc(me.name)}</span>${room.teamMode && me.team ? teamBadgeHtml(me.team, true) : ''}</div>${lobbyTeamBar}${lobbyReactBar}`;
       el.stateOverlay.classList.remove('hidden');
     } else if (room.status === 'paused') {
       el.stateIcon.innerHTML = heroIconHtml('pauseIcon', 76);
@@ -2113,12 +2180,24 @@
       el.stateTitle.textContent = `ได้อันดับ #${rankIdx + 1}`;
       el.stateDesc.textContent = `คะแนนรวมของคุณคือ ${me.score.toLocaleString()} แต้ม`;
       const topMedals = ['medal1', 'medal2', 'medal3'];
+      const endTeamBox = room.teamMode ? (() => {
+        const tRank = Game.teamRanking(room);
+        const champ = tRank[0];
+        return `<div class="rounded-[6px] p-2.5 text-white text-left mb-2.5 flex items-center justify-between gap-2" style="background:${champ.color}">
+          <div>
+            <div class="text-[10px] font-extrabold uppercase opacity-85">ทีมแชมป์ประจำห้อง!</div>
+            <div class="font-display font-black text-base">${champ.shape} ${esc(champ.full)}</div>
+          </div>
+          <div class="font-display font-black text-lg tabular">${champ.score.toLocaleString()}</div>
+        </div>`;
+      })() : '';
       el.stateExtra.innerHTML = `
+        ${endTeamBox}
         <div class="bg-neutral-100 rounded-[6px] p-3 text-left space-y-1.5 mb-3">
           <div class="text-xs font-extrabold uppercase text-neutral-500">Podium Top 3</div>
           ${ranked.slice(0, 3).map((p, i) => `
             <div class="flex items-center justify-between text-sm font-extrabold text-[#333]">
-              <span class="inline-flex items-center gap-1.5">${heroIconHtml(topMedals[i], 22)}<span>#${i + 1} ${esc(p.name)}</span></span>
+              <span class="inline-flex items-center gap-1.5">${heroIconHtml(topMedals[i], 22)}<span>#${i + 1} ${esc(p.name)}</span>${room.teamMode && p.team ? teamBadgeHtml(p.team, true) : ''}</span>
               <span class="tabular">${p.score.toLocaleString()}</span>
             </div>`).join('')}
         </div>

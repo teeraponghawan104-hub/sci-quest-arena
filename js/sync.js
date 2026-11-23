@@ -16,13 +16,15 @@
 const Sync = (() => {
   const cfg = window.SQA_CONFIG || { backend: 'cloud' };
   const mode = cfg.backend || 'cloud';
-  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, avatarCb = null, avatarReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null;
+  let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, avatarCb = null, avatarReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null, kickedCb = null, answerStatCb = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
+  const TEAM_WIRE_LIST = ['', 'red', 'blue', 'yellow', 'green'];
 
   function defaultRoom(c) {
     const now = Date.now();
     return {
       code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
+      teamMode: false, kicked: {},
       timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false, timerEpoch: 1,
       feverId: '', feverRemainingSec: 0,
       players: {}, feed: {}, bonus: null, usedBonus: {}, boss: null
@@ -36,8 +38,10 @@ const Sync = (() => {
     p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered).length);
     p.score = Number(p.score || 0);
     p.streak = Number(p.streak || 0);
+    p.team = p.team || '';
     p.isBot = !!p.isBot;
-    p.hasPhoto = !!p.hasPhoto;
+    p.photoBlocked = !!p.photoBlocked;
+    p.hasPhoto = p.photoBlocked ? false : !!p.hasPhoto;
     p.x2Active = !!p.x2Active;
     p.frozen = !!p.frozen;
     p.frozenBy = p.frozen ? (p.frozenBy || '') : '';
@@ -63,6 +67,8 @@ const Sync = (() => {
     r.players = r.players || {};
     r.feed = r.feed || {};
     r.usedBonus = r.usedBonus || {};
+    r.teamMode = !!r.teamMode;
+    r.kicked = r.kicked || {};
     r.hostUpdatedAt = Number(r.hostUpdatedAt || 0);
     r.roundId = Number(r.roundId || 1);
     r.timerTotalSec = Number(r.timerTotalSec || 0);
@@ -129,6 +135,7 @@ const Sync = (() => {
     const baseT = Number(r.createdAt || Date.now());
     const pArr = [];
     for (const p of Object.values(r.players || {})) {
+      const teamIdx = Math.max(0, TEAM_WIRE_LIST.indexOf(p.team || ''));
       const flags =
         (p.isBot ? 1 : 0) |
         (p.x2Active ? 2 : 0) |
@@ -138,7 +145,9 @@ const Sync = (() => {
         (p.selfieLocked ? 32 : 0) |
         (p.selfieLocked && p.selfieStatus === 'pending_review' ? 64 : 0) |
         (p.selfieLocked && p.selfieStatus === 'waiting_photo' ? 128 : 0) |
-        (p.hasPhoto ? 256 : 0);
+        (!p.photoBlocked && p.hasPhoto ? 256 : 0) |
+        (p.photoBlocked ? 512 : 0) |
+        ((teamIdx & 7) << 10);
 
       let items = null;
       if (p.items) {
@@ -173,6 +182,8 @@ const Sync = (() => {
       p: pArr,
       f: keepFeed
     };
+    if (r.teamMode) wire.tm = 1;
+    if (r.kicked && Object.keys(r.kicked).length) wire.kk = Object.keys(r.kicked).slice(-50);
     if (r.timerTotalSec) { wire.tt = r.timerTotalSec; wire.tr = r.timerRemainingMs || 0; wire.te = r.timerEpoch || 1; if (r.timerRunning) wire.tn = 1; }
     if (r.feverId && r.feverRemainingSec > 0) { wire.fi = r.feverId; wire.fs = Math.ceil(r.feverRemainingSec); }
     if (r.status === 'ended' && r.endedAt) wire.en = r.endedAt;
@@ -215,7 +226,9 @@ const Sync = (() => {
         rev: t[7] || 0,
         hostRev: t[8] || 0,
         isBot: !!(flags & 1),
-        hasPhoto: !!(flags & 256),
+        photoBlocked: !!(flags & 512),
+        hasPhoto: !(flags & 512) && !!(flags & 256),
+        team: TEAM_WIRE_LIST[(flags >> 10) & 7] || '',
         x2Active: !!(flags & 2),
         frozen: !!(flags & 4),
         blinded: !!(flags & 8),
@@ -252,12 +265,18 @@ const Sync = (() => {
     } else if (raw.boss) {
       boss = raw.boss;
     }
+    const kicked = {};
+    if (Array.isArray(raw.kk)) {
+      for (const kpid of raw.kk) if (kpid) kicked[kpid] = 1;
+    }
     return normalize({
       code: raw.c,
       status: raw.s || 'lobby',
       createdAt: baseT,
       hostUpdatedAt: raw.hu || 0,
       roundId,
+      teamMode: !!raw.tm,
+      kicked,
       timerTotalSec: raw.tt || 0,
       timerRemainingMs: raw.tr || 0,
       timerRunning: !!raw.tn,
@@ -290,13 +309,15 @@ const Sync = (() => {
     newer.answered = Object.assign({}, older.answered || {}, newer.answered || {});
     newer.answeredCount = Math.max(Number(newer.answeredCount || 0), Number(older.answeredCount || 0), Object.keys(newer.answered).length);
 
-    // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่)
+    // สิทธิ์ Host Authority (hostRev สูงกว่าชนะเสมอสำหรับคำสั่งอนุมัติ/สั่งถ่ายรูปหน้าตลกใหม่/ซ่อนรูปโปรไฟล์)
     if (hA !== hB) {
       const hWin = hB > hA ? pb : pa;
       newer.selfieLocked = !!hWin.selfieLocked;
       newer.selfieStatus = hWin.selfieStatus || '';
       newer.selfieFrom = hWin.selfieFrom || '';
       newer.selfiePhoto = hWin.selfiePhoto || '';
+      newer.photoBlocked = !!hWin.photoBlocked;
+      if (newer.photoBlocked) newer.hasPhoto = false;
     }
     newer.hostRev = Math.max(hA, hB);
     newer.rev = Math.max(revA, revB);
@@ -324,6 +345,7 @@ const Sync = (() => {
         copy.usedBonus = {};
         copy.players = {};
         copy.feed = {};
+        copy.kicked = {};
         copy.bonus = null;
         copy.boss = null;
       } else {
@@ -345,12 +367,15 @@ const Sync = (() => {
 
     const hostNewerB = (b.hostUpdatedAt || 0) >= (a.hostUpdatedAt || 0);
     const primary = hostNewerB ? b : a;
+    const mergedKicked = Object.assign({}, a.kicked || {}, b.kicked || {});
     const out = {
       code: primary.code || a.code,
       status: primary.status || 'lobby',
       createdAt: Math.min(a.createdAt || Date.now(), b.createdAt || Date.now()),
       hostUpdatedAt: Math.max(a.hostUpdatedAt || 0, b.hostUpdatedAt || 0),
       roundId,
+      teamMode: !!primary.teamMode,
+      kicked: mergedKicked,
       timerTotalSec: primary.timerTotalSec || 0,
       timerRemainingMs: primary.timerRemainingMs || 0,
       timerRunning: !!primary.timerRunning,
@@ -377,6 +402,7 @@ const Sync = (() => {
 
     const allPids = new Set([...Object.keys(a.players || {}), ...Object.keys(b.players || {})]);
     for (const pid of allPids) {
+      if (mergedKicked[pid]) continue;
       const mergedP = mergePlayer(a.players[pid], b.players[pid], roundId);
       if (mergedP && (mergedP.roundId || roundId) >= roundId) {
         out.players[pid] = mergedP;
@@ -406,6 +432,7 @@ const Sync = (() => {
 
     if (patch.players) {
       for (const [pid, incP] of Object.entries(patch.players)) {
+        if (base.kicked && base.kicked[pid]) continue;
         base.players[pid] = mergePlayer(base.players[pid], incP, curRound);
       }
     }
@@ -731,6 +758,21 @@ const Sync = (() => {
       }
     },
 
+    sendKick(pid) {
+      if (!isHostRole || !pid) return;
+      if (this.bc) { try { this.bc.postMessage({ t: 'kicked', pid }); } catch (e) {} }
+      this.publishDirect(pid, { kicked: true, code });
+    },
+
+    sendAnswerStat(stat) {
+      if (!stat || !stat.qid) return;
+      const payload = { code, roundId: (this.cur && this.cur.roundId) || 1, answerStat: stat };
+      if (this.bc) { try { this.bc.postMessage({ t: 'answerStat', stat }); } catch (e) {} }
+      if (this.client && this.client.connected) {
+        try { this.client.publish(this.topicPatch(code), JSON.stringify(payload), { qos: 0, retain: false }); } catch (e) {}
+      }
+    },
+
     startMqttClient(brokerIdx, onInitialDone) {
       const brokers = (cfg.cloud && cfg.cloud.brokers && cfg.cloud.brokers.length)
         ? cfg.cloud.brokers
@@ -851,6 +893,10 @@ const Sync = (() => {
                   bossHitCb(patch.bossHit);
                   return;
                 }
+                if (patch.answerStat && answerStatCb) {
+                  answerStatCb(patch.answerStat);
+                  return;
+                }
                 this.cur = applyPatchInPlace(this.cur, patch);
                 this.scheduleWriteLocal(false);
                 emit(this.cur, true);
@@ -862,6 +908,10 @@ const Sync = (() => {
           if (!isHostRole && myPlayerId && topic === this.topicDirect(myPlayerId)) {
             try {
               const msg = JSON.parse(payload.toString());
+              if (msg && msg.kicked) {
+                if (kickedCb) kickedCb();
+                return;
+              }
               if (msg && msg.reqSelfie) {
                 if (selfieReqCb) selfieReqCb();
                 return;
@@ -942,6 +992,14 @@ const Sync = (() => {
           }
           if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) {
             bossHitCb(d.hit);
+            return;
+          }
+          if (d && d.t === 'answerStat' && isHostRole && d.stat && answerStatCb) {
+            answerStatCb(d.stat);
+            return;
+          }
+          if (d && d.t === 'kicked' && !isHostRole && d.pid === myPlayerId && kickedCb) {
+            kickedCb();
             return;
           }
           if (d && d.t === 'react' && isHostRole && d.k && reactCb) {
@@ -1062,6 +1120,8 @@ const Sync = (() => {
           if (d && d.t === 'reqAvatar' && !isHostRole && d.pid === myPlayerId && avatarReqCb) { avatarReqCb(); return; }
           if (d && d.t === 'react' && isHostRole && reactCb) { reactCb(d.k, d.n || ''); return; }
           if (d && d.t === 'bossHit' && isHostRole && d.hit && bossHitCb) { bossHitCb(d.hit); return; }
+          if (d && d.t === 'answerStat' && isHostRole && d.stat && answerStatCb) { answerStatCb(d.stat); return; }
+          if (d && d.t === 'kicked' && !isHostRole && d.pid === myPlayerId && kickedCb) { kickedCb(); return; }
           if (d && d.t === 'reqSelfie' && !isHostRole && d.pid === myPlayerId && selfieReqCb) { selfieReqCb(); return; }
           emit(this.read());
         };
@@ -1104,6 +1164,14 @@ const Sync = (() => {
       } else if (this.bc) {
         try { this.bc.postMessage({ t: 'bossHit', hit }); } catch (e) {}
       }
+    },
+    sendKick(pid) {
+      if (!isHostRole || !pid) return;
+      if (this.bc) { try { this.bc.postMessage({ t: 'kicked', pid }); } catch (e) {} }
+    },
+    sendAnswerStat(stat) {
+      if (!stat || !stat.qid) return;
+      if (this.bc) { try { this.bc.postMessage({ t: 'answerStat', stat }); } catch (e) {} }
     },
     async exists(c) { return !!this.read(c); },
     async transact(fn, allowCreate) {
@@ -1359,6 +1427,8 @@ const Sync = (() => {
       brokerChangeCb = opts.onBrokerChange || null;
       reactCb = opts.onReaction || null;
       bossHitCb = opts.onBossHit || null;
+      kickedCb = opts.onKicked || null;
+      answerStatCb = opts.onAnswerStat || null;
       pinnedBrokerIdx = Number(opts.brokerIdx || 0) || 0;
       myPlayerId = opts.playerId || null;
       adapter = pick();
@@ -1374,9 +1444,11 @@ const Sync = (() => {
     sendDirectPlayer: (pid, pObj) => adapter && adapter.sendDirectPlayer && adapter.sendDirectPlayer(pid, pObj),
     sendReaction: (kind, senderName) => adapter && adapter.sendReaction && adapter.sendReaction(kind, senderName),
     sendBossHit: hit => adapter && adapter.sendBossHit && adapter.sendBossHit(hit),
+    sendKick: pid => adapter && adapter.sendKick && adapter.sendKick(pid),
+    sendAnswerStat: stat => adapter && adapter.sendAnswerStat && adapter.sendAnswerStat(stat),
     disconnect() {
       if (adapter) adapter.disconnect();
-      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; avatarCb = null; avatarReqCb = null; brokerChangeCb = null; reactCb = null; bossHitCb = null;
+      adapter = null; cb = null; connCb = null; selfieCb = null; selfieReqCb = null; avatarCb = null; avatarReqCb = null; brokerChangeCb = null; reactCb = null; bossHitCb = null; kickedCb = null; answerStatCb = null;
       myPlayerId = null; last = null;
     },
     defaultRoom,
