@@ -130,7 +130,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1 min-w-0">
               <span id="hdrName" class="font-display font-black text-xs sm:text-base truncate text-[#333]"></span>
-              <span id="hdrTeamPill" class="shrink-0"></span>
+              <span id="hdrTeamPill" class="shrink-0 cursor-pointer" title="แตะเพื่อดูสมาชิก / เปลี่ยนทีม"></span>
               <button id="leaveBtn" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-neutral-200 hover:bg-neutral-300 text-[#333] shrink-0">ออก</button>
             </div>
             <div class="flex items-center gap-1 text-[10px] sm:text-xs font-extrabold text-neutral-500 whitespace-nowrap overflow-hidden">
@@ -721,6 +721,21 @@
       <div class="bg-[#241f35] border-2 border-white/20 rounded-[6px] px-5 py-2 inline-block font-display text-xl font-black text-white">
         ทุบอีก <span id="iceLeftText" class="text-[#ffa602]">5</span> ครั้ง!
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: เลือก / ดูสมาชิก 25 ทีม (ทีมละไม่เกิน 5 คน) ===================== -->
+  <div id="playerTeamModal" class="overlay dim z-[192] hidden overflow-y-auto">
+    <div class="k-box max-w-md w-full p-4 sm:p-5 space-y-3 pop-in my-auto border-t-8 border-[#ffa602]">
+      <div class="flex items-center justify-between gap-2 pb-2 border-b-2 border-neutral-200">
+        <div class="min-w-0">
+          <h3 class="font-display text-lg font-black text-[#333] leading-tight">เลือกทีม (25 ทีม • ทีมละไม่เกิน 5 คน)</h3>
+          <p class="text-[11px] font-bold text-neutral-500">เลือกทีมที่มีที่ว่าง (น้อยกว่า 5 คน) — เมื่อเริ่มทำคะแนนแล้วจะล็อกทีมอัตโนมัติ</p>
+        </div>
+        <button id="closePlayerTeamModal" type="button" class="btn-3d k-btn-dark w-8 h-8 grid place-items-center shrink-0">✕</button>
+      </div>
+      <div id="playerTeamRoster" class="rounded-[6px] bg-neutral-100 border border-neutral-200 p-2.5 text-xs font-bold text-[#333]"></div>
+      <div id="playerTeamGrid" class="grid grid-cols-5 gap-1.5"></div>
     </div>
   </div>
 

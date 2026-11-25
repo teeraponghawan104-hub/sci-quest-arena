@@ -18,7 +18,12 @@ const Sync = (() => {
   const mode = cfg.backend || 'cloud';
   let code = null, cb = null, connCb = null, selfieCb = null, selfieReqCb = null, avatarCb = null, avatarReqCb = null, brokerChangeCb = null, liveTimerFn = null, reactCb = null, bossHitCb = null, kickedCb = null, answerStatCb = null;
   let isHostRole = false, pinnedBrokerIdx = 0, myPlayerId = null, last = null, adapter = null;
-  const TEAM_WIRE_LIST = ['', 'red', 'blue', 'yellow', 'green'];
+  const TEAM_WIRE_LIST = [
+    '', 't01', 't02', 't03', 't04', 't05', 't06', 't07', 't08', 't09', 't10',
+    't11', 't12', 't13', 't14', 't15', 't16', 't17', 't18', 't19', 't20',
+    't21', 't22', 't23', 't24', 't25'
+  ];
+  const LEGACY_TEAM_MAP = { red: 't01', blue: 't02', yellow: 't03', green: 't04' };
 
   function defaultRoom(c) {
     const now = Date.now();
@@ -38,7 +43,9 @@ const Sync = (() => {
     p.answeredCount = Math.max(Number(p.answeredCount || 0), Object.keys(p.answered).length);
     p.score = Number(p.score || 0);
     p.streak = Number(p.streak || 0);
-    p.team = p.team || '';
+    const rawTeam = String(p.team || '');
+    const mappedTeam = LEGACY_TEAM_MAP[rawTeam] || rawTeam;
+    p.team = TEAM_WIRE_LIST.includes(mappedTeam) ? mappedTeam : '';
     p.isBot = !!p.isBot;
     p.photoBlocked = !!p.photoBlocked;
     p.hasPhoto = p.photoBlocked ? false : !!p.hasPhoto;
@@ -147,7 +154,7 @@ const Sync = (() => {
         (p.selfieLocked && p.selfieStatus === 'waiting_photo' ? 128 : 0) |
         (!p.photoBlocked && p.hasPhoto ? 256 : 0) |
         (p.photoBlocked ? 512 : 0) |
-        ((teamIdx & 7) << 10);
+        ((teamIdx & 31) << 10);
 
       let items = null;
       if (p.items) {
@@ -228,7 +235,7 @@ const Sync = (() => {
         isBot: !!(flags & 1),
         photoBlocked: !!(flags & 512),
         hasPhoto: !(flags & 512) && !!(flags & 256),
-        team: TEAM_WIRE_LIST[(flags >> 10) & 7] || '',
+        team: TEAM_WIRE_LIST[(flags >> 10) & 31] || '',
         x2Active: !!(flags & 2),
         frozen: !!(flags & 4),
         blinded: !!(flags & 8),

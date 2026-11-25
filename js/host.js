@@ -156,8 +156,10 @@
   const lastAvatarReqAt = new Map();
   const hostAnswerStats = new Map();
   let allRanksOpen = false;
+  let allTeamsOpen = false;
   let modTargetPid = null;
   let debriefOpen = false;
+  let rebalancingTeams = false;
   const safeName = n => (window.NameFilter ? NameFilter.sanitize(n) : String(n || ''));
 
   function recordAnswerStat(stat) {
@@ -983,33 +985,41 @@
       if (room.teamMode) {
         const tRank = Game.teamRanking(room);
         const champ = tRank[0];
+        const champMembers = (champ.memberList || []).slice(0, 5).map(m => esc(safeName(m.name))).join(' • ');
         teamSumEl.classList.remove('hidden');
         teamSumEl.innerHTML = `
           <div class="rounded-[10px] p-4 border-4 border-[#fde047] shadow-2xl text-white text-left space-y-3" style="background:linear-gradient(135deg,${champ.color} 0%,${champ.dark} 100%)">
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2.5">
+              <div class="flex items-center gap-2.5 min-w-0">
                 ${heroIconHtml('trophy', 40, 'crown-float')}
-                <div>
-                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#fde047]">TEAM BATTLE CHAMPION • ทีมแชมป์ประจำห้อง!</div>
-                  <div class="font-display text-2xl sm:text-3xl font-black leading-tight">${champ.shape} ${esc(champ.full)}</div>
+                <div class="min-w-0">
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#fde047]">TEAM BATTLE CHAMPION • ทีมแชมป์จาก 25 ทีม!</div>
+                  <div class="font-display text-2xl sm:text-3xl font-black leading-tight truncate">${champ.shape} ${esc(champ.full)}</div>
+                  ${champMembers ? `<div class="text-[11px] font-bold text-white/85 truncate mt-0.5">${champMembers}</div>` : ''}
                 </div>
               </div>
-              <div class="bg-black/30 rounded-[8px] px-4 py-1.5 text-right">
+              <div class="bg-black/30 rounded-[8px] px-4 py-1.5 text-right shrink-0">
                 <div class="font-display text-2xl sm:text-3xl font-black text-[#fde047] tabular leading-none">${champ.score.toLocaleString()}</div>
-                <div class="text-[11px] font-bold text-white/85">คะแนนรวม (${champ.members} คน)</div>
+                <div class="text-[11px] font-bold text-white/85">คะแนนรวม (${champ.members}/5 คน)</div>
               </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              ${tRank.map((t, i) => `
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              ${tRank.slice(0, 5).map((t, i) => `
                 <div class="rounded-[6px] px-2.5 py-2 flex items-center justify-between gap-1.5 ${i === 0 ? 'bg-white text-[#333] shadow' : 'bg-black/25 text-white'}">
                   <div class="min-w-0">
-                    <div class="text-[10px] font-black opacity-75">#${i + 1} • ${t.members} คน</div>
+                    <div class="text-[10px] font-black opacity-75">#${i + 1} • ${t.members}/5 คน</div>
                     <div class="font-display font-black text-xs sm:text-sm truncate">${t.shape} ${esc(t.name)}</div>
                   </div>
                   <div class="font-display font-black text-sm sm:text-base tabular shrink-0">${t.score.toLocaleString()}</div>
                 </div>`).join('')}
             </div>
+            <div class="flex justify-end">
+              <button id="podiumAllTeamsBtn" type="button" class="btn-3d k-btn-white px-3.5 py-1.5 text-xs inline-flex items-center gap-1.5">
+                ${uiIconHtml('users', 14)}<span>ดูอันดับครบทั้ง 25 ทีม</span>
+              </button>
+            </div>
           </div>`;
+        $('podiumAllTeamsBtn')?.addEventListener('click', openAllTeamsModal);
       } else {
         teamSumEl.classList.add('hidden');
       }
@@ -1191,14 +1201,79 @@
     });
   }
 
-  // ---------------- โหมดแบ่งทีม 4 สี (Team Scoreboard Strip + Toggle) ----------------
+  // ---------------- โหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน) ----------------
+  function renderAllTeamsModal() {
+    const modal = $('allTeamsModal');
+    if (!modal || modal.classList.contains('hidden') || !Sync.room) return;
+    const tRank = Game.teamRanking(Sync.room);
+    const q = ($('allTeamsSearch')?.value || '').trim().toLowerCase();
+    const filtered = q
+      ? tRank.filter(t =>
+          t.name.toLowerCase().includes(q) ||
+          t.codename.toLowerCase().includes(q) ||
+          String(t.num) === q ||
+          (t.memberList || []).some(m => safeName(m.name).toLowerCase().includes(q))
+        )
+      : tRank;
+    const activeTeams = tRank.filter(t => t.members > 0).length;
+    const totalMembers = Object.keys(Sync.room.players || {}).length;
+    const sub = $('allTeamsSub');
+    if (sub) sub.textContent = `มีทีมที่เข้าร่วม ${activeTeams}/25 ทีม • รวม ${totalMembers}/125 คน (จำกัดทีมละไม่เกิน 5 คน • คลิกชื่อเพื่อจัดการ)`;
+
+    const listEl = $('allTeamsList');
+    if (!listEl) return;
+    listEl.innerHTML = filtered.map(t => {
+      const rank = tRank.indexOf(t) + 1;
+      const memberHtml = (t.memberList || []).length
+        ? t.memberList.map(m => `
+            <button type="button" data-team-mod-pid="${esc(m.id)}" class="px-2 py-1 rounded-[4px] bg-neutral-100 hover:bg-[#ffa602]/25 border border-neutral-200 text-xs font-bold text-[#333] inline-flex items-center gap-1 max-w-full transition">
+              <span class="truncate max-w-[110px]">${esc(safeName(m.name))}</span>
+              <span class="font-display font-black text-[11px] text-[#46178f] tabular">${m.score.toLocaleString()}</span>
+            </button>`).join('')
+        : '<span class="text-[11px] font-bold text-neutral-400">ยังไม่มีสมาชิก (ว่าง 5 ที่)</span>';
+      return `
+        <div class="rounded-[8px] border-2 bg-white p-3 space-y-2 shadow-sm" style="border-color:${t.color}66">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="px-1.5 py-0.5 rounded-[4px] bg-[#1e1b2e] text-white font-display font-black text-[11px] shrink-0">#${rank}</span>
+              <span class="px-2 py-0.5 rounded-[4px] font-display font-black text-xs text-white truncate" style="background:${t.color}">${t.shape} ${esc(t.full)}</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="px-2 py-0.5 rounded-[4px] text-[11px] font-black ${t.isFull ? 'bg-[#fee2e2] text-[#b91c1c]' : 'bg-neutral-100 text-[#333]'}">${t.members}/5${t.isFull ? ' เต็ม' : ''}</span>
+              <span class="font-display font-black text-base text-[#333] tabular">${t.score.toLocaleString()}</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1">${memberHtml}</div>
+        </div>`;
+    }).join('') || '<div class="col-span-full text-center text-neutral-400 font-bold py-6">ไม่พบทีมหรือรายชื่อที่ค้นหา</div>';
+
+    listEl.querySelectorAll('[data-team-mod-pid]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        allTeamsOpen = false;
+        $('allTeamsModal')?.classList.add('hidden');
+        openModModal(btn.dataset.teamModPid);
+      });
+    });
+  }
+
+  function openAllTeamsModal() {
+    SFX.pop();
+    allTeamsOpen = true;
+    $('allTeamsModal')?.classList.remove('hidden');
+    renderAllTeamsModal();
+    setTimeout(() => $('allTeamsSearch')?.focus(), 80);
+  }
+  $('closeAllTeamsModal')?.addEventListener('click', () => { SFX.click(); allTeamsOpen = false; $('allTeamsModal')?.classList.add('hidden'); });
+  $('allTeamsModal')?.addEventListener('click', e => { if (e.target === $('allTeamsModal')) { allTeamsOpen = false; $('allTeamsModal')?.classList.add('hidden'); } });
+  $('allTeamsSearch')?.addEventListener('input', renderAllTeamsModal);
+
   function renderTeamStrip(room) {
     const strip = $('teamScoreStrip');
     const btn = $('teamModeBtn');
     const lbl = $('teamModeLabel');
     const on = !!(room && room.teamMode);
     if (btn && lbl) {
-      lbl.textContent = on ? 'โหมด: 4 ทีม' : 'โหมด: เดี่ยว';
+      lbl.textContent = on ? 'โหมด: 25 ทีม (≤5)' : 'โหมด: เดี่ยว';
       btn.className = `btn-3d ${on ? 'k-btn-yellow' : 'k-btn-dark'} px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0`;
     }
     if (!strip) return;
@@ -1208,9 +1283,11 @@
     }
     strip.classList.remove('hidden');
     const tRank = Game.teamRanking(room);
+    const activeTeams = tRank.filter(t => t.members > 0).length;
+    const totalMembers = Object.keys(room.players || {}).length;
     const maxScore = Math.max(1, tRank[0] ? tRank[0].score : 1);
     const hasScores = tRank.some(t => t.score > 0);
-    strip.innerHTML = tRank.map((t, idx) => {
+    const top4Html = tRank.slice(0, 4).map((t, idx) => {
       const pct = hasScores ? Math.max(6, Math.round((t.score / maxScore) * 100)) : 0;
       const isLead = idx === 0 && t.score > 0;
       const topTxt = t.topPlayer ? `MVP: ${esc(safeName(t.topPlayer.name))}` : 'รอสมาชิกเข้าทีม';
@@ -1223,7 +1300,7 @@
                 <span class="font-display font-black text-base sm:text-lg truncate">${t.shape} ${esc(t.name)}</span>
                 ${isLead ? uiIconHtml('crownMini', 15, 'text-[#fde047] shrink-0') : ''}
               </div>
-              <div class="text-[11px] font-bold text-white/85 truncate mt-0.5">${t.members} คน • ${topTxt}</div>
+              <div class="text-[11px] font-bold text-white/85 truncate mt-0.5">${t.members}/5 คน • ${topTxt}</div>
             </div>
             <div class="text-right shrink-0">
               <div class="font-display font-black text-2xl sm:text-3xl leading-none tabular">${t.score.toLocaleString()}</div>
@@ -1235,24 +1312,62 @@
           </div>
         </div>`;
     }).join('');
+
+    const byKey = {};
+    tRank.forEach(t => { byKey[t.key] = t; });
+    const matrixHtml = TEAM_KEYS.map(k => {
+      const t = byKey[k];
+      const active = t.members > 0;
+      return `
+        <button type="button" data-open-teams class="rounded-[5px] px-2 py-1.5 text-left transition flex items-center justify-between gap-1 text-white ${active ? 'hover:brightness-110' : 'opacity-45 hover:opacity-80'}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}">
+          <span class="font-display font-black text-[11px] truncate">${t.shape} ${t.num}</span>
+          <span class="text-[10px] font-extrabold tabular shrink-0">${t.members}/5${t.score > 0 ? ` • ${t.score}` : ''}</span>
+        </button>`;
+    }).join('');
+
+    strip.innerHTML = `
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-2.5 py-1 rounded-[5px] bg-[#ffa602] text-[#1e1b2e] font-display font-black text-xs uppercase inline-flex items-center gap-1.5">
+            ${uiIconHtml('users', 14)}<span>TEAM BATTLE • 25 ทีม (ทีมละไม่เกิน 5 คน)</span>
+          </span>
+          <span class="text-xs font-extrabold text-white/85">เข้าร่วมแล้ว ${activeTeams}/25 ทีม • รวม ${totalMembers}/125 คน</span>
+        </div>
+        <button id="openAllTeamsBtn" type="button" class="btn-3d k-btn-white px-3 py-1.5 text-xs inline-flex items-center gap-1.5 whitespace-nowrap">
+          ${uiIconHtml('search', 13)}<span>ดูครบทั้ง 25 ทีม / สมาชิก</span>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">${top4Html}</div>
+      <div class="grid grid-cols-5 gap-1.5">${matrixHtml}</div>`;
+
+    $('openAllTeamsBtn')?.addEventListener('click', openAllTeamsModal);
+    strip.querySelectorAll('[data-open-teams]').forEach(b => b.addEventListener('click', openAllTeamsModal));
+    if (allTeamsOpen) renderAllTeamsModal();
   }
 
   $('teamModeBtn')?.addEventListener('click', async () => {
     SFX.pop();
     const cur = Sync.room;
     const nextOn = !(cur && cur.teamMode);
-    let assigned = [];
+    let res = { ok: true, updated: [] };
     await Sync.transact(room => {
       if (!room) return;
-      assigned = Game.enableTeamMode(room, nextOn);
+      res = Game.enableTeamMode(room, nextOn);
+      if (!res.ok) return undefined;
       return room;
     });
+    if (!res.ok && res.reason === 'too_many_players') {
+      SFX.wrong();
+      toast('มีผู้เล่นเกิน 125 คน (25 ทีม × 5 คน) กรุณาใช้โหมดเดี่ยวหรือลดจำนวนบอทก่อน', 'error', 4000);
+      return;
+    }
+    const assigned = res.updated || [];
     if (assigned.length && assigned.length <= 40) {
       assigned.forEach(p => Sync.sendDirectPlayer(p.id, p));
     }
     toast(
       nextOn
-        ? `${uiIconHtml('users', 16)}<span>เปิดโหมดแบ่งทีม 4 สีแล้ว! จัดทีมสมดุลให้ทุกคนอัตโนมัติ</span>`
+        ? `${uiIconHtml('users', 16)}<span>เปิดโหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน) แล้ว!</span>`
         : `${uiIconHtml('users', 16)}<span>สลับกลับเป็นโหมดแข่งเดี่ยวเรียบร้อย</span>`,
       'success'
     );
@@ -1287,21 +1402,33 @@
     if (teamWrap && teamGrid) {
       if (Sync.room.teamMode) {
         teamWrap.classList.remove('hidden');
+        const counts = Game.teamCounts(Sync.room, p.id);
+        const cap = Game.MAX_TEAM_SIZE || 5;
         teamGrid.innerHTML = TEAM_KEYS.map(k => {
           const t = TEAMS[k];
           const active = p.team === k;
-          return `<button type="button" data-mod-team="${k}" class="py-2 px-2.5 rounded-[5px] font-display font-black text-xs text-white transition flex items-center justify-center gap-1 ${active ? 'ring-4 ring-[#1e1b2e]' : 'opacity-80 hover:opacity-100'}" style="background:${t.color};box-shadow:0 3px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}${active ? ' ✓' : ''}</span></button>`;
+          const cnt = counts[k] || 0;
+          const full = !active && cnt >= cap;
+          const shownCnt = active ? cnt + 1 : cnt;
+          return `<button type="button" data-mod-team="${k}" ${full ? 'disabled title="ทีมนี้เต็ม 5/5 คนแล้ว"' : `title="${esc(t.full)}"`} class="py-1.5 px-1 rounded-[5px] font-display font-black text-[11px] leading-tight text-white transition flex flex-col items-center justify-center ${active ? 'ring-4 ring-[#1e1b2e]' : (full ? 'opacity-35 cursor-not-allowed' : 'opacity-85 hover:opacity-100')}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}"><span>${t.shape} ${t.num}${active ? ' ✓' : ''}</span><span class="text-[9px] font-bold opacity-90">${full ? 'เต็ม' : `${shownCnt}/${cap}`}</span></button>`;
         }).join('');
         teamGrid.querySelectorAll('[data-mod-team]').forEach(btn => {
           btn.addEventListener('click', async () => {
             const tKey = btn.dataset.modTeam;
-            let upd = null;
+            let res = null;
             await Sync.transact(room => {
               if (!room) return;
-              upd = Game.setPlayerTeam(room, modTargetPid, tKey, true);
+              res = Game.setPlayerTeam(room, modTargetPid, tKey, true);
+              if (!res || !res.ok) return undefined;
               return room;
             });
-            if (upd) Sync.sendDirectPlayer(upd.id, upd);
+            if (!res || !res.ok) {
+              SFX.wrong();
+              toast(`${TEAMS[tKey].name} เต็มครบ 5/5 คนแล้ว!`, 'warn');
+              refreshModModal();
+              return;
+            }
+            if (res.player) Sync.sendDirectPlayer(res.player.id, res.player);
             SFX.pop();
             refreshModModal();
             toast(`ย้าย ${esc(safeName(p.name))} ไป ${TEAMS[tKey].name} แล้ว`, 'success');
@@ -1559,6 +1686,26 @@
 
   function applyRoomRender(room) {
     if (!room) return;
+    // บังคับโควต้าทีมละไม่เกิน 5 คนฝั่ง Host อัตโนมัติ (กันกรณีเด็กหลายคนกดเข้าทีมที่ 5 พร้อมกัน)
+    if (room.teamMode && !rebalancingTeams && Object.keys(room.players || {}).length <= TEAM_KEYS.length * (Game.MAX_TEAM_SIZE || 5)) {
+      const counts = Game.teamCounts(room);
+      const cap = Game.MAX_TEAM_SIZE || 5;
+      const needsFix = Object.values(room.players || {}).some(p => !p.team || !TEAMS[p.team]) ||
+        TEAM_KEYS.some(k => (counts[k] || 0) > cap);
+      if (needsFix) {
+        rebalancingTeams = true;
+        let changed = [];
+        Sync.transact(r => {
+          if (!r || !r.teamMode) return undefined;
+          changed = Game.enforceTeamCaps(r);
+          return changed.length ? r : undefined;
+        }).then(() => {
+          changed.forEach(p => Sync.sendDirectPlayer(p.id, p));
+        }).finally(() => {
+          rebalancingTeams = false;
+        });
+      }
+    }
     // ซิงก์ค่าเวลาเกมครั้งแรกที่โหลดห้อง (หรือเมื่อรีเซ็ต)
     if (initialLoad || room.status === 'lobby') {
       matchRemainingMs = room.timerRemainingMs || (room.timerTotalSec || 0) * 1000;
@@ -2005,8 +2152,10 @@
     hostAnswerStats.clear();
     SQA_PHOTOS.clear();
     modTargetPid = null;
+    allTeamsOpen = false;
     debriefOpen = false;
     $('modModal')?.classList.add('hidden');
+    $('allTeamsModal')?.classList.add('hidden');
     $('debriefModal')?.classList.add('hidden');
     lastPodiumShown = false;
     el.podiumOverlay.classList.add('hidden');
@@ -2055,6 +2204,7 @@
         takenAvs.add(av);
         const id = 'bot_' + uid();
         const team = room.teamMode ? Game.pickBalancedTeam(room) : '';
+        if (room.teamMode && !team) break;
         room.players[id] = Game.newPlayer(id, name, av, true, { team });
         Sync.pushFeed(room, { type: 'join', a: name, ai: id, av });
         added++;

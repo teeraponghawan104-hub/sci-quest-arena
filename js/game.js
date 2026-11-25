@@ -584,27 +584,64 @@ const Game = (() => {
       return { loss, scoreLeft: me.score };
     },
 
-    /* ---------------- โหมดแบ่งทีม 4 สี (Team / Squad Battle) ---------------- */
-    pickBalancedTeam(room) {
-      const counts = { red: 0, blue: 0, yellow: 0, green: 0 };
+    /* ---------------- โหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน = สูงสุด 125 คน) ---------------- */
+    MAX_TEAM_SIZE: (typeof TEAM_MAX_MEMBERS !== 'undefined' ? TEAM_MAX_MEMBERS : 5),
+
+    teamCounts(room, excludePid = '') {
+      const counts = {};
+      TEAM_KEYS.forEach(k => { counts[k] = 0; });
       for (const p of Object.values((room && room.players) || {})) {
-        if (p && counts[p.team] !== undefined) counts[p.team]++;
+        if (!p || (excludePid && p.id === excludePid)) continue;
+        if (counts[p.team] !== undefined) counts[p.team]++;
       }
+      return counts;
+    },
+
+    isTeamFull(room, teamKey, excludePid = '') {
+      if (!TEAMS[teamKey]) return true;
+      const cap = this.MAX_TEAM_SIZE || 5;
+      return (this.teamCounts(room, excludePid)[teamKey] || 0) >= cap;
+    },
+
+    pickBalancedTeam(room, excludePid = '') {
+      const cap = this.MAX_TEAM_SIZE || 5;
+      const counts = this.teamCounts(room, excludePid);
+      const avail = TEAM_KEYS.filter(k => (counts[k] || 0) < cap);
+      if (!avail.length) return '';
       let minC = Infinity;
-      for (const k of TEAM_KEYS) if (counts[k] < minC) minC = counts[k];
-      const tied = TEAM_KEYS.filter(k => counts[k] === minC);
-      return tied[rand(tied.length)] || 'red';
+      for (const k of avail) if (counts[k] < minC) minC = counts[k];
+      return avail.find(k => counts[k] === minC) || avail[0];
     },
 
     enableTeamMode(room, on = true) {
-      if (!room) return [];
+      if (!room) return { ok: false, updated: [] };
+      const cap = this.MAX_TEAM_SIZE || 5;
+      const all = Object.values(room.players || {}).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+      if (on && all.length > TEAM_KEYS.length * cap) {
+        return { ok: false, reason: 'too_many_players', updated: [] };
+      }
       room.teamMode = !!on;
       const updated = [];
       if (room.teamMode) {
-        const list = Object.values(room.players || {}).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
-        list.forEach(p => {
-          if (!p.team || !TEAMS[p.team]) {
-            p.team = this.pickBalancedTeam(room);
+        const counts = {};
+        TEAM_KEYS.forEach(k => { counts[k] = 0; });
+        // นับคนที่อยู่ทีมถูกต้องและยังไม่เกิน 5 ก่อน
+        all.forEach(p => {
+          if (p.team && TEAMS[p.team] && counts[p.team] < cap) {
+            counts[p.team]++;
+          } else {
+            p.team = '';
+          }
+        });
+        // จัดทีมสมดุลให้คนที่ยังไม่มีทีมหรือเกินโควต้า 5 คน
+        all.forEach(p => {
+          if (!p.team) {
+            const avail = TEAM_KEYS.filter(k => counts[k] < cap);
+            let minC = Infinity;
+            for (const k of avail) if (counts[k] < minC) minC = counts[k];
+            const picked = avail.find(k => counts[k] === minC) || '';
+            p.team = picked;
+            if (picked) counts[picked]++;
             touch(p, true);
             updated.push(p);
           }
@@ -612,39 +649,76 @@ const Game = (() => {
       }
       room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
       Sync.pushFeed(room, { type: 'teamMode', on: room.teamMode });
-      return updated;
+      return { ok: true, updated };
     },
 
     setPlayerTeam(room, pid, teamKey, isHost = false) {
       const p = room && room.players && room.players[pid];
-      if (!p || !TEAMS[teamKey]) return null;
-      if (p.team === teamKey) return p;
+      if (!p || !TEAMS[teamKey]) return { ok: false, reason: 'invalid' };
+      if (p.team === teamKey) return { ok: true, player: p };
+      if (this.isTeamFull(room, teamKey, pid)) return { ok: false, reason: 'full' };
       p.team = teamKey;
       touch(p, !!isHost);
       if (isHost) room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
-      return p;
+      return { ok: true, player: p };
+    },
+
+    enforceTeamCaps(room) {
+      if (!room || !room.teamMode) return [];
+      const cap = this.MAX_TEAM_SIZE || 5;
+      const byTeam = {};
+      TEAM_KEYS.forEach(k => { byTeam[k] = []; });
+      const needTeam = [];
+      for (const p of Object.values(room.players || {})) {
+        if (!p) continue;
+        if (p.team && byTeam[p.team]) byTeam[p.team].push(p);
+        else needTeam.push(p);
+      }
+      for (const k of TEAM_KEYS) {
+        if (byTeam[k].length > cap) {
+          byTeam[k].sort((a, b) => (b.hostRev || 0) - (a.hostRev || 0) || (a.joinedAt || 0) - (b.joinedAt || 0));
+          const overflow = byTeam[k].slice(cap);
+          byTeam[k] = byTeam[k].slice(0, cap);
+          overflow.forEach(p => { p.team = ''; needTeam.push(p); });
+        }
+      }
+      const changed = [];
+      needTeam.forEach(p => {
+        const nextTeam = this.pickBalancedTeam(room, p.id);
+        if (nextTeam && p.team !== nextTeam) {
+          p.team = nextTeam;
+          touch(p, true);
+          changed.push(p);
+        }
+      });
+      if (changed.length) room.hostUpdatedAt = Math.max((room.hostUpdatedAt || 0) + 1, Date.now());
+      return changed;
     },
 
     teamRanking(room) {
+      const cap = this.MAX_TEAM_SIZE || 5;
       const agg = {};
       TEAM_KEYS.forEach(k => {
-        agg[k] = { ...TEAMS[k], score: 0, members: 0, avgScore: 0, topPlayer: null };
+        agg[k] = { ...TEAMS[k], score: 0, members: 0, maxMembers: cap, isFull: false, avgScore: 0, topPlayer: null, memberList: [] };
       });
       for (const p of Object.values((room && room.players) || {})) {
         const k = (p && TEAMS[p.team]) ? p.team : null;
         if (!k) continue;
         agg[k].score += Number(p.score || 0);
         agg[k].members += 1;
+        agg[k].memberList.push(p);
         if (!agg[k].topPlayer || (p.score || 0) > (agg[k].topPlayer.score || 0)) {
           agg[k].topPlayer = p;
         }
       }
       const list = TEAM_KEYS.map(k => {
         const t = agg[k];
+        t.isFull = t.members >= cap;
         t.avgScore = t.members > 0 ? Math.round(t.score / t.members) : 0;
+        t.memberList.sort((a, b) => (b.score || 0) - (a.score || 0) || (a.joinedAt || 0) - (b.joinedAt || 0));
         return t;
       });
-      return list.sort((a, b) => b.score - a.score || b.members - a.members);
+      return list.sort((a, b) => b.score - a.score || b.members - a.members || a.num - b.num);
     },
 
     /* ---------------- ปุ่มคุมห้องสำหรับครู (Teacher Moderation) ---------------- */

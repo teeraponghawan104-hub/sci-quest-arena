@@ -297,26 +297,92 @@
     const map = { fire: 'reactFire', laugh: 'reactLaugh', clap: 'reactClap', shock: 'reactShock' };
     toast(`${heroIconHtml(map[kind] || 'reactFire', 22)}<span>ส่งเสียงเชียร์ขึ้นจอใหญ่ครูแล้ว!</span>`, 'info', 1400);
   }
+  async function switchMyTeam(tKey) {
+    const room = Sync.room;
+    const me = room && room.players && room.players[myId];
+    if (!room || !me || !room.teamMode || !TEAMS[tKey]) return;
+    if (me.team === tKey) return;
+    const startedScoring = (me.score || 0) > 0 || (me.answeredCount || 0) > 0 || Object.keys(me.answered || {}).length > 0;
+    if (room.status !== 'lobby' && startedScoring) {
+      SFX.wrong();
+      toast('คุณเริ่มทำคะแนนให้ทีมแล้ว ไม่สามารถย้ายทีมกลางคันได้ (แจ้งครูเพื่อย้ายให้ได้ครับ)', 'warn', 3200);
+      return;
+    }
+    let res = null;
+    await Sync.transact(r => {
+      if (!r || !r.teamMode) return undefined;
+      res = Game.setPlayerTeam(r, myId, tKey, false);
+      if (!res || !res.ok) return undefined;
+      return r;
+    });
+    if (!res || !res.ok) {
+      SFX.wrong();
+      toast(`${TEAMS[tKey].name} เต็มครบ 5/5 คนแล้ว! กรุณาเลือกทีมอื่นนะ`, 'error', 2800);
+      renderPlayerTeamModal();
+      return;
+    }
+    SFX.pop();
+    const counts = Game.teamCounts(Sync.room);
+    toast(`ย้ายเข้า ${TEAMS[tKey].name} (${counts[tKey] || 1}/${Game.MAX_TEAM_SIZE || 5} คน) เรียบร้อย!`, 'success', 1800);
+    renderPlayerTeamModal();
+  }
+
+  function renderTeamSelectorButtons(room, me) {
+    const counts = Game.teamCounts(room);
+    const cap = Game.MAX_TEAM_SIZE || 5;
+    return TEAM_KEYS.map(k => {
+      const t = TEAMS[k];
+      const act = me.team === k;
+      const cnt = counts[k] || 0;
+      const full = !act && cnt >= cap;
+      return `<button type="button" data-switch-team="${k}" ${full ? 'disabled title="ทีมนี้เต็ม 5/5 คนแล้ว"' : `title="${esc(t.full)}"`} class="py-1.5 px-1 rounded-[5px] font-display font-black text-[11px] leading-tight text-white transition flex flex-col items-center justify-center ${act ? 'ring-4 ring-[#1e1b2e] scale-[1.03]' : (full ? 'opacity-35 cursor-not-allowed' : 'opacity-85 hover:opacity-100')}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}"><span>${t.shape} ${t.num}${act ? ' ✓' : ''}</span><span class="text-[9px] font-bold opacity-90">${full ? 'เต็ม' : `${cnt}/${cap}`}</span></button>`;
+    }).join('');
+  }
+
+  function renderPlayerTeamModal() {
+    const modal = $('playerTeamModal');
+    if (!modal || modal.classList.contains('hidden') || !Sync.room || !myId) return;
+    const room = Sync.room;
+    const me = room.players && room.players[myId];
+    if (!room.teamMode || !me) {
+      modal.classList.add('hidden');
+      return;
+    }
+    const curTeam = TEAMS[me.team];
+    const mates = me.team ? Object.values(room.players || {}).filter(p => p.team === me.team) : [];
+    const rosterEl = $('playerTeamRoster');
+    if (rosterEl) {
+      rosterEl.innerHTML = curTeam
+        ? `<div class="flex items-center justify-between gap-2 mb-1"><span class="font-display font-black text-sm" style="color:${curTeam.color}">${curTeam.shape} ${esc(curTeam.full)}</span><span class="px-2 py-0.5 rounded bg-white border text-[11px] font-black">${mates.length}/${Game.MAX_TEAM_SIZE || 5} คน</span></div>
+           <div class="text-[11px] text-neutral-600">สมาชิก: ${mates.map(m => esc(m.name)).join(' • ') || '-'}</div>`
+        : 'กำลังจัดสรรทีม...';
+    }
+    const gridEl = $('playerTeamGrid');
+    if (gridEl) gridEl.innerHTML = renderTeamSelectorButtons(room, me);
+  }
+
+  $('hdrTeamPill')?.addEventListener('click', () => {
+    if (!Sync.room || !Sync.room.teamMode || !myId) return;
+    SFX.pop();
+    $('playerTeamModal')?.classList.remove('hidden');
+    renderPlayerTeamModal();
+  });
+  $('closePlayerTeamModal')?.addEventListener('click', () => { SFX.click(); $('playerTeamModal')?.classList.add('hidden'); });
+  $('playerTeamModal')?.addEventListener('click', e => { if (e.target === $('playerTeamModal')) $('playerTeamModal')?.classList.add('hidden'); });
+
   document.addEventListener('click', e => {
     const btn = e.target && e.target.closest ? e.target.closest('[data-react]') : null;
     if (btn) { sendQuickReaction(btn.dataset.react); return; }
     const tBtn = e.target && e.target.closest ? e.target.closest('[data-switch-team]') : null;
-    if (tBtn && myId && Sync.room && Sync.room.status === 'lobby' && Sync.room.teamMode) {
-      const tKey = tBtn.dataset.switchTeam;
-      if (TEAMS[tKey]) {
-        SFX.pop();
-        Sync.transact(r => {
-          if (r && r.status === 'lobby' && r.teamMode) Game.setPlayerTeam(r, myId, tKey, false);
-          return r;
-        });
-        toast(`สลับไปอยู่ ${TEAMS[tKey].name} เรียบร้อย!`, 'success', 1600);
-      }
+    if (tBtn && myId && Sync.room && Sync.room.teamMode) {
+      switchMyTeam(tBtn.dataset.switchTeam);
     }
   });
 
   let prevScore = null;
   let prevShields = null;
   let prevZappedAt = 0;
+  let prevTeam = '';
   let bossCounterLocalUntil = 0;
   let wasPhotoBlocked = false;
   let wasFrozen = false;
@@ -482,6 +548,7 @@
     prevHostRev = null;
     prevItemTotal = null;
     prevZappedAt = 0;
+    prevTeam = '';
     wasFrozen = false;
     wasBlinded = false;
     wasFlipped = false;
@@ -503,6 +570,9 @@
     $('bossOverlay')?.classList.add('hidden');
     $('playerBossBanner')?.classList.add('hidden');
     el.bonusOverlay.classList.add('hidden');
+    $('playerTeamModal')?.classList.add('hidden');
+    const hdrTeamPill = $('hdrTeamPill');
+    if (hdrTeamPill) { hdrTeamPill.dataset.t = ''; hdrTeamPill.innerHTML = ''; }
     el.stateOverlay.classList.add('hidden');
     el.questionPanel.classList.add('hidden');
     el.scanPanel.classList.remove('hidden');
@@ -672,6 +742,7 @@
 
       let finalPid = targetPid;
       let reclaimed = false;
+      let roomFullAbort = false;
       await Sync.transact(room => {
         const base = room || Sync.defaultRoom(code);
         const curRound = base.roundId || 1;
@@ -682,7 +753,9 @@
           ex.name = name;
           ex.avatar = selectedAv;
           if (!ex.photoBlocked) ex.hasPhoto = !!myCustomPhoto;
-          if (base.teamMode && (!ex.team || !TEAMS[ex.team])) ex.team = Game.pickBalancedTeam(base);
+          if (base.teamMode && (!ex.team || !TEAMS[ex.team] || Game.isTeamFull(base, ex.team, reclaimId))) {
+            ex.team = Game.pickBalancedTeam(base, reclaimId);
+          }
           ex.deviceId = myDeviceId;
           if (existingSaved.snapshot && existingSaved.snapshot.answered) {
             ex.answered = Object.assign({}, existingSaved.snapshot.answered, ex.answered || {});
@@ -695,10 +768,18 @@
         }
         // 2) ถ้ามี snapshot เดิมในเครื่องรอบเดียวกันที่ยังไม่จบ (และไม่ถูกเตะ) -> กู้คืนคะแนนเดิมกลับเข้าห้อง!
         if (reclaimId && !wasKickedOld && base.status !== 'ended' && existingSaved.snapshot && (existingSaved.roundId || 1) === curRound) {
+          const prevT = existingSaved.snapshot.team || '';
+          const safeTeam = base.teamMode
+            ? ((prevT && TEAMS[prevT] && !Game.isTeamFull(base, prevT, reclaimId)) ? prevT : Game.pickBalancedTeam(base, reclaimId))
+            : prevT;
+          if (base.teamMode && !safeTeam) {
+            roomFullAbort = true;
+            return undefined;
+          }
           const rest = Object.assign({}, existingSaved.snapshot, {
             name, avatar: selectedAv,
             hasPhoto: existingSaved.snapshot.photoBlocked ? false : !!myCustomPhoto,
-            team: base.teamMode ? (existingSaved.snapshot.team || Game.pickBalancedTeam(base)) : (existingSaved.snapshot.team || ''),
+            team: safeTeam,
             deviceId: myDeviceId,
             roundId: curRound,
             rev: (existingSaved.snapshot.rev || 0) + 1,
@@ -710,8 +791,12 @@
           return base;
         }
         // 3) ผู้เล่นใหม่ (หรือเริ่มรอบใหม่แล้ว)
-        const newId = 'p_' + uid();
         const assignedTeam = base.teamMode ? Game.pickBalancedTeam(base) : '';
+        if (base.teamMode && !assignedTeam) {
+          roomFullAbort = true;
+          return undefined;
+        }
+        const newId = 'p_' + uid();
         const p = Game.newPlayer(newId, name, selectedAv, false, { hasPhoto: !!myCustomPhoto, deviceId: myDeviceId, team: assignedTeam });
         p.roundId = curRound;
         base.players[newId] = p;
@@ -719,6 +804,13 @@
         Sync.pushFeed(base, { type: 'join', a: name, ai: newId, av: selectedAv });
         return base;
       });
+      if (roomFullAbort) {
+        Sync.disconnect();
+        SFX.wrong();
+        toast('ห้องนี้เต็มครบทั้ง 25 ทีม (125 คน) แล้ว! กรุณาแจ้งครูผู้สอน', 'error', 4200);
+        btn.disabled = false;
+        return;
+      }
       myId = finalPid;
       Sync.setPlayerId(myId);
       joinedRoundId = (Sync.room && Sync.room.roundId) || 1;
@@ -1993,6 +2085,11 @@
         hdrTeamPill.innerHTML = tSig ? teamBadgeHtml(tSig, true) : '';
       }
     }
+    if (prevTeam && me.team && prevTeam !== me.team && TEAMS[me.team]) {
+      toast(`${uiIconHtml('users', 16)}<span>ย้ายมาอยู่ ${esc(TEAMS[me.team].full)} แล้ว!</span>`, 'info', 2600);
+    }
+    prevTeam = me.team || '';
+    renderPlayerTeamModal();
     el.hdrRoom.textContent = room.code;
     el.hdrRank.textContent = `#${rankIdx + 1}/${ranked.length}`;
     el.hdrScore.textContent = me.score.toLocaleString();
@@ -2186,13 +2283,9 @@
       el.stateDesc.textContent = `เห็นชื่อของคุณบนหน้าจอครูไหม? รอครูกดเริ่มเกมสักครู่ (${ranked.length} คนในห้อง)`;
       const lobbyTeamBar = room.teamMode ? `
         <div class="pt-2 border-t border-neutral-200 mt-2">
-          <div class="text-[11px] font-extrabold text-neutral-500 mb-1.5">โหมดแบ่งทีม 4 สี — เลือกทีมของคุณได้เลย!</div>
-          <div class="grid grid-cols-2 gap-1.5">
-            ${TEAM_KEYS.map(k => {
-              const t = TEAMS[k];
-              const act = me.team === k;
-              return `<button type="button" data-switch-team="${k}" class="py-2 px-2.5 rounded-[5px] font-display font-black text-xs text-white transition flex items-center justify-center gap-1 ${act ? 'ring-4 ring-[#1e1b2e]' : 'opacity-75 hover:opacity-100'}" style="background:${t.color};box-shadow:0 3px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}${act ? ' ✓' : ''}</span></button>`;
-            }).join('')}
+          <div class="text-[11px] font-extrabold text-neutral-500 mb-1.5">โหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน) — เลือกทีมได้เลย!</div>
+          <div class="grid grid-cols-5 gap-1.5">
+            ${renderTeamSelectorButtons(room, me)}
           </div>
         </div>` : '';
       el.stateExtra.innerHTML = `<div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-[8px] bg-[#241f35] text-white font-black text-base shadow">${avatarHtml(me.avatar, 36, '', me.photoBlocked ? '' : myId)}<span>${esc(me.name)}</span>${room.teamMode && me.team ? teamBadgeHtml(me.team, true) : ''}</div>${lobbyTeamBar}${lobbyReactBar}`;

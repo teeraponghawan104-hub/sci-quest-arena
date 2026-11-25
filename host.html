@@ -126,8 +126,8 @@
           </div>
         </div>
 
-        <!-- สวิตช์สลับ โหมดเดี่ยว / โหมดแบ่งทีม 4 สี -->
-        <button id="teamModeBtn" type="button" class="btn-3d k-btn-dark px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิด โหมดแบ่งทีม 4 สี (Team Battle)">
+        <!-- สวิตช์สลับ โหมดเดี่ยว / โหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน) -->
+        <button id="teamModeBtn" type="button" class="btn-3d k-btn-dark px-3 py-2 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0" title="เปิด/ปิด โหมดแข่งขัน 25 ทีม (ทีมละไม่เกิน 5 คน)">
           <span data-art-ui="users" data-art-size="15" class="sqa-ico text-[#ffa602]"></span>
           <span id="teamModeLabel">โหมด: เดี่ยว</span>
         </button>
@@ -311,8 +311,8 @@
       </div>
     </section>
 
-    <!-- ===================== แถบคะแนนรวม 4 ทีม (แสดงเมื่อเปิดโหมดแบ่งทีม 4 สี!) ===================== -->
-    <section id="teamScoreStrip" class="hidden grid grid-cols-2 lg:grid-cols-4 gap-3 pop-in"></section>
+    <!-- ===================== แถบคะแนนรวม 25 ทีม (แสดงเมื่อเปิดโหมดแบ่งทีม — ทีมละไม่เกิน 5 คน!) ===================== -->
+    <section id="teamScoreStrip" class="hidden k-panel p-3.5 sm:p-4 space-y-3 pop-in"></section>
 
     <!-- ===================== MAIN STAGE: SCOREBOARD + LIVE FEED (ยืดเต็มจอทุกความละเอียด!) ===================== -->
     <main class="grid lg:grid-cols-12 gap-4 flex-1 items-stretch min-h-0">
@@ -688,10 +688,10 @@
         </button>
       </div>
 
-      <!-- 3. ย้ายทีม (แสดงเมื่อเปิดโหมด 4 ทีม) -->
+      <!-- 3. ย้ายทีม (แสดงเมื่อเปิดโหมด 25 ทีม) -->
       <div id="modTeamWrap" class="hidden space-y-1.5">
-        <div class="text-[11px] font-extrabold uppercase text-neutral-500">ย้ายทีม (4 สี)</div>
-        <div id="modTeamGrid" class="grid grid-cols-2 gap-1.5"></div>
+        <div class="text-[11px] font-extrabold uppercase text-neutral-500">ย้ายทีม (25 ทีม • สูงสุด 5 คน/ทีม)</div>
+        <div id="modTeamGrid" class="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto p-0.5"></div>
       </div>
 
       <!-- 4. ปรับคะแนน -->
@@ -711,6 +711,26 @@
           <span>เตะผู้เล่นนี้ออกจากห้อง (Kick)</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ดูอันดับและสมาชิกครบทั้ง 25 ทีม (ทีมละไม่เกิน 5 คน) -->
+  <div id="allTeamsModal" class="overlay dim z-[212] hidden overflow-y-auto">
+    <div class="k-box max-w-5xl w-full p-5 sm:p-6 pop-in border-t-8 border-[#ffa602] my-auto max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b-2 border-neutral-200 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-[8px] bg-[#ffa602] text-[#1e1b2e] grid place-items-center shadow-[0_3px_0_#9c7200]">
+            <span data-art-ui="users" data-art-size="20" class="sqa-ico"></span>
+          </span>
+          <div>
+            <h3 class="font-display text-xl font-black text-[#333] leading-tight">ตารางคะแนนและสมาชิกทั้ง 25 ทีม</h3>
+            <p id="allTeamsSub" class="text-xs font-bold text-neutral-500">จำกัดทีมละไม่เกิน 5 คน • คลิกชื่อนักเรียนเพื่อจัดการ/ย้ายทีม</p>
+          </div>
+        </div>
+        <button id="closeAllTeamsModal" type="button" class="btn-3d k-btn-dark w-9 h-9 grid place-items-center shrink-0">✕</button>
+      </div>
+      <input id="allTeamsSearch" type="text" placeholder="ค้นหาหมายเลขทีม ชื่อทีม หรือชื่อนักเรียน..." class="input-big text-sm !py-2 mb-3 shrink-0" />
+      <div id="allTeamsList" class="overflow-y-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pr-1 flex-1"></div>
     </div>
   </div>
 

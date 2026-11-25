@@ -87,18 +87,58 @@ const BOSSES = {
 };
 const BOSS_KEYS = Object.keys(BOSSES);
 
-/* ---------- โหมดแบ่งทีม 4 สี (Kahoot! Squad Battle) ---------- */
-const TEAMS = {
-  red:    { key: 'red',    name: 'ทีมแดง',    full: 'ทีมอัคคี (แดง)',    shape: '▲', color: '#e21b3c', dark: '#991b1b', soft: '#fee2e2' },
-  blue:   { key: 'blue',   name: 'ทีมน้ำเงิน', full: 'ทีมวารี (น้ำเงิน)',  shape: '◆', color: '#1368ce', dark: '#1e3a8a', soft: '#dbeafe' },
-  yellow: { key: 'yellow', name: 'ทีมเหลือง',  full: 'ทีมสายฟ้า (เหลือง)', shape: '●', color: '#d89e00', dark: '#854d0e', soft: '#fef9c3' },
-  green:  { key: 'green',  name: 'ทีมเขียว',   full: 'ทีมพฤกษา (เขียว)',  shape: '■', color: '#26890c', dark: '#14532d', soft: '#dcfce7' }
-};
-const TEAM_KEYS = ['red', 'blue', 'yellow', 'green'];
+/* ---------- โหมดแบ่งทีม 25 ทีม (ทีมละไม่เกิน 5 คน = รองรับสูงสุด 125 คน!) ---------- */
+const TEAM_MAX_MEMBERS = 5;
+window.TEAM_MAX_MEMBERS = TEAM_MAX_MEMBERS;
+const TEAM_META_LIST = [
+  ['อะตอม', '#e21b3c', '#991b1b'],
+  ['ควอนตัม', '#1368ce', '#1e3a8a'],
+  ['โฟตอน', '#d89e00', '#854d0e'],
+  ['นิวตรอน', '#26890c', '#14532d'],
+  ['โนวาสตาร์', '#7c3aed', '#4c1d95'],
+  ['กาแล็กซี', '#0284c7', '#075985'],
+  ['พัลซาร์', '#db2777', '#831843'],
+  ['เนบิวลา', '#ea580c', '#9a3412'],
+  ['โซลาร์', '#0d9488', '#115e59'],
+  ['ออโรรา', '#4f46e5', '#312e81'],
+  ['ไททัน', '#b91c1c', '#7f1d1d'],
+  ['โอไรออน', '#059669', '#064e3b'],
+  ['ซูเปอร์โนวา', '#9333ea', '#581c87'],
+  ['คอสมอส', '#2563eb', '#1e40af'],
+  ['อีคลิปส์', '#c026d3', '#701a75'],
+  ['สเปกตรัม', '#ca8a04', '#713f12'],
+  ['กราวิตี้', '#0891b2', '#164e63'],
+  ['พลาสมา', '#dc2626', '#7f1d1d'],
+  ['ฟิวชัน', '#16a34a', '#14532d'],
+  ['เลเซอร์', '#e11d48', '#881337'],
+  ['ไซเบอร์', '#6d28d9', '#3b0764'],
+  ['ไบโอนิก', '#0f766e', '#134e4a'],
+  ['ซินเนอร์จี', '#d97706', '#78350f'],
+  ['เมทริกซ์', '#0369a1', '#0c4a6e'],
+  ['อินฟินิตี้', '#be185d', '#831843']
+];
+const TEAM_SHAPES = ['▲', '◆', '●', '■', '★'];
+const TEAMS = {};
+const TEAM_KEYS = [];
+TEAM_META_LIST.forEach(([codename, color, dark], idx) => {
+  const num = idx + 1;
+  const key = 't' + String(num).padStart(2, '0');
+  TEAM_KEYS.push(key);
+  TEAMS[key] = {
+    key,
+    num,
+    name: `ทีม ${num}`,
+    codename,
+    full: `ทีม ${num} • ${codename}`,
+    shape: TEAM_SHAPES[idx % TEAM_SHAPES.length],
+    color,
+    dark
+  };
+});
 function teamBadgeHtml(teamKey, compact = false) {
   const t = TEAMS[teamKey];
   if (!t) return '';
-  return `<span class="inline-flex items-center gap-1 rounded-[4px] font-display font-black text-white shrink-0 ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}"><span>${t.shape}</span><span>${esc(t.name)}</span></span>`;
+  return `<span class="inline-flex items-center gap-1 rounded-[4px] font-display font-black text-white shrink-0 ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]'}" style="background:${t.color};box-shadow:0 2px 0 ${t.dark}" title="${esc(t.full)}"><span>${t.shape}</span><span>${esc(t.name)}</span></span>`;
 }
 
 /* ---------- ระบบเซ็นเซอร์ชื่อ 18+ / คำหยาบ / คำไม่เหมาะสม (ไทย + อังกฤษ + กันหลบจุด/เว้นวรรค/Leetspeak) ---------- */
@@ -357,7 +397,7 @@ function feedView(e) {
       return { emoji: heroIconHtml('bossRaid', 19), tone: 'red', html: `<b>${esc(bs.name)}</b> สวนกลับ ${A} <b>-${Number(e.pts || 25)}</b> แต้ม!` };
     }
     case 'teamMode':
-      return { emoji: uiIconHtml('users', 15), tone: e.on ? 'violet' : 'slate', html: e.on ? '<b>เปิดโหมดแบ่งทีม 4 สี!</b> ช่วยกันเก็บคะแนนให้ทีมชนะเลิศ!' : '<b>สลับเป็นโหมดแข่งเดี่ยว</b> (เก็บคะแนนรายบุคคล)' };
+      return { emoji: uiIconHtml('users', 15), tone: e.on ? 'violet' : 'slate', html: e.on ? '<b>เปิดโหมดแข่งขัน 25 ทีม!</b> (ทีมละไม่เกิน 5 คน) ช่วยกันเก็บแต้มพาทีมคว้าแชมป์!' : '<b>สลับเป็นโหมดแข่งเดี่ยว</b> (เก็บคะแนนรายบุคคล)' };
     case 'kick':
       return { emoji: uiIconHtml('shield', 15), tone: 'slate', html: `ครูนำ ${A} ออกจากห้องแข่งขัน` };
     default: return { emoji: uiIconHtml('sparkles', 14), tone: 'slate', html: esc(e.text || '') };
