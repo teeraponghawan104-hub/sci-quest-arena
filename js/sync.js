@@ -29,7 +29,7 @@ const Sync = (() => {
     const now = Date.now();
     return {
       code: c, status: 'lobby', createdAt: now, hostUpdatedAt: 0, roundId: 1,
-      teamMode: false, kicked: {},
+      teamMode: true, kicked: {},
       timerTotalSec: 0, timerRemainingMs: 0, timerRunning: false, timerEpoch: 1,
       feverId: '', feverRemainingSec: 0,
       players: {}, feed: {}, bonus: null, usedBonus: {}, boss: null

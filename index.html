@@ -125,6 +125,17 @@
         <form id="hostForm" class="space-y-2.5">
           <input id="hostRoomInput" type="text" maxlength="6" placeholder="ตั้ง PIN เอง (เว้นว่าง=สุ่ม)"
             class="input-big text-center font-display text-xl tracking-widest uppercase" />
+          <input id="hostTeamModeInput" type="hidden" value="1" />
+          <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="โหมดการเล่น">
+            <button type="button" data-host-mode="1" class="py-2 px-2 rounded-[5px] border-2 border-[#46178f] bg-[#46178f] text-white font-display font-extrabold text-xs inline-flex items-center justify-center gap-1.5 shadow-[0_2px_0_#25076b]">
+              <span data-art-ui="users" data-art-size="14" class="sqa-ico"></span>
+              <span>25 ทีม (≤5 คน)</span>
+            </button>
+            <button type="button" data-host-mode="0" class="py-2 px-2 rounded-[5px] border-2 border-neutral-300 bg-neutral-100 text-[#333] font-display font-extrabold text-xs inline-flex items-center justify-center gap-1.5 hover:bg-neutral-200">
+              <span data-art-ui="trophy" data-art-size="14" class="sqa-ico"></span>
+              <span>แข่งเดี่ยว</span>
+            </button>
+          </div>
           <button type="submit" class="btn-3d k-btn-green w-full py-3.5 text-lg tracking-wide">
             Create / เปิดหน้าจอครู
           </button>
@@ -197,11 +208,28 @@
       } catch (e) {}
     })();
 
+    document.querySelectorAll('[data-host-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        SFX.click();
+        const val = btn.dataset.hostMode === '0' ? '0' : '1';
+        document.getElementById('hostTeamModeInput').value = val;
+        document.querySelectorAll('[data-host-mode]').forEach(b => {
+          const active = b.dataset.hostMode === val;
+          b.className = active
+            ? 'py-2 px-2 rounded-[5px] border-2 border-[#46178f] bg-[#46178f] text-white font-display font-extrabold text-xs inline-flex items-center justify-center gap-1.5 shadow-[0_2px_0_#25076b]'
+            : 'py-2 px-2 rounded-[5px] border-2 border-neutral-300 bg-neutral-100 text-[#333] font-display font-extrabold text-xs inline-flex items-center justify-center gap-1.5 hover:bg-neutral-200';
+        });
+      });
+    });
+
     document.getElementById('hostForm').addEventListener('submit', e => {
       e.preventDefault();
       SFX.pop();
       const raw = document.getElementById('hostRoomInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const url = raw ? `host.html?room=${encodeURIComponent(raw)}&new=1` : 'host.html?new=1';
+      const modeVal = document.getElementById('hostTeamModeInput')?.value === '0' ? '0' : '1';
+      const url = raw
+        ? `host.html?room=${encodeURIComponent(raw)}&new=1&team=${modeVal}`
+        : `host.html?new=1&team=${modeVal}`;
       setTimeout(() => location.href = url, 100);
     });
 

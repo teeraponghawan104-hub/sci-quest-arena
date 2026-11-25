@@ -610,7 +610,8 @@ const Game = (() => {
       if (!avail.length) return '';
       let minC = Infinity;
       for (const k of avail) if (counts[k] < minC) minC = counts[k];
-      return avail.find(k => counts[k] === minC) || avail[0];
+      const least = avail.filter(k => (counts[k] || 0) === minC);
+      return least[rand(least.length)] || avail[0];
     },
 
     enableTeamMode(room, on = true) {

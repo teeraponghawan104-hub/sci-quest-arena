@@ -2,6 +2,8 @@
 (() => {
   const qs = new URLSearchParams(location.search);
   const forceNew = qs.get('new') === '1';
+  const initTeamParam = qs.get('team');
+  const resolveInitialTeamMode = (fallback = true) => (initTeamParam === '0' ? false : (initTeamParam === '1' ? true : fallback));
   let roomCode = (qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) {
     roomCode = String(1000 + rand(9000));
@@ -2143,6 +2145,11 @@
       base.timerEpoch = (base.timerEpoch || 1) + 1;
       base.hostUpdatedAt = now;
       base.roundId = (base.roundId || 1) + 1;
+      if (silent && initTeamParam !== null) {
+        base.teamMode = initTeamParam !== '0';
+      } else {
+        base.teamMode = typeof base.teamMode === 'boolean' ? base.teamMode : true;
+      }
       return base;
     });
     matchRemainingMs = ((Sync.room && Sync.room.timerTotalSec) || 0) * 1000;
@@ -2167,7 +2174,8 @@
     stopSim();
     let nextPin = String(1000 + rand(9000));
     while (nextPin === roomCode) nextPin = String(1000 + rand(9000));
-    location.href = `host.html?room=${nextPin}&new=1`;
+    const teamFlag = (Sync.room && !Sync.room.teamMode) ? '0' : '1';
+    location.href = `host.html?room=${nextPin}&new=1&team=${teamFlag}`;
   }
 
   $('newMatchBtn').addEventListener('click', () => clearRoomForNewGame(false));
@@ -2384,6 +2392,7 @@
       await Sync.create(roomCode);
       await Sync.transact(r => {
         const base = r || Sync.defaultRoom(roomCode);
+        base.teamMode = resolveInitialTeamMode(true);
         base.hostUpdatedAt = Date.now();
         return base;
       });

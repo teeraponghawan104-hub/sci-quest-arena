@@ -82,6 +82,30 @@
         </div>
         <div id="joinNameError" class="hidden rounded-[5px] bg-[#fee2e2] border border-[#e21b3c] px-2.5 py-1.5 text-[11px] font-extrabold text-[#b91c1c] text-center"></div>
 
+        <!-- เลือกทีมก่อนเข้าห้อง (25 ทีม • ทีมละไม่เกิน 5 คน) -->
+        <div id="loginTeamSection" class="rounded-[6px] bg-[#f6f2ff] border-2 border-[#46178f]/25 p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-1.5 flex-wrap">
+            <span class="text-[11px] font-extrabold text-[#46178f] inline-flex items-center gap-1">
+              <span data-art-ui="users" data-art-size="13" class="sqa-ico"></span>
+              <span>เลือกทีม (25 ทีม • ทีมละ ≤5 คน)</span>
+            </span>
+            <span id="loginPickedTeamBadge" class="px-2 py-0.5 rounded-[4px] bg-[#46178f] text-white text-[10px] font-extrabold">สุ่มทีมว่างอัตโนมัติ</span>
+          </div>
+          <div id="loginTeamSoloNotice" class="hidden rounded-[5px] bg-white border border-neutral-200 px-2.5 py-1.5 text-[11px] font-bold text-neutral-600 text-center">
+            ห้องนี้ครูตั้งเป็นโหมดแข่งเดี่ยว (ไม่ต้องเลือกทีม)
+          </div>
+          <div id="loginTeamControls" class="space-y-1.5">
+            <button id="loginAutoTeamBtn" type="button" data-join-team="auto" class="w-full py-1.5 px-2.5 rounded-[5px] font-display font-black text-xs border-2 border-[#1e1b2e] bg-[#1e1b2e] text-white flex items-center justify-between gap-2">
+              <span class="shrink-0">สุ่มทีมว่างให้อัตโนมัติ</span>
+              <span id="loginTeamLiveHint" class="text-[10px] font-bold text-[#fde047] truncate">แตะเลข 1–25 ด้านล่างเพื่อเลือกเองได้!</span>
+            </button>
+            <div id="loginTeamGrid" class="grid grid-cols-5 gap-1"></div>
+            <div id="loginTeamMembersPreview" class="rounded-[5px] bg-white border border-neutral-200 px-2 py-1 text-[11px] font-bold text-neutral-600 truncate">
+              แตะเลือกทีม 1–25 เพื่อดูชื่อสมาชิกในทีม (ทีมละไม่เกิน 5 คน)
+            </div>
+          </div>
+        </div>
+
         <!-- อัปโหลดรูปโปรไฟล์ตัวเอง (ถ่ายรูป / เลือกจากเครื่อง) หรือเลือกมาสคอต 16 แบบ -->
         <div class="flex items-center justify-between gap-2 bg-neutral-100 border border-neutral-200 rounded-[6px] p-2">
           <div class="flex items-center gap-2 min-w-0">
@@ -223,6 +247,9 @@
     <main class="flex-1 px-3 pt-3 space-y-3">
       <!-- โหมด 1: สแกน QR หรือเลือกบล็อกการ์ด 3 สี -->
       <section id="scanPanel" class="space-y-3">
+        <!-- แถบทีมปัจจุบัน + ปุ่มเลือก/เปลี่ยนทีมชัดเจนในหน้าเล่นเกม -->
+        <div id="gameTeamCard" class="hidden k-box p-3 border-l-8 border-[#e21b3c]"></div>
+
         <!-- กล่องขาวกรอกรหัสการ์ด / สแกน QR -->
         <div class="k-box p-4 space-y-3">
           <div class="flex items-center justify-between">
